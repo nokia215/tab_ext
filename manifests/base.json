@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Tab Saver",
+  "version": "0.1.0",
+  "description": "Save current window tabs to Supabase and restore them later.",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "permissions": ["tabs", "storage"],
+  "host_permissions": [
+    "https://*.supabase.co/*"
+  ]
+}

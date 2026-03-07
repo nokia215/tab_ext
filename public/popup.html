@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tab Saver</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="header">
+        <h1>Tab Saver</h1>
+        <button id="refresh-btn" class="ghost">更新</button>
+      </header>
+
+      <section class="card" id="config-section">
+        <h2>Supabase 設定</h2>
+        <label class="field">
+          <span>Project URL</span>
+          <input id="supabase-url" type="url" placeholder="https://xxxx.supabase.co" />
+        </label>
+        <label class="field">
+          <span>Publishable / anon key</span>
+          <textarea id="supabase-key" rows="3" placeholder="eyJ..."></textarea>
+        </label>
+        <button id="save-config-btn">設定を保存</button>
+        <p class="note">service_role は入れないこと。</p>
+      </section>
+
+      <section class="card" id="auth-section">
+        <h2>認証</h2>
+        <label class="field">
+          <span>Email</span>
+          <input id="email" type="email" placeholder="you@example.com" />
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input id="password" type="password" placeholder="password" />
+        </label>
+        <div class="row">
+          <button id="sign-up-btn" class="ghost">新規登録</button>
+          <button id="sign-in-btn">ログイン</button>
+          <button id="sign-out-btn" class="danger">ログアウト</button>
+        </div>
+        <p id="auth-status" class="status"></p>
+      </section>
+
+      <section class="card" id="save-section">
+        <h2>保存</h2>
+        <label class="field">
+          <span>グループ名</span>
+          <input id="group-title" type="text" placeholder="例: 2026-03-08 調査タブ" />
+        </label>
+        <div class="row">
+          <button id="save-current-window-btn">現在ウィンドウを保存</button>
+          <button id="save-selected-tab-btn" class="ghost">現在タブのみ保存</button>
+        </div>
+        <p id="save-status" class="status"></p>
+      </section>
+
+      <section class="card" id="groups-section">
+        <h2>保存済み一覧</h2>
+        <div id="groups-empty" class="empty">まだ何もありません。</div>
+        <div id="groups"></div>
+      </section>
+    </main>
+
+    <script type="module" src="./popup.js"></script>
+  </body>
+</html>
