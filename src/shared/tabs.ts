@@ -1,16 +1,19 @@
-import { queryTabs, createTab, createWindow } from './browser-api.js';
+import { queryTabs, createTab, createWindow } from './browser-api';
 
-export async function getCurrentWindowTabs() {
+export async function getCurrentWindowTabs(): Promise<chrome.tabs.Tab[]> {
   return queryTabs({ currentWindow: true });
 }
 
-export async function getActiveTab() {
+export async function getActiveTab(): Promise<chrome.tabs.Tab | null> {
   const tabs = await queryTabs({ currentWindow: true, active: true });
   return tabs[0] ?? null;
 }
 
-export async function restoreTabs(urls) {
-  const validUrls = urls.filter((url) => url && !url.startsWith('chrome://') && !url.startsWith('about:'));
+export async function restoreTabs(urls: string[]): Promise<void> {
+  const validUrls = urls.filter(
+    (url) => url && !url.startsWith('chrome://') && !url.startsWith('about:')
+  );
+
   if (validUrls.length === 0) return;
 
   const [first, ...rest] = validUrls;

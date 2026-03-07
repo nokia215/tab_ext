@@ -1,0 +1,28 @@
+body {
+  margin: 0;
+  width: 420px;
+  min-height: 500px;
+  font-family: sans-serif;
+}
+
+.app {
+  padding: 12px;
+}
+
+.card {
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
