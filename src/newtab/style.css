@@ -5,35 +5,32 @@
 
 body {
   margin: 0;
-  width: 420px;
-  min-height: 640px;
+  min-height: 100vh;
 }
 
-.app {
-  padding: 12px;
+.page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px;
   display: grid;
-  gap: 12px;
+  gap: 16px;
 }
 
-.header,
-.group-header {
+.page-header,
+.group-card-header {
   display: flex;
   justify-content: space-between;
   align-items: start;
-  gap: 8px;
+  gap: 12px;
 }
 
-.card {
+.card,
+.group-card {
   border: 1px solid color-mix(in srgb, canvasText 20%, transparent);
   border-radius: 12px;
-  padding: 12px;
+  padding: 16px;
   display: grid;
-  gap: 10px;
-}
-
-.field {
-  display: grid;
-  gap: 6px;
+  gap: 12px;
 }
 
 .row {
@@ -47,38 +44,35 @@ button.ghost {
   border: 1px solid color-mix(in srgb, canvasText 20%, transparent);
 }
 
-.group {
-  border: 1px solid color-mix(in srgb, canvasText 15%, transparent);
-  border-radius: 10px;
-  padding: 10px;
-  display: grid;
-  gap: 8px;
+.group-card-title {
+  font-size: 18px;
+  font-weight: 700;
 }
 
-.meta,
+.group-card-meta,
 .status,
 .empty,
-.tab-url {
+.tab-row-url {
   font-size: 12px;
   opacity: 0.8;
 }
 
-.tab-list {
+.group-card-tabs {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
-.tab-item {
-  border-radius: 8px;
-  padding: 8px;
+.tab-row {
+  border-radius: 10px;
+  padding: 10px;
   background: color-mix(in srgb, canvas 92%, canvasText 8%);
 }
 
-.tab-title {
-  font-size: 13px;
-  word-break: break-word;
+.tab-row-title {
+  font-size: 14px;
+  font-weight: 600;
 }
 
-.tab-url {
+.tab-row-url {
   word-break: break-all;
 }

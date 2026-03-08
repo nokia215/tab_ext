@@ -7,5 +7,8 @@
     "default_popup": "popup.html"
   },
   "permissions": ["tabs", "storage"],
-  "host_permissions": ["https://*.supabase.co/*"]
+  "host_permissions": ["https://*.supabase.co/*"],
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  }
 }

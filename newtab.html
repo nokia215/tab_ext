@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tab Saver Dashboard</title>
+    <script type="module" src="/src/newtab/main.ts"></script>
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <div>
+          <h1>Tab Saver</h1>
+          <p id="page-auth-status" class="status"></p>
+        </div>
+        <div class="row">
+          <button id="page-refresh-btn" class="ghost">更新</button>
+        </div>
+      </header>
+
+      <section class="card">
+        <h2>保存済み一覧</h2>
+        <div id="page-groups-empty" class="empty">まだ何もありません。</div>
+        <div id="page-groups"></div>
+      </section>
+    </main>
+  </body>
+</html>

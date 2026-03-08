@@ -17,7 +17,11 @@
         <h2>Supabase 設定</h2>
         <label class="field">
           <span>Project URL</span>
-          <input id="supabase-url" type="url" placeholder="https://xxxx.supabase.co" />
+          <input
+            id="supabase-url"
+            type="url"
+            placeholder="https://xxxx.supabase.co"
+          />
         </label>
         <label class="field">
           <span>Publishable / anon key</span>
@@ -42,6 +46,25 @@
           <button id="sign-out-btn">ログアウト</button>
         </div>
         <p id="auth-status"></p>
+      </section>
+
+      <section class="card" id="save-section">
+        <h2>保存</h2>
+        <label class="field">
+          <span>グループ名</span>
+          <input
+            id="group-title"
+            type="text"
+            placeholder="例: 2026-03-08 調査タブ"
+          />
+        </label>
+        <div class="row">
+          <button id="save-current-window-btn">現在ウィンドウを保存</button>
+          <button id="save-selected-tab-btn" class="ghost">
+            現在タブのみ保存
+          </button>
+        </div>
+        <p id="save-status" class="status"></p>
       </section>
 
       <section class="card" id="groups-section">

@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getConfig } from './storage';
-import { storageLocalGet, storageLocalSet, storageLocalRemove } from './browser-api';
+import { storageLocalGet, storageLocalRemove, storageLocalSet } from './browser-api';
 import type { TabGroup } from './types';
 
 function createExtensionStorageAdapter() {
@@ -64,7 +64,53 @@ export async function getCurrentUser() {
   return data.user;
 }
 
-export async function listGroups(): Promise<TabGroup[]> {
+export async function saveTabGroup(input: {
+  title: string;
+  deviceId: string;
+  tabs: chrome.tabs.Tab[];
+}) {
+  const supabase = await getSupabase();
+  const user = await getCurrentUser();
+  if (!user) throw new Error('ログインしてください。');
+
+  const title = input.title.trim() || null;
+
+  const { data: group, error: groupError } = await supabase
+    .from('tab_groups')
+    .insert({
+      user_id: user.id,
+      device_id: input.deviceId,
+      title
+    })
+    .select('id, title, created_at, device_id')
+    .single();
+
+  if (groupError) throw groupError;
+
+  const rows = input.tabs
+    .filter((tab) => !!tab.url)
+    .filter((tab) => !tab.url!.startsWith('chrome://'))
+    .filter((tab) => !tab.url!.startsWith('about:'))
+    .map((tab, index) => ({
+      group_id: group.id,
+      user_id: user.id,
+      url: tab.url!,
+      title: tab.title ?? '',
+      position: index,
+      status: 'saved' as const
+    }));
+
+  if (rows.length === 0) {
+    throw new Error('保存対象のタブがありません。');
+  }
+
+  const { error: tabsError } = await supabase.from('tabs').insert(rows);
+  if (tabsError) throw tabsError;
+
+  return { group, count: rows.length };
+}
+
+export async function listGroups(includeArchived = false): Promise<TabGroup[]> {
   const supabase = await getSupabase();
   const user = await getCurrentUser();
   if (!user) throw new Error('ログインしてください。');
@@ -89,8 +135,33 @@ export async function listGroups(): Promise<TabGroup[]> {
 
   if (error) throw error;
 
-  return (data ?? []).map((group) => ({
-    ...group,
-    tabs: [...(group.tabs ?? [])].sort((a, b) => a.position - b.position)
-  })) as TabGroup[];
+  return (data ?? [])
+    .map((group) => ({
+      ...group,
+      tabs: [...(group.tabs ?? [])]
+        .filter((tab) => includeArchived || tab.status !== 'archived')
+        .sort((a, b) => a.position - b.position)
+    }))
+    .filter((group) => group.tabs.length > 0) as TabGroup[];
+}
+
+export async function markGroupRestored(groupId: string) {
+  const supabase = await getSupabase();
+  const { error } = await supabase
+    .from('tabs')
+    .update({ status: 'restored', updated_at: new Date().toISOString() })
+    .eq('group_id', groupId)
+    .neq('status', 'archived');
+
+  if (error) throw error;
+}
+
+export async function markGroupArchived(groupId: string) {
+  const supabase = await getSupabase();
+  const { error } = await supabase
+    .from('tabs')
+    .update({ status: 'archived', updated_at: new Date().toISOString() })
+    .eq('group_id', groupId);
+
+  if (error) throw error;
 }

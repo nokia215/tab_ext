@@ -24,7 +24,27 @@ export function getAuthInputs() {
   };
 }
 
-export function renderGroups(groups: TabGroup[]) {
+export function getGroupTitleInput(): string {
+  return (document.getElementById('group-title') as HTMLInputElement).value.trim();
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('ja-JP', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(new Date(value));
+}
+
+export function renderGroups(
+  groups: TabGroup[],
+  handlers: {
+    onRestore: (group: TabGroup) => Promise<void>;
+    onArchive: (group: TabGroup) => Promise<void>;
+  }
+) {
   const root = document.getElementById('groups');
   const empty = document.getElementById('groups-empty');
   if (!root || !empty) return;
@@ -35,10 +55,49 @@ export function renderGroups(groups: TabGroup[]) {
   for (const group of groups) {
     const wrapper = document.createElement('div');
     wrapper.className = 'group';
-    wrapper.innerHTML = `
+
+    const header = document.createElement('div');
+    header.className = 'group-header';
+
+    const info = document.createElement('div');
+    info.innerHTML = `
       <div class="group-title">${group.title ?? '(untitled)'}</div>
-      <div class="meta">${group.created_at} / ${group.tabs.length} tabs</div>
+      <div class="meta">${formatDate(group.created_at)} / ${group.tabs.length} tabs / ${group.device_id}</div>
     `;
+
+    const actions = document.createElement('div');
+    actions.className = 'row';
+
+    const restoreBtn = document.createElement('button');
+    restoreBtn.textContent = '復元';
+    restoreBtn.addEventListener('click', () => void handlers.onRestore(group));
+
+    const archiveBtn = document.createElement('button');
+    archiveBtn.textContent = 'アーカイブ';
+    archiveBtn.className = 'ghost';
+    archiveBtn.addEventListener('click', () => void handlers.onArchive(group));
+
+    actions.appendChild(restoreBtn);
+    actions.appendChild(archiveBtn);
+
+    header.appendChild(info);
+    header.appendChild(actions);
+
+    const list = document.createElement('div');
+    list.className = 'tab-list';
+
+    for (const tab of group.tabs) {
+      const item = document.createElement('div');
+      item.className = 'tab-item';
+      item.innerHTML = `
+        <div class="tab-title">${tab.title || '(no title)'}</div>
+        <div class="tab-url">${tab.status} - ${tab.url}</div>
+      `;
+      list.appendChild(item);
+    }
+
+    wrapper.appendChild(header);
+    wrapper.appendChild(list);
     root.appendChild(wrapper);
   }
 }

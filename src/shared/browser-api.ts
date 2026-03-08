@@ -1,6 +1,4 @@
-const g = globalThis as typeof globalThis & {
-  browser?: typeof chrome;
-};
+const g = globalThis as typeof globalThis & { browser?: typeof chrome };
 
 export const ext: typeof chrome = g.browser ?? chrome;
 
@@ -26,4 +24,8 @@ export function createTab(createProperties: chrome.tabs.CreateProperties) {
 
 export function createWindow(createData: chrome.windows.CreateData) {
   return ext.windows.create(createData);
+}
+
+export function getRuntimeUrl(path: string) {
+  return ext.runtime.getURL(path);
 }
