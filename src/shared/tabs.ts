@@ -19,6 +19,10 @@ export async function restoreTabs(urls: string[]): Promise<void> {
   const [first, ...rest] = validUrls;
   const createdWindow = await createWindow({ url: first });
 
+  if (!createdWindow?.id) {
+    throw new Error('復元用ウィンドウの作成に失敗しました。');
+  }
+
   for (const url of rest) {
     await createTab({
       windowId: createdWindow.id,

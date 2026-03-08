@@ -1,4 +1,8 @@
-export const ext = (globalThis.browser ?? globalThis.chrome) as typeof chrome;
+const g = globalThis as typeof globalThis & {
+  browser?: typeof chrome;
+};
+
+export const ext: typeof chrome = g.browser ?? chrome;
 
 export function storageLocalGet<T extends string | string[]>(keys: T) {
   return ext.storage.local.get(keys as any);
