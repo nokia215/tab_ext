@@ -17,7 +17,7 @@ import {
   getGroupTitleInput,
   renderGroups,
   setConfigInputs,
-  setText
+  setText,
 } from './ui';
 import { getRuntimeUrl, createTab } from '../shared/browser-api';
 
@@ -48,8 +48,8 @@ async function refreshGroups() {
   } catch (error) {
     console.error('refreshGroups failed', error);
     renderGroups([], {
-      onRestore: async () => {},
-      onArchive: async () => {}
+      onRestore: async () => { },
+      onArchive: async () => { }
     });
   }
 }
@@ -156,7 +156,10 @@ document.getElementById('save-selected-tab-btn')?.addEventListener('click', asyn
 });
 
 document.getElementById('open-dashboard-btn')?.addEventListener('click', async () => {
-  await createTab({ url: getRuntimeUrl('newtab.html'), active: true });
+  await createTab({
+    url: getRuntimeUrl('newtab.html'),
+    active: true
+  });
 });
 
 document.getElementById('refresh-btn')?.addEventListener('click', async () => {
