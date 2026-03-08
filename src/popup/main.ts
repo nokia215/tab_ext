@@ -164,32 +164,4 @@ document.getElementById('refresh-btn')?.addEventListener('click', async () => {
   await refreshGroups();
 });
 
-document.getElementById('save-current-window-btn')?.addEventListener('click', async () => {
-  try {
-    const tabs = await getCurrentWindowTabs();
-    const deviceId = await getOrCreateDeviceId();
-    const title = getGroupTitleInput();
-    const result = await saveTabGroup({ title, deviceId, tabs });
-    setText('save-status', `${result.count} 件保存しました。`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    setText('save-status', `保存失敗: ${message}`);
-  }
-});
-
-document.getElementById('save-selected-tab-btn')?.addEventListener('click', async () => {
-  try {
-    const activeTab = await getActiveTab();
-    if (!activeTab) throw new Error('現在タブが取得できません。');
-
-    const deviceId = await getOrCreateDeviceId();
-    const title = getGroupTitleInput();
-    const result = await saveTabGroup({ title, deviceId, tabs: [activeTab] });
-    setText('save-status', `${result.count} 件保存しました。`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    setText('save-status', `保存失敗: ${message}`);
-  }
-});
-
 void bootstrap();
