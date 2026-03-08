@@ -84,3 +84,18 @@ button.ghost {
   border: none;
   cursor: pointer;
 }
+
+.group-header-button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.group-indicator {
+  font-size: 18px;
+  line-height: 1;
+  opacity: 0.8;
+}

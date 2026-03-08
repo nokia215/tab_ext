@@ -1,5 +1,6 @@
 import './style.css';
 import { createTab, getRuntimeUrl } from '../shared/browser-api';
+import { filterGroups } from '../shared/search';
 import { getOrCreateDeviceId, getConfig, saveConfig } from '../shared/storage';
 import { getActiveTab, getCurrentWindowTabs, openSavedTab, restoreTabs } from '../shared/tabs';
 import {
@@ -13,6 +14,7 @@ import {
   signOut,
   signUp
 } from '../shared/supabase';
+import type { TabGroup } from '../shared/types';
 import {
   getAuthInputs,
   getConfigInputs,
@@ -21,13 +23,44 @@ import {
   setConfigInputs,
   setText
 } from './ui';
-import { TabGroup } from '../shared/types';
-import { filterGroups } from '../shared/search';
 
 let isSavingCurrentWindow = false;
 let isSavingSelectedTab = false;
 let allGroups: TabGroup[] = [];
 let currentQuery = '';
+const expandedGroupIds = new Set<string>();
+
+function renderFilteredGroups() {
+  renderGroups(
+    filterGroups(allGroups, currentQuery),
+    {
+      onRestore: async (group) => {
+        await restoreTabs(group.tabs.map((tab) => tab.url));
+        await markGroupRestored(group.id);
+        await refreshGroups();
+      },
+      onDeleteGroup: async (group) => {
+        await deleteGroup(group.id);
+        expandedGroupIds.delete(group.id);
+        await refreshGroups();
+      },
+      onOpenTab: async (tab) => {
+        await openSavedTab(tab.url);
+        await deleteSavedTab(tab.id);
+        await refreshGroups();
+      },
+      onToggleGroup: (group) => {
+        if (expandedGroupIds.has(group.id)) {
+          expandedGroupIds.delete(group.id);
+        } else {
+          expandedGroupIds.add(group.id);
+        }
+        renderFilteredGroups();
+      }
+    },
+    expandedGroupIds
+  );
+}
 
 async function refreshAuthStatus() {
   try {
@@ -42,10 +75,15 @@ async function refreshAuthStatus() {
 async function refreshGroups() {
   try {
     allGroups = await listGroups();
+    const existingIds = new Set(allGroups.map((group) => group.id));
+    for (const id of [...expandedGroupIds]) {
+      if (!existingIds.has(id)) expandedGroupIds.delete(id);
+    }
     renderFilteredGroups();
   } catch (error) {
     console.error('refreshGroups failed', error);
     allGroups = [];
+    expandedGroupIds.clear();
     renderFilteredGroups();
   }
 }
@@ -67,27 +105,6 @@ async function bootstrap() {
   await refreshAuthStatus();
   await refreshGroups();
 }
-
-
-function renderFilteredGroups() {
-  renderGroups(filterGroups(allGroups, currentQuery), {
-    onRestore: async (group) => {
-      await restoreTabs(group.tabs.map((tab) => tab.url));
-      await markGroupRestored(group.id);
-      await refreshGroups();
-    },
-    onDeleteGroup: async (group) => {
-      await deleteGroup(group.id);
-      await refreshGroups();
-    },
-    onOpenTab: async (tab) => {
-      await openSavedTab(tab.url);
-      await deleteSavedTab(tab.id);
-      await refreshGroups();
-    }
-  });
-}
-
 
 document.getElementById('save-config-btn')?.addEventListener('click', async () => {
   try {
@@ -158,6 +175,7 @@ document.getElementById('save-current-window-btn')?.addEventListener('click', as
     const title = getGroupTitleInput();
     const result = await saveTabGroup({ title, deviceId, tabs });
     setText('save-status', `${result.count} 件保存しました。`);
+    if (result.group?.id) expandedGroupIds.add(result.group.id);
     await refreshGroups();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -179,6 +197,7 @@ document.getElementById('save-selected-tab-btn')?.addEventListener('click', asyn
     const title = getGroupTitleInput();
     const result = await saveTabGroup({ title, deviceId, tabs: [activeTab] });
     setText('save-status', `${result.count} 件保存しました。`);
+    if (result.group?.id) expandedGroupIds.add(result.group.id);
     await refreshGroups();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
