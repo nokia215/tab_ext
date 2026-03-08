@@ -13,7 +13,7 @@ export function setConfigInputs(config: AppConfig) {
 export function getConfigInputs(): AppConfig {
   return {
     supabaseUrl: (document.getElementById('supabase-url') as HTMLInputElement).value.trim(),
-    supabaseKey: (document.getElementById('supabase-key') as HTMLTextAreaElement).value.trim()
+    supabaseKey: (document.getElementById('supabase-key') as HTMLTextAreaElement).value.trim(),
   };
 }
 

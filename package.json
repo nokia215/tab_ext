@@ -25,7 +25,7 @@
     "dev:firefox": "vite build --watch --mode firefox",
     "run:firefox": "web-ext run --source-dir dist/firefox",
     "lint:firefox": "web-ext lint --source-dir dist/firefox",
-    "build:xpi": "web-ext build --source-dir dist/firefox --artifacts-dir dist/firefox-artifacts"
+    "build:xpi": "rimraf dist/firefox-artifacts && web-ext build --source-dir dist/firefox --artifacts-dir dist/firefox-artifacts"
   },
   "devDependencies": {
     "rimraf": "^6.1.3",

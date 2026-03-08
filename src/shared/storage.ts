@@ -15,7 +15,7 @@ export async function getConfig(): Promise<AppConfig> {
 
   return {
     supabaseUrl: (result as Record<string, string>)[KEYS.SUPABASE_URL] ?? '',
-    supabaseKey: (result as Record<string, string>)[KEYS.SUPABASE_KEY] ?? ''
+    supabaseKey: (result as Record<string, string>)[KEYS.SUPABASE_KEY] ?? '',
   };
 }
 
