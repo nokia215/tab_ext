@@ -87,20 +87,11 @@ export async function saveTabGroup(input: {
 
   if (groupError) throw groupError;
 
-  const IGNORE_TITLE_PATTERNS = [
-    /moz-extension:/i,
-    /chrome-extension:/i,
-    /OneTab/i,
-  ]
-
   const rows = input.tabs
     .filter((tab) => !!tab.url)
     .filter((tab) => !tab.url!.startsWith('chrome://'))
     .filter((tab) => !tab.url!.startsWith('about:'))
-    .filter((tab) => {
-      const title = tab.title ?? '';
-      return !IGNORE_TITLE_PATTERNS.some((pattern)=> pattern.test(title))
-    })
+    .filter((tab) => !tab.url!.startsWith('moz-extension:'))
     .map((tab, index) => ({
       group_id: group.id,
       user_id: user.id,
