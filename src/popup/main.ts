@@ -21,9 +21,13 @@ import {
   setConfigInputs,
   setText
 } from './ui';
+import { TabGroup } from '../shared/types';
+import { filterGroups } from '../shared/search';
 
 let isSavingCurrentWindow = false;
 let isSavingSelectedTab = false;
+let allGroups: TabGroup[] = [];
+let currentQuery = '';
 
 async function refreshAuthStatus() {
   try {
@@ -37,30 +41,12 @@ async function refreshAuthStatus() {
 
 async function refreshGroups() {
   try {
-    const groups = await listGroups();
-    renderGroups(groups, {
-      onRestore: async (group) => {
-        await restoreTabs(group.tabs.map((tab) => tab.url));
-        await markGroupRestored(group.id);
-        await refreshGroups();
-      },
-      onDeleteGroup: async (group) => {
-        await deleteGroup(group.id);
-        await refreshGroups();
-      },
-      onOpenTab: async (tab) => {
-        await openSavedTab(tab.url);
-        await deleteSavedTab(tab.id);
-        await refreshGroups();
-      }
-    });
+    allGroups = await listGroups();
+    renderFilteredGroups();
   } catch (error) {
     console.error('refreshGroups failed', error);
-    renderGroups([], {
-      onRestore: async () => {},
-      onDeleteGroup: async () => {},
-      onOpenTab: async () => {}
-    });
+    allGroups = [];
+    renderFilteredGroups();
   }
 }
 
@@ -72,9 +58,36 @@ async function bootstrap() {
     console.error('bootstrap failed', error);
   }
 
+  const searchInput = document.getElementById('group-search') as HTMLInputElement | null;
+  searchInput?.addEventListener('input', () => {
+    currentQuery = searchInput.value;
+    renderFilteredGroups();
+  });
+
   await refreshAuthStatus();
   await refreshGroups();
 }
+
+
+function renderFilteredGroups() {
+  renderGroups(filterGroups(allGroups, currentQuery), {
+    onRestore: async (group) => {
+      await restoreTabs(group.tabs.map((tab) => tab.url));
+      await markGroupRestored(group.id);
+      await refreshGroups();
+    },
+    onDeleteGroup: async (group) => {
+      await deleteGroup(group.id);
+      await refreshGroups();
+    },
+    onOpenTab: async (tab) => {
+      await openSavedTab(tab.url);
+      await deleteSavedTab(tab.id);
+      await refreshGroups();
+    }
+  });
+}
+
 
 document.getElementById('save-config-btn')?.addEventListener('click', async () => {
   try {

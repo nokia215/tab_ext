@@ -1,4 +1,5 @@
 import './style.css';
+import { filterGroups } from '../shared/search';
 import {
   deleteGroup,
   deleteSavedTab,
@@ -7,7 +8,10 @@ import {
   markGroupRestored
 } from '../shared/supabase';
 import { openSavedTab, restoreTabs } from '../shared/tabs';
-import type { SavedTab, TabGroup } from '../shared/types';
+import type { TabGroup } from '../shared/types';
+
+let allGroups: TabGroup[] = [];
+let currentQuery = '';
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('ja-JP', {
@@ -95,18 +99,29 @@ function render(groups: TabGroup[]) {
   });
 }
 
+function renderFiltered() {
+  render(filterGroups(allGroups, currentQuery));
+}
+
 async function refresh() {
   try {
     const user = await getCurrentUser();
     setText('page-auth-status', user ? `ログイン中: ${user.email}` : '未ログイン');
-    const groups = await listGroups();
-    render(groups);
+    allGroups = await listGroups();
+    renderFiltered();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     setText('page-auth-status', `表示失敗: ${message}`);
-    render([]);
+    allGroups = [];
+    renderFiltered();
   }
 }
+
+const searchInput = document.getElementById('page-group-search') as HTMLInputElement | null;
+searchInput?.addEventListener('input', () => {
+  currentQuery = searchInput.value;
+  renderFiltered();
+});
 
 document.getElementById('page-refresh-btn')?.addEventListener('click', () => {
   void refresh();
