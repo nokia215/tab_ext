@@ -1,4 +1,4 @@
-import type { AppConfig, TabGroup } from '../shared/types';
+import type { AppConfig, SavedTab, TabGroup } from '../shared/types';
 
 export function setText(id: string, value: string) {
   const el = document.getElementById(id);
@@ -42,7 +42,8 @@ export function renderGroups(
   groups: TabGroup[],
   handlers: {
     onRestore: (group: TabGroup) => Promise<void>;
-    onArchive: (group: TabGroup) => Promise<void>;
+    onDeleteGroup: (group: TabGroup) => Promise<void>;
+    onOpenTab: (tab: SavedTab) => Promise<void>;
   }
 ) {
   const root = document.getElementById('groups');
@@ -69,16 +70,16 @@ export function renderGroups(
     actions.className = 'row';
 
     const restoreBtn = document.createElement('button');
-    restoreBtn.textContent = '復元';
+    restoreBtn.textContent = '全部復元';
     restoreBtn.addEventListener('click', () => void handlers.onRestore(group));
 
-    const archiveBtn = document.createElement('button');
-    archiveBtn.textContent = 'アーカイブ';
-    archiveBtn.className = 'ghost';
-    archiveBtn.addEventListener('click', () => void handlers.onArchive(group));
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'グループ削除';
+    deleteBtn.className = 'ghost';
+    deleteBtn.addEventListener('click', () => void handlers.onDeleteGroup(group));
 
     actions.appendChild(restoreBtn);
-    actions.appendChild(archiveBtn);
+    actions.appendChild(deleteBtn);
 
     header.appendChild(info);
     header.appendChild(actions);
@@ -87,12 +88,14 @@ export function renderGroups(
     list.className = 'tab-list';
 
     for (const tab of group.tabs) {
-      const item = document.createElement('div');
-      item.className = 'tab-item';
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'tab-item tab-item-button';
       item.innerHTML = `
         <div class="tab-title">${tab.title || '(no title)'}</div>
-        <div class="tab-url">${tab.status} - ${tab.url}</div>
+        <div class="tab-url">${tab.url}</div>
       `;
+      item.addEventListener('click', () => void handlers.onOpenTab(tab));
       list.appendChild(item);
     }
 

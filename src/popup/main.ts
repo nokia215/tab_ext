@@ -1,10 +1,12 @@
 import './style.css';
+import { createTab, getRuntimeUrl } from '../shared/browser-api';
 import { getOrCreateDeviceId, getConfig, saveConfig } from '../shared/storage';
-import { getActiveTab, getCurrentWindowTabs, restoreTabs } from '../shared/tabs';
+import { getActiveTab, getCurrentWindowTabs, openSavedTab, restoreTabs } from '../shared/tabs';
 import {
+  deleteGroup,
+  deleteSavedTab,
   getCurrentUser,
   listGroups,
-  markGroupArchived,
   markGroupRestored,
   saveTabGroup,
   signIn,
@@ -12,14 +14,16 @@ import {
   signUp
 } from '../shared/supabase';
 import {
-  getConfigInputs,
   getAuthInputs,
+  getConfigInputs,
   getGroupTitleInput,
   renderGroups,
   setConfigInputs,
-  setText,
+  setText
 } from './ui';
-import { getRuntimeUrl, createTab } from '../shared/browser-api';
+
+let isSavingCurrentWindow = false;
+let isSavingSelectedTab = false;
 
 async function refreshAuthStatus() {
   try {
@@ -40,16 +44,22 @@ async function refreshGroups() {
         await markGroupRestored(group.id);
         await refreshGroups();
       },
-      onArchive: async (group) => {
-        await markGroupArchived(group.id);
+      onDeleteGroup: async (group) => {
+        await deleteGroup(group.id);
+        await refreshGroups();
+      },
+      onOpenTab: async (tab) => {
+        await openSavedTab(tab.url);
+        await deleteSavedTab(tab.id);
         await refreshGroups();
       }
     });
   } catch (error) {
     console.error('refreshGroups failed', error);
     renderGroups([], {
-      onRestore: async () => { },
-      onArchive: async () => { }
+      onRestore: async () => {},
+      onDeleteGroup: async () => {},
+      onOpenTab: async () => {}
     });
   }
 }
@@ -126,6 +136,9 @@ document.getElementById('sign-out-btn')?.addEventListener('click', async () => {
 });
 
 document.getElementById('save-current-window-btn')?.addEventListener('click', async () => {
+  if (isSavingCurrentWindow) return;
+  isSavingCurrentWindow = true;
+
   try {
     const tabs = await getCurrentWindowTabs();
     const deviceId = await getOrCreateDeviceId();
@@ -136,10 +149,15 @@ document.getElementById('save-current-window-btn')?.addEventListener('click', as
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     setText('save-status', `保存失敗: ${message}`);
+  } finally {
+    isSavingCurrentWindow = false;
   }
 });
 
 document.getElementById('save-selected-tab-btn')?.addEventListener('click', async () => {
+  if (isSavingSelectedTab) return;
+  isSavingSelectedTab = true;
+
   try {
     const activeTab = await getActiveTab();
     if (!activeTab) throw new Error('現在タブが取得できません。');
@@ -152,14 +170,13 @@ document.getElementById('save-selected-tab-btn')?.addEventListener('click', asyn
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     setText('save-status', `保存失敗: ${message}`);
+  } finally {
+    isSavingSelectedTab = false;
   }
 });
 
 document.getElementById('open-dashboard-btn')?.addEventListener('click', async () => {
-  await createTab({
-    url: getRuntimeUrl('newtab.html'),
-    active: true
-  });
+  await createTab({ url: getRuntimeUrl('newtab.html'), active: true });
 });
 
 document.getElementById('refresh-btn')?.addEventListener('click', async () => {

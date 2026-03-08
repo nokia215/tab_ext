@@ -1,14 +1,13 @@
 import './style.css';
-
 import {
+  deleteGroup,
+  deleteSavedTab,
+  getCurrentUser,
   listGroups,
-  markGroupArchived,
-  markGroupRestored,
-  getCurrentUser
+  markGroupRestored
 } from '../shared/supabase';
-
-import { restoreTabs } from '../shared/tabs';
-import type { TabGroup } from '../shared/types';
+import { openSavedTab, restoreTabs } from '../shared/tabs';
+import type { SavedTab, TabGroup } from '../shared/types';
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('ja-JP', {
@@ -40,10 +39,10 @@ function render(groups: TabGroup[]) {
     const tabsHtml = group.tabs
       .map(
         (tab) => `
-          <div class="tab-row">
+          <button type="button" class="tab-row tab-row-button" data-action="open-tab" data-tab-id="${tab.id}" data-tab-url="${tab.url}">
             <div class="tab-row-title">${tab.title || '(no title)'}</div>
             <div class="tab-row-url">${tab.url}</div>
-          </div>
+          </button>
         `
       )
       .join('');
@@ -55,8 +54,8 @@ function render(groups: TabGroup[]) {
           <div class="group-card-meta">${formatDate(group.created_at)} / ${group.tabs.length} tabs / ${group.device_id}</div>
         </div>
         <div class="row">
-          <button data-action="restore" data-group-id="${group.id}">復元</button>
-          <button data-action="archive" data-group-id="${group.id}" class="ghost">アーカイブ</button>
+          <button data-action="restore" data-group-id="${group.id}">全部復元</button>
+          <button data-action="delete-group" data-group-id="${group.id}" class="ghost">グループ削除</button>
         </div>
       </div>
       <div class="group-card-tabs">${tabsHtml}</div>
@@ -75,11 +74,22 @@ function render(groups: TabGroup[]) {
     });
   });
 
-  root.querySelectorAll<HTMLButtonElement>('button[data-action="archive"]').forEach((button) => {
+  root.querySelectorAll<HTMLButtonElement>('button[data-action="delete-group"]').forEach((button) => {
     button.addEventListener('click', async () => {
       const group = groups.find((item) => item.id === button.dataset.groupId);
       if (!group) return;
-      await markGroupArchived(group.id);
+      await deleteGroup(group.id);
+      await refresh();
+    });
+  });
+
+  root.querySelectorAll<HTMLButtonElement>('button[data-action="open-tab"]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const tabId = button.dataset.tabId;
+      const url = button.dataset.tabUrl;
+      if (!tabId || !url) return;
+      await openSavedTab(url);
+      await deleteSavedTab(tabId);
       await refresh();
     });
   });

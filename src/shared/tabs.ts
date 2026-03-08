@@ -31,3 +31,13 @@ export async function restoreTabs(urls: string[]): Promise<void> {
     });
   }
 }
+
+export async function openSavedTab(url: string): Promise<void> {
+  if (!url) return;
+  if (url.startsWith('chrome://') || url.startsWith('about:')) return;
+
+  await createTab({
+    url,
+    active: false
+  });
+}

@@ -82,3 +82,11 @@ button.ghost {
 .tab-url {
   word-break: break-all;
 }
+
+.tab-item-button,
+.tab-row-button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  cursor: pointer;
+}

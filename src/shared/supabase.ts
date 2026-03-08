@@ -165,3 +165,23 @@ export async function markGroupArchived(groupId: string) {
 
   if (error) throw error;
 }
+
+export async function deleteSavedTab(tabId: string) {
+  const supabase = await getSupabase();
+  const { error } = await supabase
+    .from('tabs')
+    .delete()
+    .eq('id', tabId);
+
+  if (error) throw error;
+}
+
+export async function deleteGroup(groupId: string) {
+  const supabase = await getSupabase();
+  const { error } = await supabase
+    .from('tab_groups')
+    .delete()
+    .eq('id', groupId);
+
+  if (error) throw error;
+}
