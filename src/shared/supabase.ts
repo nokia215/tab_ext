@@ -98,6 +98,54 @@ function shouldIgnoreTab(
   return matchedTitle
 }
 
+export async function filterSavableTabs(tabs: chrome.tabs.Tab[]): Promise<chrome.tabs.Tab[]> {
+  const config = await getConfig();
+
+  return tabs
+    .filter((tab) => !!tab.url)
+    .filter((tab) => !tab.pinned)
+    .filter((tab) => !tab.url!.startsWith('chrome://'))
+    .filter((tab) => !tab.url!.startsWith('about:'))
+    .filter((tab) => !shouldIgnoreTab(tab, config.ignoreDomains, config.ignoreTitles));
+}
+
+function normalizeUrl(raw: string): string {
+  try {
+    const url = new URL(raw);
+    url.hash = '';
+
+    const removableParams = [
+      'utm_source',
+      'utm_medium',
+      'utm_campaign',
+      'utm_term',
+      'utm_content',
+      'gclid',
+      'fbclid',
+      'ref'
+    ];
+
+    for (const key of removableParams) {
+      url.searchParams.delete(key);
+    }
+
+    const pathname = url.pathname.replace(/\/+$/, '') || '/';
+    url.pathname = pathname;
+
+    const search = [...url.searchParams.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join('&');
+
+    return `${url.origin}${url.pathname}${search ? `?${search}` : ''}`;
+  } catch {
+    return raw.trim();
+  }
+}
+
+const seen = new Set<string>();
+
+
 export async function saveTabGroup(input: {
   title: string;
   deviceId: string;
@@ -109,18 +157,21 @@ export async function saveTabGroup(input: {
   if (!user) throw new Error('ログインしてください。');
 
   const title = input.title.trim() || null;
-
-  const candidateTabs = input.tabs
-    .filter((tab) => !!tab.url)
-    .filter((tab) => !tab.url!.startsWith('chrome://'))
-    .filter((tab) => !tab.url!.startsWith('about:'))
-    .filter((tab) => !tab.url!.startsWith('brave:'))
-    .filter((tab) => !tab.url!.startsWith('moz-extension:'))
-    .filter((tab) => !shouldIgnoreTab(tab, config.ignoreDomains, config.ignoreTitles));
+  const candidateTabs = await filterSavableTabs(input.tabs)
 
   if (candidateTabs.length === 0) {
     throw new Error('保存対象のタブがありません。');
   }
+
+  const seen = new Set<string>();
+
+  const uniqueTabs = candidateTabs.filter((tab) => {
+    const normalized = normalizeUrl(tab.url ?? '');
+    if (!normalized) return false;
+    if (seen.has(normalized)) return false;
+    seen.add(normalized);
+    return true;
+  });
 
   const { data: group, error: groupError } = await supabase
     .from('tab_groups')
@@ -134,7 +185,7 @@ export async function saveTabGroup(input: {
 
   if (groupError) throw groupError;
 
-  const rows = candidateTabs.map((tab, index) => ({
+  const rows = uniqueTabs.map((tab, index) => ({
     group_id: group.id,
     user_id: user.id,
     url: tab.url!,
@@ -146,7 +197,7 @@ export async function saveTabGroup(input: {
   const { error: tabsError } = await supabase.from('tabs').insert(rows);
   if (tabsError) throw tabsError;
 
-  return { group, count: candidateTabs.length };
+  return { group, count: uniqueTabs.length };
 }
 
 export async function listGroups(includeArchived = false): Promise<TabGroup[]> {

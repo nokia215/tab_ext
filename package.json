@@ -1,6 +1,6 @@
 {
   "name": "tab_ext",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "ブラウザをまたいだタブ共有を行う拡張機能",
   "private": true,
   "homepage": "https://github.com/nokia215/tab_ext#readme",
@@ -15,17 +15,23 @@
   "author": "",
   "type": "module",
   "scripts": {
+    "clean": "rimraf dist",
     "clean:chrome": "rimraf dist/chrome",
-    "clean:firefox": "rimraf dist/firefox",
+    "clean:firefox": "rimraf dist/firefox dist/firefox-artifacts",
     "typecheck": "tsc --noEmit",
-    "build": "npm run build:chrome && npm run build:firefox",
+
+    "build": "npm run typecheck && npm run build:chrome && npm run build:firefox",
     "build:chrome": "npm run clean:chrome && vite build --mode chrome && node scripts/build-manifest.mjs chrome",
-    "build:firefox": "npm run clean:firefox && vite build --mode firefox && node scripts/build-manifest.mjs firefox && npm run build:xpi",
+    "build:firefox": "npm run clean:firefox && vite build --mode firefox && node scripts/build-manifest.mjs firefox",
+
+    "build:xpi": "web-ext build --source-dir dist/firefox --artifacts-dir dist/firefox-artifacts",
+    "release": "npm run build && npm run build:xpi",
+
     "dev:chrome": "vite build --watch --mode chrome",
     "dev:firefox": "vite build --watch --mode firefox",
+
     "run:firefox": "web-ext run --source-dir dist/firefox",
-    "lint:firefox": "web-ext lint --source-dir dist/firefox",
-    "build:xpi": "rimraf dist/firefox-artifacts && web-ext build --source-dir dist/firefox --artifacts-dir dist/firefox-artifacts"
+    "lint:firefox": "web-ext lint --source-dir dist/firefox"
   },
   "devDependencies": {
     "rimraf": "^6.1.3",

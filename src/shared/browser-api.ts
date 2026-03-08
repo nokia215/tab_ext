@@ -1,4 +1,6 @@
-const g = globalThis as typeof globalThis & { browser?: typeof chrome };
+const g = globalThis as typeof globalThis & {
+  browser?: typeof chrome;
+};
 
 export const ext: typeof chrome = g.browser ?? chrome;
 
