@@ -3,6 +3,8 @@ export type SaveStatus = 'saved' | 'restored' | 'archived';
 export interface AppConfig {
   supabaseUrl: string;
   supabaseKey: string;
+  ignoreDomains: string[];
+  ignoreTitles: string[];
 }
 
 export interface SavedTab {

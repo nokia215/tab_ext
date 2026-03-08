@@ -5,15 +5,30 @@ export function setText(id: string, value: string) {
   if (el) el.textContent = value;
 }
 
+function linesFromTextarea(id: string): string[] {
+  return ((document.getElementById(id) as HTMLTextAreaElement).value ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function writeLinesToTextarea(id: string, values: string[]) {
+  (document.getElementById(id) as HTMLTextAreaElement).value = values.join('\n');
+}
+
 export function setConfigInputs(config: AppConfig) {
   (document.getElementById('supabase-url') as HTMLInputElement).value = config.supabaseUrl;
   (document.getElementById('supabase-key') as HTMLTextAreaElement).value = config.supabaseKey;
+  writeLinesToTextarea('ignore-domains', config.ignoreDomains)
+  writeLinesToTextarea('ignore-titles', config.ignoreTitles)
 }
 
 export function getConfigInputs(): AppConfig {
   return {
     supabaseUrl: (document.getElementById('supabase-url') as HTMLInputElement).value.trim(),
     supabaseKey: (document.getElementById('supabase-key') as HTMLTextAreaElement).value.trim(),
+    ignoreDomains: linesFromTextarea('ignore-domains'),
+    ignoreTitles: linesFromTextarea('ignore-titles'),
   };
 }
 

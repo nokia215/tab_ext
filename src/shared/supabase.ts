@@ -64,6 +64,40 @@ export async function getCurrentUser() {
   return data.user;
 }
 
+function safeHostName(url: string): string {
+  try {
+    return new URL(url).hostname.toLocaleLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function shouldIgnoreTab(
+  tab: chrome.tabs.Tab,
+  ignoreDomains: string[],
+  ignoreTitles: string[],
+): boolean {
+  const url = (tab.url ?? '').toLowerCase()
+  const title = (tab.title ?? '').toLocaleLowerCase()
+  const hostname = safeHostName(url);
+
+  const matchedDomain = ignoreDomains.some((rule) => {
+    const normalized = rule.trim().toLocaleLowerCase()
+    if (!normalized) return false;
+    return hostname.includes(normalized) || url.includes(normalized);
+  });
+
+  if (matchedDomain) return true;
+
+  const matchedTitle = ignoreTitles.some((rule) => {
+    const normalized = rule.trim().toLowerCase();
+    if (!normalized) return false;
+    return title.includes(normalized)
+  });
+
+  return matchedTitle
+}
+
 export async function saveTabGroup(input: {
   title: string;
   deviceId: string;
@@ -71,9 +105,22 @@ export async function saveTabGroup(input: {
 }) {
   const supabase = await getSupabase();
   const user = await getCurrentUser();
+  const config = await getConfig();
   if (!user) throw new Error('ログインしてください。');
 
   const title = input.title.trim() || null;
+
+  const candidateTabs = input.tabs
+    .filter((tab) => !!tab.url)
+    .filter((tab) => !tab.url!.startsWith('chrome://'))
+    .filter((tab) => !tab.url!.startsWith('about:'))
+    .filter((tab) => !tab.url!.startsWith('brave:'))
+    .filter((tab) => !tab.url!.startsWith('moz-extension:'))
+    .filter((tab) => !shouldIgnoreTab(tab, config.ignoreDomains, config.ignoreTitles));
+
+  if (candidateTabs.length === 0) {
+    throw new Error('保存対象のタブがありません。');
+  }
 
   const { data: group, error: groupError } = await supabase
     .from('tab_groups')
@@ -87,28 +134,19 @@ export async function saveTabGroup(input: {
 
   if (groupError) throw groupError;
 
-  const rows = input.tabs
-    .filter((tab) => !!tab.url)
-    .filter((tab) => !tab.url!.startsWith('chrome://'))
-    .filter((tab) => !tab.url!.startsWith('about:'))
-    .filter((tab) => !tab.url!.startsWith('moz-extension:'))
-    .map((tab, index) => ({
-      group_id: group.id,
-      user_id: user.id,
-      url: tab.url!,
-      title: tab.title ?? '',
-      position: index,
-      status: 'saved' as const
-    }));
-
-  if (rows.length === 0) {
-    throw new Error('保存対象のタブがありません。');
-  }
+  const rows = candidateTabs.map((tab, index) => ({
+    group_id: group.id,
+    user_id: user.id,
+    url: tab.url!,
+    title: tab.title ?? '',
+    position: index,
+    status: 'saved' as const
+  }));
 
   const { error: tabsError } = await supabase.from('tabs').insert(rows);
   if (tabsError) throw tabsError;
 
-  return { group, count: rows.length };
+  return { group, count: candidateTabs.length };
 }
 
 export async function listGroups(includeArchived = false): Promise<TabGroup[]> {

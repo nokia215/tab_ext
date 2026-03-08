@@ -33,6 +33,31 @@
           <textarea id="supabase-key" rows="3" placeholder="eyJ..."></textarea>
         </label>
         <button id="save-config-btn">設定を保存</button>
+        <p class="note">service_role は入れないこと。</p>
+      </section>
+
+      <section class="card" id="rules-section">
+        <h2>Ignore Rules</h2>
+        <label class="field">
+          <span>Ignore domains（1行1ルール）</span>
+          <textarea
+            id="ignore-domains"
+            rows="4"
+            placeholder="mail.google.com&#10;slack.com&#10;chatgpt.com"
+          ></textarea>
+        </label>
+        <label class="field">
+          <span>Ignore titles（1行1ルール）</span>
+          <textarea
+            id="ignore-titles"
+            rows="4"
+            placeholder="Inbox&#10;Notifications"
+          ></textarea>
+        </label>
+        <p class="note">
+          部分一致で判定します。URL / title に含まれたら保存しません。
+        </p>
+        <button id="save-config-btn">設定を保存</button>
       </section>
 
       <section class="card" id="auth-section">
