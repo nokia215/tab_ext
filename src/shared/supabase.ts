@@ -75,14 +75,14 @@ function safeHostName(url: string): string {
 function shouldIgnoreTab(
   tab: chrome.tabs.Tab,
   ignoreDomains: string[],
-  ignoreTitles: string[],
+  ignoreTitles: string[]
 ): boolean {
-  const url = (tab.url ?? '').toLowerCase()
-  const title = (tab.title ?? '').toLocaleLowerCase()
+  const url = (tab.url ?? '').toLowerCase();
+  const title = (tab.title ?? '').toLocaleLowerCase();
   const hostname = safeHostName(url);
 
   const matchedDomain = ignoreDomains.some((rule) => {
-    const normalized = rule.trim().toLocaleLowerCase()
+    const normalized = rule.trim().toLocaleLowerCase();
     if (!normalized) return false;
     return hostname.includes(normalized) || url.includes(normalized);
   });
@@ -92,10 +92,10 @@ function shouldIgnoreTab(
   const matchedTitle = ignoreTitles.some((rule) => {
     const normalized = rule.trim().toLowerCase();
     if (!normalized) return false;
-    return title.includes(normalized)
+    return title.includes(normalized);
   });
 
-  return matchedTitle
+  return matchedTitle;
 }
 
 export async function filterSavableTabs(tabs: chrome.tabs.Tab[]): Promise<chrome.tabs.Tab[]> {
@@ -143,9 +143,6 @@ function normalizeUrl(raw: string): string {
   }
 }
 
-const seen = new Set<string>();
-
-
 export async function saveTabGroup(input: {
   title: string;
   deviceId: string;
@@ -153,11 +150,10 @@ export async function saveTabGroup(input: {
 }) {
   const supabase = await getSupabase();
   const user = await getCurrentUser();
-  const config = await getConfig();
   if (!user) throw new Error('ログインしてください。');
 
   const title = input.title.trim() || null;
-  const candidateTabs = await filterSavableTabs(input.tabs)
+  const candidateTabs = await filterSavableTabs(input.tabs);
 
   if (candidateTabs.length === 0) {
     throw new Error('保存対象のタブがありません。');

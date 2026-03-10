@@ -1,0 +1,218 @@
+:root {
+  color-scheme: dark;
+  font-family: "Avenir Next", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --bg: #07111f;
+  --bg-alt: #0f1f38;
+  --panel: rgba(8, 16, 31, 0.72);
+  --panel-strong: rgba(15, 27, 49, 0.9);
+  --line: rgba(173, 216, 255, 0.16);
+  --line-strong: rgba(173, 216, 255, 0.28);
+  --text: #f3f7ff;
+  --muted: rgba(223, 233, 255, 0.72);
+  --accent: #83e0ff;
+  --accent-strong: #40bfff;
+  --accent-soft: rgba(131, 224, 255, 0.16);
+  --danger: #ff7f96;
+  --shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(64, 191, 255, 0.28), transparent 34%),
+    radial-gradient(circle at top right, rgba(14, 255, 191, 0.16), transparent 26%),
+    linear-gradient(160deg, var(--bg) 0%, #09172b 42%, #040810 100%);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), transparent 85%);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  color: #03101d;
+  cursor: pointer;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease,
+    opacity 160ms ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 28px rgba(64, 191, 255, 0.22);
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+button.secondary {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--line);
+  color: var(--text);
+  box-shadow: none;
+}
+
+button.ghost {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--muted);
+  box-shadow: none;
+}
+
+button.danger {
+  background: rgba(255, 127, 150, 0.12);
+  border-color: rgba(255, 127, 150, 0.32);
+  color: #ffd3db;
+}
+
+input,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+input:focus,
+textarea:focus {
+  border-color: rgba(131, 224, 255, 0.55);
+  box-shadow: 0 0 0 4px rgba(131, 224, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
+.shell {
+  position: relative;
+  z-index: 1;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow);
+}
+
+.section-title {
+  margin: 0;
+  font-size: 1.02rem;
+  letter-spacing: 0.02em;
+}
+
+.section-copy,
+.muted {
+  color: var(--muted);
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field-label {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: rgba(243, 247, 255, 0.92);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.metric-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.metric-card {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.metric-label {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.metric-value {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.status-banner {
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(131, 224, 255, 0.08);
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.status-banner.error {
+  background: rgba(255, 127, 150, 0.1);
+  border-color: rgba(255, 127, 150, 0.28);
+}

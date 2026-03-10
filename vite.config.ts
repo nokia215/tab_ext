@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 import path from 'node:path';
 
 export default defineConfig(({ mode }) => {
@@ -6,6 +7,7 @@ export default defineConfig(({ mode }) => {
   const outDir = path.resolve(__dirname, 'dist', browser);
 
   return {
+    plugins: [svelte()],
     build: {
       outDir,
       emptyOutDir: false,

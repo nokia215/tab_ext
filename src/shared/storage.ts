@@ -6,13 +6,13 @@ const KEYS = {
   SUPABASE_KEY: 'supabase_key',
   DEVICE_ID: 'device_id',
   IGNORE_DOMAINS: 'ignore_domains',
-  IGNORE_TITLES: 'ignore_titles',
+  IGNORE_TITLES: 'ignore_titles'
 } as const;
 
 function normalizeLines(value: string[] | undefined): string[] {
   return (value ?? [])
-    .map((item)=>item.trim())
-    .filter(Boolean)
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 export async function getConfig(): Promise<AppConfig> {
@@ -20,7 +20,7 @@ export async function getConfig(): Promise<AppConfig> {
     KEYS.SUPABASE_URL,
     KEYS.SUPABASE_KEY,
     KEYS.IGNORE_DOMAINS,
-    KEYS.IGNORE_TITLES,
+    KEYS.IGNORE_TITLES
   ]);
 
   const r = result as Record<string, string | string[] | undefined>;
@@ -38,7 +38,7 @@ export async function saveConfig(config: AppConfig): Promise<void> {
     [KEYS.SUPABASE_URL]: config.supabaseUrl,
     [KEYS.SUPABASE_KEY]: config.supabaseKey,
     [KEYS.IGNORE_DOMAINS]: config.ignoreDomains,
-    [KEYS.IGNORE_TITLES]: config.ignoreTitles,
+    [KEYS.IGNORE_TITLES]: config.ignoreTitles
   });
 }
 

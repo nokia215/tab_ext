@@ -10,7 +10,8 @@
     "isolatedModules": true,
     "resolveJsonModule": true,
     "useDefineForClassFields": true,
-    "allowJs": false
+    "allowJs": false,
+    "types": ["chrome", "svelte"]
   },
-  "include": ["src", "vite.config.ts", "scripts"]
+  "include": ["src", "vite.config.ts", "scripts", "src/**/*.svelte"]
 }
