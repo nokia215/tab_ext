@@ -2,19 +2,14 @@
   import { onMount } from 'svelte';
   import ConfigPanel from '../shared/components/ConfigPanel.svelte';
   import AuthPanel from '../shared/components/AuthPanel.svelte';
-  import GroupList from '../shared/components/GroupList.svelte';
   import SavePanel from '../shared/components/SavePanel.svelte';
   import { createTab, getRuntimeUrl } from '../shared/browser-api';
   import { lineListToText, textToLineList } from '../shared/format';
-  import { filterGroups } from '../shared/search';
   import { getConfig, getOrCreateDeviceId, saveConfig } from '../shared/storage';
-  import { getActiveTab, getCurrentWindowTabs, openSavedTab, restoreTabs } from '../shared/tabs';
+  import { getActiveTab, getCurrentWindowTabs } from '../shared/tabs';
   import {
-    deleteGroup,
-    deleteSavedTab,
     getCurrentUser,
     listGroups,
-    markGroupRestored,
     saveTabGroup,
     signIn,
     signOut,
@@ -24,9 +19,7 @@
 
   let authStatus = '状態を確認しています。';
   let saveStatus = '';
-  let searchQuery = '';
   let allGroups: TabGroup[] = [];
-  let expandedGroupIds: string[] = [];
 
   let email = '';
   let password = '';
@@ -48,9 +41,9 @@
   let ignoreDomainsText = '';
   let ignoreTitlesText = '';
 
-  $: filteredGroups = filterGroups(allGroups, searchQuery);
   $: totalTabs = allGroups.reduce((sum, group) => sum + group.tabs.length, 0);
   $: deviceCount = new Set(allGroups.map((group) => group.device_id)).size;
+  $: recentGroups = allGroups.slice(0, 5);
 
   function setConfigFields(next: AppConfig) {
     config = next;
@@ -70,12 +63,9 @@
   async function refreshGroups() {
     try {
       allGroups = await listGroups();
-      const existingIds = new Set(allGroups.map((group) => group.id));
-      expandedGroupIds = expandedGroupIds.filter((id) => existingIds.has(id));
     } catch (error) {
       console.error('refreshGroups failed', error);
       allGroups = [];
-      expandedGroupIds = [];
     }
   }
 
@@ -169,9 +159,6 @@
       tabs
     });
     saveStatus = `${result.count} 件保存しました。`;
-    if (result.group?.id) {
-      expandedGroupIds = [...new Set([...expandedGroupIds, result.group.id])];
-    }
     await refreshGroups();
   }
 
@@ -199,30 +186,6 @@
     } finally {
       saveTabBusy = false;
     }
-  }
-
-  async function handleRestore(group: TabGroup) {
-    await restoreTabs(group.tabs.map((tab) => tab.url));
-    await markGroupRestored(group.id);
-    await refreshGroups();
-  }
-
-  async function handleDeleteGroup(group: TabGroup) {
-    await deleteGroup(group.id);
-    expandedGroupIds = expandedGroupIds.filter((id) => id !== group.id);
-    await refreshGroups();
-  }
-
-  async function handleOpenTab(tab: TabGroup['tabs'][number]) {
-    await openSavedTab(tab.url);
-    await deleteSavedTab(tab.id);
-    await refreshGroups();
-  }
-
-  function handleToggleGroup(group: TabGroup) {
-    expandedGroupIds = expandedGroupIds.includes(group.id)
-      ? expandedGroupIds.filter((id) => id !== group.id)
-      : [...expandedGroupIds, group.id];
   }
 
   async function handleRefresh() {
@@ -287,26 +250,27 @@
     onSaveTab={handleSaveTab}
   />
 
-  <section class="panel search-panel">
+  <section class="panel recent-panel">
     <div>
-      <h2 class="section-title">保存済み一覧</h2>
-      <p class="section-copy">グループ名、URL、タブ名で絞り込めます。</p>
+      <h2 class="section-title">最近の保存</h2>
+      <p class="section-copy">popup では概要だけを表示し、詳細操作はダッシュボードで行います。</p>
     </div>
-    <label class="field">
-      <span class="field-label">検索</span>
-      <input bind:value={searchQuery} type="search" placeholder="グループ名・タブ名・URL で検索" />
-    </label>
+    {#if recentGroups.length === 0}
+      <div class="empty-mini">まだ保存済みグループはありません。</div>
+    {:else}
+      <div class="recent-list">
+        {#each recentGroups as group (group.id)}
+          <article class="recent-item">
+            <div class="recent-main">
+              <h3>{group.title ?? '(untitled)'}</h3>
+              <p>{group.tabs.length} tabs · {group.device_id}</p>
+            </div>
+          </article>
+        {/each}
+      </div>
+    {/if}
+    <button class="secondary" type="button" on:click={openDashboard}>詳細はダッシュボードで開く</button>
   </section>
-
-  <GroupList
-    groups={filteredGroups}
-    emptyLabel="まだ保存済みグループはありません。"
-    {expandedGroupIds}
-    onToggleGroup={handleToggleGroup}
-    onRestore={handleRestore}
-    onDeleteGroup={handleDeleteGroup}
-    onOpenTab={handleOpenTab}
-  />
 
   <details class="settings-wrap">
     <summary>設定と認証</summary>
@@ -342,7 +306,7 @@
   }
 
   .hero,
-  .search-panel {
+  .recent-panel {
     padding: 20px;
     border-radius: 28px;
   }
@@ -378,9 +342,42 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .search-panel {
+  .recent-panel {
     display: grid;
     gap: 14px;
+  }
+
+  .recent-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .recent-item {
+    padding: 14px;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .recent-main h3 {
+    margin: 0 0 6px;
+    font-size: 0.95rem;
+    word-break: break-word;
+  }
+
+  .recent-main p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+    word-break: break-all;
+  }
+
+  .empty-mini {
+    padding: 14px;
+    border-radius: 18px;
+    border: 1px dashed var(--line);
+    color: var(--muted);
+    text-align: center;
   }
 
   .section-copy {

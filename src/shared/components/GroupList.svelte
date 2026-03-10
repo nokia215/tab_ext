@@ -14,6 +14,11 @@
   function isExpanded(group: TabGroup) {
     return !collapsible || expandedGroupIds.includes(group.id);
   }
+
+  function handleHeaderClick(group: TabGroup) {
+    if (!collapsible) return;
+    onToggleGroup(group);
+  }
 </script>
 
 {#if groups.length === 0}
@@ -25,20 +30,27 @@
     {#each groups as group (group.id)}
       <article class="group-card panel">
         <div class="group-header">
-          <button
-            class:static-header={!collapsible}
-            class="group-trigger"
-            type="button"
-            on:click={() => collapsible && onToggleGroup(group)}
-          >
-            <div class="group-text">
-              <h3>{group.title ?? '(untitled)'}</h3>
-              <p>{formatDate(group.created_at)} · {group.tabs.length} tabs · {group.device_id}</p>
-            </div>
-            {#if collapsible}
+          {#if collapsible}
+            <button
+              aria-expanded={isExpanded(group)}
+              class="group-trigger"
+              type="button"
+              on:click={() => handleHeaderClick(group)}
+            >
+              <div class="group-text">
+                <h3>{group.title ?? '(untitled)'}</h3>
+                <p>{formatDate(group.created_at)} · {group.tabs.length} tabs · {group.device_id}</p>
+              </div>
               <span class="indicator">{isExpanded(group) ? '−' : '+'}</span>
-            {/if}
-          </button>
+            </button>
+          {:else}
+            <div class="group-trigger static-header">
+              <div class="group-text">
+                <h3>{group.title ?? '(untitled)'}</h3>
+                <p>{formatDate(group.created_at)} · {group.tabs.length} tabs · {group.device_id}</p>
+              </div>
+            </div>
+          {/if}
 
           <div class="actions">
             <button class="secondary" type="button" on:click={() => void onRestore(group)}>
@@ -102,6 +114,7 @@
     color: inherit;
     box-shadow: none;
     text-align: left;
+    cursor: pointer;
   }
 
   .group-trigger:hover {
