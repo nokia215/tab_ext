@@ -10,6 +10,8 @@
   export let onRestore: (group: TabGroup) => Promise<void>;
   export let onDeleteGroup: (group: TabGroup) => Promise<void>;
   export let onOpenTab: (tab: SavedTab) => Promise<void>;
+  export let extraActionLabel = '';
+  export let onExtraAction: ((group: TabGroup) => Promise<void>) | null = null;
 
   function isExpanded(group: TabGroup) {
     return !collapsible || expandedGroupIds.includes(group.id);
@@ -53,6 +55,11 @@
           {/if}
 
           <div class="actions">
+            {#if extraActionLabel && onExtraAction}
+              <button class="ghost" type="button" on:click={() => void onExtraAction?.(group)}>
+                {extraActionLabel}
+              </button>
+            {/if}
             <button class="secondary" type="button" on:click={() => void onRestore(group)}>
               全部復元
             </button>

@@ -21,10 +21,15 @@
   } from '../shared/supabase';
   import type { AppConfig, TabGroup } from '../shared/types';
 
+  type GroupFilter = 'all' | 'saved' | 'restored';
+  type SortMode = 'newest' | 'oldest' | 'tabCount';
+
   let authStatus = '状態を確認しています。';
   let saveStatus = '';
   let pageStatus = '';
   let searchQuery = '';
+  let groupFilter: GroupFilter = 'all';
+  let sortMode: SortMode = 'newest';
   let allGroups: TabGroup[] = [];
 
   let email = '';
@@ -47,11 +52,18 @@
   let ignoreDomainsText = '';
   let ignoreTitlesText = '';
 
-  $: filteredGroups = filterGroups(allGroups, searchQuery);
+  $: searchedGroups = filterGroups(allGroups, searchQuery);
+  $: filteredGroups = searchedGroups
+    .filter((group) => matchesGroupFilter(group, groupFilter))
+    .sort(sortGroups(sortMode));
   $: totalTabs = allGroups.reduce((sum, group) => sum + group.tabs.length, 0);
   $: deviceCount = new Set(allGroups.map((group) => group.device_id)).size;
   $: restoredTabs = allGroups.reduce(
     (sum, group) => sum + group.tabs.filter((tab) => tab.status === 'restored').length,
+    0
+  );
+  $: savedTabs = allGroups.reduce(
+    (sum, group) => sum + group.tabs.filter((tab) => tab.status === 'saved').length,
     0
   );
 
@@ -59,6 +71,23 @@
     config = next;
     ignoreDomainsText = lineListToText(next.ignoreDomains);
     ignoreTitlesText = lineListToText(next.ignoreTitles);
+  }
+
+  function matchesGroupFilter(group: TabGroup, filter: GroupFilter) {
+    if (filter === 'all') return true;
+    return group.tabs.some((tab) => tab.status === filter);
+  }
+
+  function sortGroups(mode: SortMode) {
+    return (a: TabGroup, b: TabGroup) => {
+      if (mode === 'oldest') {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+      if (mode === 'tabCount') {
+        return b.tabs.length - a.tabs.length || new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    };
   }
 
   async function refreshAll() {
@@ -201,6 +230,12 @@
     await refreshAll();
   }
 
+  async function handleCopyGroup(group: TabGroup) {
+    const text = group.tabs.map((tab) => tab.url).join('\n');
+    await navigator.clipboard.writeText(text);
+    pageStatus = `「${group.title ?? '(untitled)'}」のURLをコピーしました。`;
+  }
+
   onMount(() => {
     void refreshAll();
   });
@@ -234,6 +269,10 @@
         <p class="metric-value">{restoredTabs}</p>
       </article>
       <article class="metric-card">
+        <p class="metric-label">Saved only</p>
+        <p class="metric-value">{savedTabs}</p>
+      </article>
+      <article class="metric-card">
         <p class="metric-label">Devices</p>
         <p class="metric-value">{deviceCount}</p>
       </article>
@@ -259,10 +298,35 @@
             <h2 class="section-title">保存済みグループ</h2>
             <p class="section-copy">タブ名・URL・グループ名で横断検索できます。</p>
           </div>
+        </div>
+
+        <div class="toolbar">
           <label class="field search-field">
             <span class="field-label">検索</span>
             <input bind:value={searchQuery} type="search" placeholder="例: docs, supabase, design" />
           </label>
+
+          <label class="field compact-field">
+            <span class="field-label">並び順</span>
+            <select bind:value={sortMode}>
+              <option value="newest">新しい順</option>
+              <option value="oldest">古い順</option>
+              <option value="tabCount">タブ数順</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="filter-row">
+          <button class:active-chip={groupFilter === 'all'} class="chip" type="button" on:click={() => (groupFilter = 'all')}>
+            すべて
+          </button>
+          <button class:active-chip={groupFilter === 'saved'} class="chip" type="button" on:click={() => (groupFilter = 'saved')}>
+            未復元あり
+          </button>
+          <button class:active-chip={groupFilter === 'restored'} class="chip" type="button" on:click={() => (groupFilter = 'restored')}>
+            復元済みあり
+          </button>
+          <div class="result-meta">{filteredGroups.length} groups</div>
         </div>
 
         <GroupList
@@ -270,6 +334,8 @@
           emptyLabel="まだ保存済みグループはありません。"
           expandedGroupIds={filteredGroups.map((group) => group.id)}
           collapsible={false}
+          extraActionLabel="URL をコピー"
+          onExtraAction={handleCopyGroup}
           onRestore={handleRestore}
           onDeleteGroup={handleDeleteGroup}
           onOpenTab={handleOpenTab}
@@ -349,7 +415,7 @@
   }
 
   .masthead-metrics {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   }
 
   .workspace-grid {
@@ -375,7 +441,7 @@
   .explorer-head {
     display: flex;
     flex-wrap: wrap;
-    align-items: end;
+    align-items: start;
     justify-content: space-between;
     gap: 16px;
   }
@@ -384,8 +450,45 @@
     margin: 8px 0 0;
   }
 
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: end;
+  }
+
   .search-field {
     width: min(100%, 360px);
+  }
+
+  .compact-field {
+    width: 180px;
+  }
+
+  .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .chip {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--line);
+    color: var(--muted);
+    box-shadow: none;
+  }
+
+  .active-chip {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+    border-color: transparent;
+    color: #03101d;
+  }
+
+  .result-meta {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 0.84rem;
   }
 
   @media (max-width: 980px) {

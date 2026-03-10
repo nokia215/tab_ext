@@ -49,7 +49,8 @@ body::before {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -99,7 +100,8 @@ button.danger {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -114,7 +116,8 @@ textarea {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   border-color: rgba(131, 224, 255, 0.55);
   box-shadow: 0 0 0 4px rgba(131, 224, 255, 0.12);
   background: rgba(255, 255, 255, 0.06);
