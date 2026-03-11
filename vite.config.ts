@@ -15,14 +15,10 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         input: {
           popup: path.resolve(__dirname, 'popup.html'),
-          newtab: path.resolve(__dirname, 'newtab.html'),
-          background: path.resolve(__dirname, 'src/background/main.ts')
+          newtab: path.resolve(__dirname, 'newtab.html')
         },
         output: {
-          entryFileNames: (chunkInfo) => {
-            if (chunkInfo.name === 'background') return 'background.js';
-            return 'assets/[name].js';
-          },
+          entryFileNames: 'assets/[name].js',
           chunkFileNames: 'assets/[name].js',
           assetFileNames: 'assets/[name][extname]'
         }
