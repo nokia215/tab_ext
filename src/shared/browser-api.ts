@@ -31,3 +31,17 @@ export function createWindow(createData: chrome.windows.CreateData) {
 export function getRuntimeUrl(path: string) {
   return ext.runtime.getURL(path);
 }
+
+export function runtimeSendMessage<TMessage, TResponse>(message: TMessage): Promise<TResponse> {
+  return new Promise<TResponse>((resolve, reject) => {
+    ext.runtime.sendMessage(message, (response: TResponse) => {
+      const lastError = chrome.runtime.lastError;
+      if (lastError) {
+        reject(new Error(lastError.message));
+        return;
+      }
+
+      resolve(response);
+    });
+  });
+}

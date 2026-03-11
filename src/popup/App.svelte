@@ -3,12 +3,13 @@
   import ConfigPanel from '../shared/components/ConfigPanel.svelte';
   import AuthPanel from '../shared/components/AuthPanel.svelte';
   import SavePanel from '../shared/components/SavePanel.svelte';
-  import { createTab, getRuntimeUrl } from '../shared/browser-api';
-  import { lineListToText, textToLineList } from '../shared/format';
+  import { createTab, getRuntimeUrl, runtimeSendMessage } from '../shared/browser-api';
+  import { formatDate, lineListToText, textToLineList } from '../shared/format';
   import { getConfig, getOrCreateDeviceId, saveConfig } from '../shared/storage';
   import { getActiveTab, getCurrentWindowTabs } from '../shared/tabs';
+  import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
   import {
-    getCurrentUser,
+    getCurrentSessionUser,
     listGroups,
     saveTabGroup,
     signIn,
@@ -30,6 +31,8 @@
   let refreshBusy = false;
   let saveWindowBusy = false;
   let saveTabBusy = false;
+  let actionBusy = false;
+  let actionStatus = '';
 
   let config: AppConfig = {
     supabaseUrl: '',
@@ -53,7 +56,7 @@
 
   async function refreshAuthStatus() {
     try {
-      const user = await getCurrentUser();
+      const user = await getCurrentSessionUser();
       authStatus = user ? `ログイン中: ${user.email}` : '未ログイン';
     } catch (error) {
       authStatus = `状態確認失敗: ${error instanceof Error ? error.message : String(error)}`;
@@ -62,7 +65,19 @@
 
   async function refreshGroups() {
     try {
-      allGroups = await listGroups();
+      const config = await getConfig();
+      if (!config.supabaseUrl || !config.supabaseKey) {
+        allGroups = [];
+        return;
+      }
+
+      const user = await getCurrentSessionUser();
+      if (!user) {
+        allGroups = [];
+        return;
+      }
+
+      allGroups = await listGroups(false, user.id);
     } catch (error) {
       console.error('refreshGroups failed', error);
       allGroups = [];
@@ -199,6 +214,48 @@
     await createTab({ url: getRuntimeUrl('newtab.html'), active: true });
   }
 
+  async function runPopupAction(message: PopupActionMessage, successMessage: string) {
+    if (actionBusy) return;
+    actionBusy = true;
+    actionStatus = '';
+
+    try {
+      const result = await runtimeSendMessage<PopupActionMessage, PopupActionResponse>(message);
+      if (!result?.ok) {
+        throw new Error(result?.error ?? '操作に失敗しました。');
+      }
+
+      actionStatus = successMessage;
+      await refreshGroups();
+    } catch (error) {
+      actionStatus = `操作失敗: ${error instanceof Error ? error.message : String(error)}`;
+    } finally {
+      actionBusy = false;
+    }
+  }
+
+  async function handleRestoreGroup(group: TabGroup) {
+    await runPopupAction(
+      {
+        type: 'restore-group',
+        groupId: group.id,
+        urls: group.tabs.map((tab) => tab.url)
+      },
+      `「${group.title ?? '(untitled)'}」を復元しました。`
+    );
+  }
+
+  async function handleOpenSavedTab(group: TabGroup, tab: TabGroup['tabs'][number]) {
+    await runPopupAction(
+      {
+        type: 'open-saved-tab',
+        tabId: tab.id,
+        url: tab.url
+      },
+      `「${group.title ?? '(untitled)'}」からタブを開きました。`
+    );
+  }
+
   onMount(() => {
     void bootstrap();
   });
@@ -253,8 +310,11 @@
   <section class="panel recent-panel">
     <div>
       <h2 class="section-title">最近の保存</h2>
-      <p class="section-copy">popup では概要だけを表示し、詳細操作はダッシュボードで行います。</p>
+      <p class="section-copy">popup から最近の保存をすぐ復元できます。重い整理や検索はダッシュボードで行います。</p>
     </div>
+    {#if actionStatus}
+      <p class:status-banner={true} class:error={actionStatus.startsWith('操作失敗')}>{actionStatus}</p>
+    {/if}
     {#if recentGroups.length === 0}
       <div class="empty-mini">まだ保存済みグループはありません。</div>
     {:else}
@@ -263,7 +323,33 @@
           <article class="recent-item">
             <div class="recent-main">
               <h3>{group.title ?? '(untitled)'}</h3>
-              <p>{group.tabs.length} tabs · {group.device_id}</p>
+              <p>{formatDate(group.created_at)} · {group.tabs.length} tabs · {group.device_id}</p>
+            </div>
+            <div class="recent-actions">
+              <button
+                class="secondary"
+                type="button"
+                disabled={actionBusy}
+                on:click={() => void handleRestoreGroup(group)}
+              >
+                全部復元
+              </button>
+            </div>
+            <div class="recent-tabs">
+              {#each group.tabs.slice(0, 3) as tab (tab.id)}
+                <button
+                  class="tab-chip"
+                  type="button"
+                  disabled={actionBusy}
+                  on:click={() => void handleOpenSavedTab(group, tab)}
+                >
+                  <span class="tab-chip-title">{tab.title || '(no title)'}</span>
+                  <span class="tab-chip-url">{tab.url}</span>
+                </button>
+              {/each}
+              {#if group.tabs.length > 3}
+                <p class="more-tabs">ほか {group.tabs.length - 3} 件はダッシュボードで操作</p>
+              {/if}
             </div>
           </article>
         {/each}
@@ -353,10 +439,57 @@
   }
 
   .recent-item {
+    display: grid;
+    gap: 12px;
     padding: 14px;
     border-radius: 18px;
     border: 1px solid var(--line);
     background: rgba(255, 255, 255, 0.04);
+  }
+
+  .recent-actions {
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .recent-tabs {
+    display: grid;
+    gap: 8px;
+  }
+
+  .tab-chip {
+    width: 100%;
+    display: grid;
+    gap: 4px;
+    padding: 12px;
+    text-align: left;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--line);
+    color: var(--text);
+    box-shadow: none;
+  }
+
+  .tab-chip:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  .tab-chip-title {
+    font-size: 0.86rem;
+    font-weight: 700;
+    word-break: break-word;
+  }
+
+  .tab-chip-url {
+    color: var(--muted);
+    font-size: 0.74rem;
+    word-break: break-all;
+  }
+
+  .more-tabs {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.78rem;
   }
 
   .recent-main h3 {

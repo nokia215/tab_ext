@@ -4,16 +4,16 @@
   import ConfigPanel from '../shared/components/ConfigPanel.svelte';
   import GroupList from '../shared/components/GroupList.svelte';
   import SavePanel from '../shared/components/SavePanel.svelte';
+  import { runtimeSendMessage } from '../shared/browser-api';
   import { lineListToText, textToLineList } from '../shared/format';
+  import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
   import { filterGroups } from '../shared/search';
   import { getConfig, getOrCreateDeviceId, saveConfig } from '../shared/storage';
-  import { getActiveTab, getCurrentWindowTabs, openSavedTab, restoreTabs } from '../shared/tabs';
+  import { getActiveTab, getCurrentWindowTabs } from '../shared/tabs';
   import {
     deleteGroup,
-    deleteSavedTab,
     getCurrentSessionUser,
     listGroups,
-    markGroupRestored,
     saveTabGroup,
     signIn,
     signOut,
@@ -47,6 +47,7 @@
   let refreshBusy = false;
   let saveWindowBusy = false;
   let saveTabBusy = false;
+  let actionBusy = false;
 
   let config: AppConfig = {
     supabaseUrl: '',
@@ -169,6 +170,25 @@
     expandedGroupIds = [...expandedGroupIds, group.id];
   }
 
+  async function runGroupAction(message: PopupActionMessage, successMessage: string) {
+    if (actionBusy) return;
+    actionBusy = true;
+
+    try {
+      const result = await runtimeSendMessage<PopupActionMessage, PopupActionResponse>(message);
+      if (!result?.ok) {
+        throw new Error(result?.error ?? '操作に失敗しました。');
+      }
+
+      pageStatus = successMessage;
+      await refreshAll();
+    } catch (error) {
+      pageStatus = `操作失敗: ${error instanceof Error ? error.message : String(error)}`;
+    } finally {
+      actionBusy = false;
+    }
+  }
+
   async function handleSaveConfig() {
     configBusy = true;
     try {
@@ -266,9 +286,14 @@
   }
 
   async function handleRestore(group: TabGroup) {
-    await restoreTabs(group.tabs.map((tab) => tab.url));
-    await markGroupRestored(group.id);
-    await refreshAll();
+    await runGroupAction(
+      {
+        type: 'restore-group',
+        groupId: group.id,
+        urls: group.tabs.map((tab) => tab.url)
+      },
+      `「${group.title ?? '(untitled)'}」を復元しました。`
+    );
   }
 
   async function handleDeleteGroup(group: TabGroup) {
@@ -277,9 +302,14 @@
   }
 
   async function handleOpenTab(tab: TabGroup['tabs'][number]) {
-    await openSavedTab(tab.url);
-    await deleteSavedTab(tab.id);
-    await refreshAll();
+    await runGroupAction(
+      {
+        type: 'open-saved-tab',
+        tabId: tab.id,
+        url: tab.url
+      },
+      'タブを開きました。'
+    );
   }
 
   async function handleCopyGroup(group: TabGroup) {
@@ -386,6 +416,7 @@
           emptyLabel="まだ保存済みグループはありません。"
           expandedGroupIds={visibleExpandedGroupIds}
           collapsible={true}
+          busy={actionBusy}
           onToggleGroup={handleToggleGroup}
           extraActionLabel="URL をコピー"
           onExtraAction={handleCopyGroup}

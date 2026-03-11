@@ -6,6 +6,7 @@
   export let emptyLabel = 'まだ何もありません。';
   export let expandedGroupIds: string[] = [];
   export let collapsible = true;
+  export let busy = false;
   export let onToggleGroup: (group: TabGroup) => void = () => {};
   export let onRestore: (group: TabGroup) => Promise<void>;
   export let onDeleteGroup: (group: TabGroup) => Promise<void>;
@@ -36,6 +37,7 @@
             <button
               aria-expanded={isExpanded(group)}
               class="group-trigger"
+              disabled={busy}
               type="button"
               on:click={() => handleHeaderClick(group)}
             >
@@ -56,14 +58,14 @@
 
           <div class="actions">
             {#if extraActionLabel && onExtraAction}
-              <button class="ghost" type="button" on:click={() => void onExtraAction?.(group)}>
+              <button class="ghost" type="button" disabled={busy} on:click={() => void onExtraAction?.(group)}>
                 {extraActionLabel}
               </button>
             {/if}
-            <button class="secondary" type="button" on:click={() => void onRestore(group)}>
+            <button class="secondary" type="button" disabled={busy} on:click={() => void onRestore(group)}>
               全部復元
             </button>
-            <button class="danger" type="button" on:click={() => void onDeleteGroup(group)}>
+            <button class="danger" type="button" disabled={busy} on:click={() => void onDeleteGroup(group)}>
               グループ削除
             </button>
           </div>
@@ -72,7 +74,7 @@
         {#if isExpanded(group)}
           <div class="tab-list">
             {#each group.tabs as tab (tab.id)}
-              <button class="tab-row" type="button" on:click={() => void onOpenTab(tab)}>
+              <button class="tab-row" type="button" disabled={busy} on:click={() => void onOpenTab(tab)}>
                 <span class="tab-row-title">{tab.title || '(no title)'}</span>
                 <span class="tab-row-url">{tab.url}</span>
               </button>
