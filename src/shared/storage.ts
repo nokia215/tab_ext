@@ -9,6 +9,8 @@ const KEYS = {
   IGNORE_TITLES: 'ignore_titles'
 } as const;
 
+let cachedConfig: AppConfig | null = null;
+
 function normalizeLines(value: string[] | undefined): string[] {
   return (value ?? [])
     .map((item) => item.trim())
@@ -16,6 +18,14 @@ function normalizeLines(value: string[] | undefined): string[] {
 }
 
 export async function getConfig(): Promise<AppConfig> {
+  if (cachedConfig) {
+    return {
+      ...cachedConfig,
+      ignoreDomains: [...cachedConfig.ignoreDomains],
+      ignoreTitles: [...cachedConfig.ignoreTitles]
+    };
+  }
+
   const result = await storageLocalGet([
     KEYS.SUPABASE_URL,
     KEYS.SUPABASE_KEY,
@@ -25,11 +35,17 @@ export async function getConfig(): Promise<AppConfig> {
 
   const r = result as Record<string, string | string[] | undefined>;
 
-  return {
+  cachedConfig = {
     supabaseUrl: (r[KEYS.SUPABASE_URL] as string) ?? '',
     supabaseKey: (r[KEYS.SUPABASE_KEY] as string) ?? '',
     ignoreDomains: normalizeLines(r[KEYS.IGNORE_DOMAINS] as string[] | undefined),
     ignoreTitles: normalizeLines(r[KEYS.IGNORE_TITLES] as string[] | undefined)
+  };
+
+  return {
+    ...cachedConfig,
+    ignoreDomains: [...cachedConfig.ignoreDomains],
+    ignoreTitles: [...cachedConfig.ignoreTitles]
   };
 }
 
@@ -40,6 +56,12 @@ export async function saveConfig(config: AppConfig): Promise<void> {
     [KEYS.IGNORE_DOMAINS]: config.ignoreDomains,
     [KEYS.IGNORE_TITLES]: config.ignoreTitles
   });
+
+  cachedConfig = {
+    ...config,
+    ignoreDomains: [...config.ignoreDomains],
+    ignoreTitles: [...config.ignoreTitles]
+  };
 }
 
 export async function getOrCreateDeviceId(): Promise<string> {

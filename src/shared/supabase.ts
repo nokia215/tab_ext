@@ -64,6 +64,13 @@ export async function getCurrentUser() {
   return data.user;
 }
 
+export async function getCurrentSessionUser() {
+  const supabase = await getSupabase();
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  return data.session?.user ?? null;
+}
+
 function safeHostName(url: string): string {
   try {
     return new URL(url).hostname.toLocaleLowerCase();
@@ -196,10 +203,10 @@ export async function saveTabGroup(input: {
   return { group, count: uniqueTabs.length };
 }
 
-export async function listGroups(includeArchived = false): Promise<TabGroup[]> {
+export async function listGroups(includeArchived = false, userId?: string): Promise<TabGroup[]> {
   const supabase = await getSupabase();
-  const user = await getCurrentUser();
-  if (!user) throw new Error('ログインしてください。');
+  const resolvedUserId = userId ?? (await getCurrentSessionUser())?.id;
+  if (!resolvedUserId) throw new Error('ログインしてください。');
 
   const { data, error } = await supabase
     .from('tab_groups')
@@ -216,7 +223,7 @@ export async function listGroups(includeArchived = false): Promise<TabGroup[]> {
         status
       )
     `)
-    .eq('user_id', user.id)
+    .eq('user_id', resolvedUserId)
     .order('created_at', { ascending: false });
 
   if (error) throw error;

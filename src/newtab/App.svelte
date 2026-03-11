@@ -11,7 +11,7 @@
   import {
     deleteGroup,
     deleteSavedTab,
-    getCurrentUser,
+    getCurrentSessionUser,
     listGroups,
     markGroupRestored,
     saveTabGroup,
@@ -31,6 +31,12 @@
   let groupFilter: GroupFilter = 'all';
   let sortMode: SortMode = 'newest';
   let allGroups: TabGroup[] = [];
+  let expandedGroupIds: string[] = [];
+  let visibleExpandedGroupIds: string[] = [];
+  let totalTabs = 0;
+  let deviceCount = 0;
+  let restoredTabs = 0;
+  let savedTabs = 0;
 
   let email = '';
   let password = '';
@@ -56,16 +62,10 @@
   $: filteredGroups = searchedGroups
     .filter((group) => matchesGroupFilter(group, groupFilter))
     .sort(sortGroups(sortMode));
-  $: totalTabs = allGroups.reduce((sum, group) => sum + group.tabs.length, 0);
-  $: deviceCount = new Set(allGroups.map((group) => group.device_id)).size;
-  $: restoredTabs = allGroups.reduce(
-    (sum, group) => sum + group.tabs.filter((tab) => tab.status === 'restored').length,
-    0
+  $: visibleExpandedGroupIds = expandedGroupIds.filter((groupId) =>
+    filteredGroups.some((group) => group.id === groupId)
   );
-  $: savedTabs = allGroups.reduce(
-    (sum, group) => sum + group.tabs.filter((tab) => tab.status === 'saved').length,
-    0
-  );
+  $: ({ totalTabs, restoredTabs, savedTabs, deviceCount } = summarizeGroups(allGroups));
 
   function setConfigFields(next: AppConfig) {
     config = next;
@@ -76,6 +76,30 @@
   function matchesGroupFilter(group: TabGroup, filter: GroupFilter) {
     if (filter === 'all') return true;
     return group.tabs.some((tab) => tab.status === filter);
+  }
+
+  function summarizeGroups(groups: TabGroup[]) {
+    let totalTabs = 0;
+    let restoredTabs = 0;
+    let savedTabs = 0;
+    const devices = new Set<string>();
+
+    for (const group of groups) {
+      devices.add(group.device_id);
+
+      for (const tab of group.tabs) {
+        totalTabs += 1;
+        if (tab.status === 'restored') restoredTabs += 1;
+        if (tab.status === 'saved') savedTabs += 1;
+      }
+    }
+
+    return {
+      totalTabs,
+      restoredTabs,
+      savedTabs,
+      deviceCount: devices.size
+    };
   }
 
   function sortGroups(mode: SortMode) {
@@ -93,10 +117,29 @@
   async function refreshAll() {
     refreshBusy = true;
     try {
-      setConfigFields(await getConfig());
-      const user = await getCurrentUser();
+      const nextConfig = await getConfig();
+      setConfigFields(nextConfig);
+
+      if (!nextConfig.supabaseUrl || !nextConfig.supabaseKey) {
+        authStatus = 'Supabase 設定を入力してください。';
+        pageStatus = '設定が未完了です。';
+        allGroups = [];
+        expandedGroupIds = [];
+        return;
+      }
+
+      const user = await getCurrentSessionUser();
       authStatus = user ? `ログイン中: ${user.email}` : '未ログイン';
-      allGroups = await listGroups();
+
+      if (!user) {
+        allGroups = [];
+        expandedGroupIds = [];
+        pageStatus = 'ログインすると保存済みグループを表示します。';
+        return;
+      }
+
+      allGroups = await listGroups(false, user.id);
+      expandedGroupIds = [];
       pageStatus = `${allGroups.length} グループを表示中`;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -115,6 +158,15 @@
       ignoreDomains: textToLineList(ignoreDomainsText),
       ignoreTitles: textToLineList(ignoreTitlesText)
     };
+  }
+
+  function handleToggleGroup(group: TabGroup) {
+    if (expandedGroupIds.includes(group.id)) {
+      expandedGroupIds = expandedGroupIds.filter((groupId) => groupId !== group.id);
+      return;
+    }
+
+    expandedGroupIds = [...expandedGroupIds, group.id];
   }
 
   async function handleSaveConfig() {
@@ -332,8 +384,9 @@
         <GroupList
           groups={filteredGroups}
           emptyLabel="まだ保存済みグループはありません。"
-          expandedGroupIds={filteredGroups.map((group) => group.id)}
-          collapsible={false}
+          expandedGroupIds={visibleExpandedGroupIds}
+          collapsible={true}
+          onToggleGroup={handleToggleGroup}
           extraActionLabel="URL をコピー"
           onExtraAction={handleCopyGroup}
           onRestore={handleRestore}
