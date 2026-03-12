@@ -1,0 +1,145 @@
+.save-panel,
+.auth-panel,
+.config-panel {
+  display: grid;
+  padding: 20px;
+  border-radius: 24px;
+}
+
+.save-panel,
+.auth-panel {
+  gap: 16px;
+}
+
+.config-panel {
+  gap: 18px;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--accent);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.section-copy {
+  margin: 10px 0 0;
+}
+
+.field-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.split {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.group-list {
+  display: grid;
+  gap: 14px;
+}
+
+.empty-state {
+  border-radius: 24px;
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.group-card {
+  border-radius: 24px;
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+}
+
+.group-header {
+  display: grid;
+  gap: 12px;
+}
+
+.group-trigger {
+  width: 100%;
+  padding: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  box-shadow: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.group-trigger:hover:not(:disabled) {
+  transform: none;
+}
+
+.static-header {
+  cursor: default;
+}
+
+.group-text h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.group-text p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  word-break: break-word;
+}
+
+.indicator {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  color: var(--accent);
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.tab-list {
+  display: grid;
+  gap: 10px;
+}
+
+.tab-row {
+  width: 100%;
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  text-align: left;
+  box-shadow: none;
+}
+
+.tab-row-title {
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.tab-row-url {
+  color: var(--muted);
+  font-size: 0.8rem;
+  word-break: break-all;
+}

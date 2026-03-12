@@ -1,0 +1,126 @@
+.page-shell {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+  display: grid;
+  gap: 20px;
+}
+
+.masthead {
+  padding: 28px;
+  border-radius: 32px;
+  display: grid;
+  gap: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(131, 224, 255, 0.24), transparent 24%),
+    radial-gradient(circle at left center, rgba(20, 255, 194, 0.12), transparent 28%),
+    var(--panel-strong);
+}
+
+.headline h1 {
+  margin: 0 0 12px;
+  max-width: 12ch;
+  font-size: clamp(2.4rem, 4vw, 4.8rem);
+  line-height: 0.96;
+}
+
+.headline p {
+  margin: 0;
+  max-width: 65ch;
+}
+
+.hero-kicker {
+  margin: 0 0 12px;
+  color: var(--accent);
+  font-size: 0.76rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.masthead-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.9fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.primary-column,
+.side-column {
+  display: grid;
+  gap: 20px;
+}
+
+.explorer-panel {
+  padding: 22px;
+  border-radius: 28px;
+  display: grid;
+  gap: 18px;
+}
+
+.explorer-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.section-copy {
+  margin: 8px 0 0;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: end;
+}
+
+.search-field {
+  width: min(100%, 360px);
+}
+
+.compact-field {
+  width: 180px;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.chip {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--line);
+  color: var(--muted);
+  box-shadow: none;
+}
+
+.active-chip {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  border-color: transparent;
+  color: #03101d;
+}
+
+.result-meta {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+@media (max-width: 980px) {
+  .page-shell {
+    padding-inline: 16px;
+  }
+
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+}
