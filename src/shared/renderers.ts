@@ -60,7 +60,7 @@ export function renderSavePanel(view: SavePanelView): string {
 
       <label class="field">
         <span class="field-label">グループ名</span>
-        <input name="groupTitle" type="text" value="${escapeHtml(view.title)}" placeholder="例: 2026-03-11 調査タブ" />
+        <input name="groupTitle" type="text" value="${escapeHtml(view.title)}" placeholder="未入力なら端末情報つきで自動命名" />
       </label>
 
       <div class="actions">

@@ -11,6 +11,35 @@ const KEYS = {
 
 let cachedConfig: AppConfig | null = null;
 
+function detectBrowserName(userAgent: string): string {
+  if (userAgent.includes('Firefox/')) return 'Firefox';
+  if (userAgent.includes('Edg/')) return 'Edge';
+  if (userAgent.includes('Chrome/')) return 'Chrome';
+  if (userAgent.includes('Safari/')) return 'Safari';
+  return 'Browser';
+}
+
+function detectPlatformName(userAgent: string): string {
+  if (userAgent.includes('Android')) return 'Android';
+  if (userAgent.includes('iPhone') || userAgent.includes('iPad')) return 'iOS';
+  if (userAgent.includes('Windows')) return 'Windows';
+  if (userAgent.includes('Mac OS X')) return 'macOS';
+  if (userAgent.includes('Linux')) return 'Linux';
+  return 'Device';
+}
+
+function buildDeviceLabel(seed: string): string {
+  const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent;
+  const browser = detectBrowserName(userAgent);
+  const platform = detectPlatformName(userAgent);
+  const suffix = seed.replace(/-/g, '').slice(0, 6).toUpperCase();
+  return `${browser} ${platform} · ${suffix}`;
+}
+
+function isLegacyDeviceId(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
 function normalizeLines(value: string[] | undefined): string[] {
   return (value ?? [])
     .map((item) => item.trim())
@@ -67,9 +96,17 @@ export async function saveConfig(config: AppConfig): Promise<void> {
 export async function getOrCreateDeviceId(): Promise<string> {
   const result = await storageLocalGet(KEYS.DEVICE_ID);
   const current = (result as Record<string, string>)[KEYS.DEVICE_ID];
-  if (current) return current;
+  if (current) {
+    if (!isLegacyDeviceId(current)) {
+      return current;
+    }
 
-  const id = crypto.randomUUID();
+    const migrated = buildDeviceLabel(current);
+    await storageLocalSet({ [KEYS.DEVICE_ID]: migrated });
+    return migrated;
+  }
+
+  const id = buildDeviceLabel(crypto.randomUUID());
   await storageLocalSet({ [KEYS.DEVICE_ID]: id });
   return id;
 }

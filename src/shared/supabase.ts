@@ -150,6 +150,20 @@ function normalizeUrl(raw: string): string {
   }
 }
 
+function buildDefaultGroupTitle(deviceId: string, tabCount: number): string {
+  const deviceLabel = deviceId.split('·')[0]?.trim() || deviceId;
+  const timestamp = new Intl.DateTimeFormat('ja-JP', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(new Date());
+  const tabLabel = tabCount === 1 ? '1 tab' : `${tabCount} tabs`;
+
+  return `${deviceLabel} · ${timestamp} · ${tabLabel}`;
+}
+
 export async function saveTabGroup(input: {
   title: string;
   deviceId: string;
@@ -158,8 +172,6 @@ export async function saveTabGroup(input: {
   const supabase = await getSupabase();
   const user = await getCurrentUser();
   if (!user) throw new Error('ログインしてください。');
-
-  const title = input.title.trim() || null;
   const candidateTabs = await filterSavableTabs(input.tabs);
 
   if (candidateTabs.length === 0) {
@@ -175,6 +187,8 @@ export async function saveTabGroup(input: {
     seen.add(normalized);
     return true;
   });
+
+  const title = input.title.trim() || buildDefaultGroupTitle(input.deviceId, uniqueTabs.length);
 
   const { data: group, error: groupError } = await supabase
     .from('tab_groups')
