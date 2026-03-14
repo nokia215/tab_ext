@@ -5,24 +5,31 @@ function includesQuery(value: string | null | undefined, query: string): boolean
 }
 
 function matchTab(tab: SavedTab, query: string): boolean {
-  return includesQuery(tab.title, query) || includesQuery(tab.url, query);
+  return includesQuery(tab.title, query);
 }
 
 export function filterGroups(groups: TabGroup[], rawQuery: string): TabGroup[] {
   const query = rawQuery.trim().toLowerCase();
   if (!query) return groups;
 
-  return groups
-    .map((group) => {
-      const groupMatched = includesQuery(group.title, query);
-      const filteredTabs = groupMatched
-        ? group.tabs
-        : group.tabs.filter((tab) => matchTab(tab, query));
+  const result: TabGroup[] = [];
 
-      return {
-        ...group,
-        tabs: filteredTabs
-      };
-    })
-    .filter((group) => group.tabs.length > 0 || includesQuery(group.title, query));
+  for (const group of groups) {
+    if (includesQuery(group.title, query)) {
+      result.push(group);
+      continue;
+    }
+
+    const filteredTabs = group.tabs.filter((tab) => matchTab(tab, query));
+    if (filteredTabs.length === 0) {
+      continue;
+    }
+
+    result.push({
+      ...group,
+      tabs: filteredTabs
+    });
+  }
+
+  return result;
 }

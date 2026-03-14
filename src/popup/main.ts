@@ -397,7 +397,6 @@ class PopupApp {
                           ${renderDisabled(this.state.actionBusy)}
                         >
                           <span class="tab-chip-title">${escapeHtml(tab.title || '(no title)')}</span>
-                          <span class="tab-chip-url">${escapeHtml(tab.url)}</span>
                         </button>
                       `
                     )
@@ -414,6 +413,8 @@ class PopupApp {
 
   private render() {
     document.title = 'Tab Saver';
+    const totalTabs = this.totalTabs;
+    const deviceCount = this.deviceCount;
 
     this.root.innerHTML = `
       <main class="shell popup-shell">
@@ -433,11 +434,11 @@ class PopupApp {
             </article>
             <article class="metric-card">
               <p class="metric-label">Tabs</p>
-              <p class="metric-value">${this.totalTabs}</p>
+              <p class="metric-value">${totalTabs}</p>
             </article>
             <article class="metric-card">
               <p class="metric-label">Devices</p>
-              <p class="metric-value">${this.deviceCount}</p>
+              <p class="metric-value">${deviceCount}</p>
             </article>
           </div>
 

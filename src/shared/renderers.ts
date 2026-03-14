@@ -41,7 +41,6 @@ function renderGroupTab(tab: SavedTab, busy: boolean): string {
   return `
     <button class="tab-row" type="button" data-action="open-tab" data-tab-id="${escapeHtml(tab.id)}"${renderDisabled(busy)}>
       <span class="tab-row-title">${escapeHtml(tab.title || '(no title)')}</span>
-      <span class="tab-row-url">${escapeHtml(tab.url)}</span>
     </button>
   `;
 }

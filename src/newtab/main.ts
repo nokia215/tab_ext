@@ -128,6 +128,7 @@ function summarizeGroups(groups: TabGroup[]) {
 class NewtabApp {
   private readonly root: HTMLElement;
   private state = createInitialState();
+  private pendingSearchRenderId: number | null = null;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -152,9 +153,9 @@ class NewtabApp {
       .sort(sortGroups(this.state.sortMode));
   }
 
-  private get visibleExpandedGroupIds() {
+  private getVisibleExpandedGroupIds(groups: TabGroup[]) {
     return this.state.expandedGroupIds.filter((groupId) =>
-      this.filteredGroups.some((group) => group.id === groupId)
+      groups.some((group) => group.id === groupId)
     );
   }
 
@@ -197,9 +198,28 @@ class NewtabApp {
     return `<button class="chip${activeClass}" type="button" data-action="set-group-filter" data-value="${value}">${label}</button>`;
   }
 
+  private cancelPendingSearchRender() {
+    if (this.pendingSearchRenderId !== null) {
+      window.clearTimeout(this.pendingSearchRenderId);
+      this.pendingSearchRenderId = null;
+    }
+  }
+
+  private scheduleSearchRender(focus: FocusState) {
+    this.cancelPendingSearchRender();
+    this.pendingSearchRenderId = window.setTimeout(() => {
+      this.pendingSearchRenderId = null;
+      this.render(focus);
+    }, 120);
+  }
+
   private render(focus?: FocusState) {
+    this.cancelPendingSearchRender();
     document.title = 'Tab Saver Dashboard';
     const pageStatusIsError = this.state.pageStatus.includes('失敗') || this.state.pageStatus === 'データを読み込めませんでした。';
+    const summary = this.summary;
+    const filteredGroups = this.filteredGroups;
+    const visibleExpandedGroupIds = this.getVisibleExpandedGroupIds(filteredGroups);
 
     this.root.innerHTML = `
       <main class="shell page-shell">
@@ -219,19 +239,19 @@ class NewtabApp {
             </article>
             <article class="metric-card">
               <p class="metric-label">Active tabs</p>
-              <p class="metric-value">${this.summary.totalTabs}</p>
+              <p class="metric-value">${summary.totalTabs}</p>
             </article>
             <article class="metric-card">
               <p class="metric-label">Restored</p>
-              <p class="metric-value">${this.summary.restoredTabs}</p>
+              <p class="metric-value">${summary.restoredTabs}</p>
             </article>
             <article class="metric-card">
               <p class="metric-label">Saved only</p>
-              <p class="metric-value">${this.summary.savedTabs}</p>
+              <p class="metric-value">${summary.savedTabs}</p>
             </article>
             <article class="metric-card">
               <p class="metric-label">Devices</p>
-              <p class="metric-value">${this.summary.deviceCount}</p>
+              <p class="metric-value">${summary.deviceCount}</p>
             </article>
           </div>
 
@@ -251,7 +271,7 @@ class NewtabApp {
               <div class="explorer-head">
                 <div>
                   <h2 class="section-title">保存済みグループ</h2>
-                  <p class="section-copy">タブ名・URL・グループ名で横断検索できます。</p>
+                  <p class="section-copy">タブ名とグループ名で横断検索できます。</p>
                 </div>
               </div>
 
@@ -280,16 +300,15 @@ class NewtabApp {
                 ${this.renderFilterButton('all', 'すべて')}
                 ${this.renderFilterButton('saved', '未復元あり')}
                 ${this.renderFilterButton('restored', '復元済みあり')}
-                <div class="result-meta">${this.filteredGroups.length} groups</div>
+                <div class="result-meta">${filteredGroups.length} groups</div>
               </div>
 
               ${renderGroupList({
-                groups: this.filteredGroups,
+                groups: filteredGroups,
                 emptyLabel: 'まだ保存済みグループはありません。',
-                expandedGroupIds: this.visibleExpandedGroupIds,
+                expandedGroupIds: visibleExpandedGroupIds,
                 collapsible: true,
-                busy: this.state.actionBusy,
-                extraActionLabel: 'URL をコピー'
+                busy: this.state.actionBusy
               })}
             </section>
           </div>
@@ -547,15 +566,6 @@ class NewtabApp {
     );
   }
 
-  private async handleCopyGroup(groupId: string) {
-    const group = this.findGroup(groupId);
-    if (!group) return;
-
-    await navigator.clipboard.writeText(group.tabs.map((tab) => tab.url).join('\n'));
-    this.state.pageStatus = `「${group.title ?? '(untitled)'}」のURLをコピーしました。`;
-    this.render();
-  }
-
   private toggleGroup(groupId: string) {
     if (this.state.expandedGroupIds.includes(groupId)) {
       this.state.expandedGroupIds = this.state.expandedGroupIds.filter((value) => value !== groupId);
@@ -575,7 +585,7 @@ class NewtabApp {
     switch (target.name) {
       case 'searchQuery': {
         this.state.searchQuery = target.value;
-        this.render({
+        this.scheduleSearchRender({
           name: 'searchQuery',
           start: target.selectionStart,
           end: target.selectionEnd
@@ -683,13 +693,6 @@ class NewtabApp {
         const tabId = actionTarget.dataset.tabId;
         if (tabId) {
           await this.handleOpenTab(tabId);
-        }
-        break;
-      }
-      case 'copy-group': {
-        const groupId = actionTarget.dataset.groupId;
-        if (groupId) {
-          await this.handleCopyGroup(groupId);
         }
         break;
       }
