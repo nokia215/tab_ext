@@ -5,7 +5,7 @@ function includesQuery(value: string | null | undefined, query: string): boolean
 }
 
 function matchTab(tab: SavedTab, query: string): boolean {
-  return includesQuery(tab.title, query);
+  return includesQuery(tab.title, query) || includesQuery(tab.url, query);
 }
 
 export function filterGroups(groups: TabGroup[], rawQuery: string): TabGroup[] {
@@ -15,7 +15,7 @@ export function filterGroups(groups: TabGroup[], rawQuery: string): TabGroup[] {
   const result: TabGroup[] = [];
 
   for (const group of groups) {
-    if (includesQuery(group.title, query)) {
+    if (includesQuery(group.title, query) || includesQuery(group.device_id, query)) {
       result.push(group);
       continue;
     }

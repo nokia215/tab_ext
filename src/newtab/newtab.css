@@ -115,6 +115,101 @@
   font-size: 0.84rem;
 }
 
+.lightweight-shell {
+  max-width: 960px;
+  padding: 16px 12px 32px;
+  gap: 14px;
+}
+
+.lightweight-hero,
+.lightweight-explorer,
+.lightweight-utility-panel {
+  padding: 18px;
+  border-radius: 22px;
+  display: grid;
+  gap: 14px;
+}
+
+.lightweight-hero-top {
+  display: grid;
+  gap: 14px;
+}
+
+.lightweight-hero h1 {
+  margin: 0 0 10px;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  line-height: 0.96;
+}
+
+.lightweight-hero p {
+  margin: 0;
+}
+
+.lightweight-actions {
+  align-items: flex-start;
+}
+
+.accent-badge {
+  color: var(--accent);
+  border-color: rgba(131, 224, 255, 0.24);
+  background: rgba(131, 224, 255, 0.08);
+}
+
+.lightweight-summary {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mini-metric {
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  display: grid;
+  gap: 6px;
+}
+
+.mini-metric-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.mini-metric-value {
+  font-size: 1.2rem;
+}
+
+.compact-toolbar {
+  align-items: stretch;
+}
+
+.load-more-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lightweight-panel-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.lightweight-panel-stack .save-panel,
+.lightweight-panel-stack .auth-panel,
+.lightweight-panel-stack .config-panel {
+  border-radius: 22px;
+}
+
+.lightweight-settings-grid {
+  display: grid;
+  gap: 14px;
+}
+
 @media (max-width: 980px) {
   .page-shell {
     padding-inline: 16px;
@@ -122,5 +217,32 @@
 
   .workspace-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .lightweight-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lightweight-shell .search-field,
+  .lightweight-shell .compact-field {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .lightweight-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .lightweight-hero,
+  .lightweight-explorer,
+  .lightweight-utility-panel {
+    padding: 16px;
+  }
+
+  .load-more-row {
+    align-items: flex-start;
   }
 }

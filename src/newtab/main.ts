@@ -20,8 +20,16 @@ import {
 } from '../shared/supabase';
 import type { AppConfig, TabGroup } from '../shared/types';
 
+const LIGHTWEIGHT_GROUP_BATCH_SIZE = 12;
+
 type GroupFilter = 'all' | 'saved' | 'restored';
 type SortMode = 'newest' | 'oldest' | 'tabCount';
+type UiMode = 'default' | 'lightweight';
+
+interface RuntimeProfile {
+  isAndroidFirefox: boolean;
+  uiMode: UiMode;
+}
 
 interface NewtabState {
   authStatus: string;
@@ -44,6 +52,10 @@ interface NewtabState {
   config: AppConfig;
   ignoreDomainsText: string;
   ignoreTitlesText: string;
+  uiMode: UiMode;
+  savePanelOpen: boolean;
+  settingsPanelOpen: boolean;
+  visibleGroupCount: number;
 }
 
 interface FocusState {
@@ -52,7 +64,17 @@ interface FocusState {
   end: number | null;
 }
 
-function createInitialState(): NewtabState {
+function detectRuntimeProfile(): RuntimeProfile {
+  const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent;
+  const isAndroidFirefox = userAgent.includes('Android') && userAgent.includes('Firefox/');
+
+  return {
+    isAndroidFirefox,
+    uiMode: isAndroidFirefox ? 'lightweight' : 'default'
+  };
+}
+
+function createInitialState(runtimeProfile: RuntimeProfile): NewtabState {
   return {
     authStatus: '状態を確認しています。',
     saveStatus: '',
@@ -78,7 +100,13 @@ function createInitialState(): NewtabState {
       ignoreTitles: []
     },
     ignoreDomainsText: '',
-    ignoreTitlesText: ''
+    ignoreTitlesText: '',
+    uiMode: runtimeProfile.uiMode,
+    savePanelOpen: false,
+    settingsPanelOpen: false,
+    visibleGroupCount: runtimeProfile.uiMode === 'lightweight'
+      ? LIGHTWEIGHT_GROUP_BATCH_SIZE
+      : Number.MAX_SAFE_INTEGER
   };
 }
 
@@ -127,11 +155,14 @@ function summarizeGroups(groups: TabGroup[]) {
 
 class NewtabApp {
   private readonly root: HTMLElement;
-  private state = createInitialState();
+  private readonly runtimeProfile: RuntimeProfile;
+  private state: NewtabState;
   private pendingSearchRenderId: number | null = null;
 
-  constructor(root: HTMLElement) {
+  constructor(root: HTMLElement, runtimeProfile: RuntimeProfile) {
     this.root = root;
+    this.runtimeProfile = runtimeProfile;
+    this.state = createInitialState(runtimeProfile);
     this.root.addEventListener('click', (event) => {
       void this.handleClick(event);
     });
@@ -147,10 +178,20 @@ class NewtabApp {
     await this.refreshAll();
   }
 
+  private get isLightweightMode() {
+    return this.state.uiMode === 'lightweight';
+  }
+
   private get filteredGroups() {
     return filterGroups(this.state.allGroups, this.state.searchQuery)
       .filter((group) => matchesGroupFilter(group, this.state.groupFilter))
       .sort(sortGroups(this.state.sortMode));
+  }
+
+  private getVisibleGroups(groups: TabGroup[]) {
+    return this.isLightweightMode
+      ? groups.slice(0, this.state.visibleGroupCount)
+      : groups;
   }
 
   private getVisibleExpandedGroupIds(groups: TabGroup[]) {
@@ -198,6 +239,15 @@ class NewtabApp {
     return `<button class="chip${activeClass}" type="button" data-action="set-group-filter" data-value="${value}">${label}</button>`;
   }
 
+  private renderMiniMetric(label: string, value: number) {
+    return `
+      <article class="mini-metric">
+        <span class="mini-metric-label">${escapeHtml(label)}</span>
+        <strong class="mini-metric-value">${value}</strong>
+      </article>
+    `;
+  }
+
   private cancelPendingSearchRender() {
     if (this.pendingSearchRenderId !== null) {
       window.clearTimeout(this.pendingSearchRenderId);
@@ -213,15 +263,37 @@ class NewtabApp {
     }, 120);
   }
 
-  private render(focus?: FocusState) {
-    this.cancelPendingSearchRender();
-    document.title = 'Tab Saver Dashboard';
-    const pageStatusIsError = this.state.pageStatus.includes('失敗') || this.state.pageStatus === 'データを読み込めませんでした。';
-    const summary = this.summary;
-    const filteredGroups = this.filteredGroups;
-    const visibleExpandedGroupIds = this.getVisibleExpandedGroupIds(filteredGroups);
+  private resetVisibleGroupCount() {
+    this.state.visibleGroupCount = this.isLightweightMode
+      ? LIGHTWEIGHT_GROUP_BATCH_SIZE
+      : Number.MAX_SAFE_INTEGER;
+  }
 
-    this.root.innerHTML = `
+  private toggleLightweightPanel(panel: 'save' | 'settings') {
+    if (panel === 'save') {
+      const nextOpen = !this.state.savePanelOpen;
+      this.state.savePanelOpen = nextOpen;
+      if (nextOpen) {
+        this.state.settingsPanelOpen = false;
+      }
+    } else {
+      const nextOpen = !this.state.settingsPanelOpen;
+      this.state.settingsPanelOpen = nextOpen;
+      if (nextOpen) {
+        this.state.savePanelOpen = false;
+      }
+    }
+
+    this.render();
+  }
+
+  private renderDefaultLayout(args: {
+    filteredGroups: TabGroup[];
+    visibleExpandedGroupIds: string[];
+    summary: ReturnType<typeof summarizeGroups>;
+    pageStatusIsError: boolean;
+  }) {
+    return `
       <main class="shell page-shell">
         <section class="masthead panel">
           <div class="headline">
@@ -239,19 +311,19 @@ class NewtabApp {
             </article>
             <article class="metric-card">
               <p class="metric-label">Active tabs</p>
-              <p class="metric-value">${summary.totalTabs}</p>
+              <p class="metric-value">${args.summary.totalTabs}</p>
             </article>
             <article class="metric-card">
               <p class="metric-label">Restored</p>
-              <p class="metric-value">${summary.restoredTabs}</p>
+              <p class="metric-value">${args.summary.restoredTabs}</p>
             </article>
             <article class="metric-card">
               <p class="metric-label">Saved only</p>
-              <p class="metric-value">${summary.savedTabs}</p>
+              <p class="metric-value">${args.summary.savedTabs}</p>
             </article>
             <article class="metric-card">
               <p class="metric-label">Devices</p>
-              <p class="metric-value">${summary.deviceCount}</p>
+              <p class="metric-value">${args.summary.deviceCount}</p>
             </article>
           </div>
 
@@ -263,7 +335,7 @@ class NewtabApp {
           </div>
         </section>
 
-        ${renderStatusBanner(this.state.pageStatus, pageStatusIsError)}
+        ${renderStatusBanner(this.state.pageStatus, args.pageStatusIsError)}
 
         <section class="workspace-grid">
           <div class="primary-column">
@@ -271,7 +343,7 @@ class NewtabApp {
               <div class="explorer-head">
                 <div>
                   <h2 class="section-title">保存済みグループ</h2>
-                  <p class="section-copy">タブ名とグループ名で横断検索できます。</p>
+                  <p class="section-copy">タブ名、URL、グループ名、端末名で横断検索できます。</p>
                 </div>
               </div>
 
@@ -282,7 +354,7 @@ class NewtabApp {
                     name="searchQuery"
                     type="search"
                     value="${escapeHtml(this.state.searchQuery)}"
-                    placeholder="例: docs, supabase, design"
+                    placeholder="例: docs, github.com, Firefox Android"
                   />
                 </label>
 
@@ -300,13 +372,13 @@ class NewtabApp {
                 ${this.renderFilterButton('all', 'すべて')}
                 ${this.renderFilterButton('saved', '未復元あり')}
                 ${this.renderFilterButton('restored', '復元済みあり')}
-                <div class="result-meta">${filteredGroups.length} groups</div>
+                <div class="result-meta">${args.filteredGroups.length} groups</div>
               </div>
 
               ${renderGroupList({
-                groups: filteredGroups,
+                groups: args.filteredGroups,
                 emptyLabel: 'まだ保存済みグループはありません。',
-                expandedGroupIds: visibleExpandedGroupIds,
+                expandedGroupIds: args.visibleExpandedGroupIds,
                 collapsible: true,
                 busy: this.state.actionBusy
               })}
@@ -337,6 +409,196 @@ class NewtabApp {
         </section>
       </main>
     `;
+  }
+
+  private renderLightweightLayout(args: {
+    filteredGroups: TabGroup[];
+    visibleGroups: TabGroup[];
+    visibleExpandedGroupIds: string[];
+    summary: ReturnType<typeof summarizeGroups>;
+    pageStatusIsError: boolean;
+  }) {
+    const remainingCount = Math.max(args.filteredGroups.length - args.visibleGroups.length, 0);
+    const loadMoreLabel = remainingCount > LIGHTWEIGHT_GROUP_BATCH_SIZE
+      ? `さらに ${LIGHTWEIGHT_GROUP_BATCH_SIZE} 件表示`
+      : `残り ${remainingCount} 件を表示`;
+
+    return `
+      <main class="shell page-shell lightweight-shell">
+        <section class="panel lightweight-hero">
+          <div class="lightweight-hero-top">
+            <div>
+              <p class="hero-kicker">Tab Saver Lite</p>
+              <h1>軽量ダッシュボード</h1>
+              <p class="muted">
+                Android 版 Firefox ではスクロールを優先し、描画負荷の低い構成に切り替えています。
+              </p>
+            </div>
+
+            <div class="actions lightweight-actions">
+              <div class="badge accent-badge">Android Firefox 軽量表示</div>
+              <div class="badge">${escapeHtml(this.state.authStatus)}</div>
+              <button class="ghost" type="button" data-action="refresh-all"${this.state.refreshBusy ? ' disabled' : ''}>
+                更新
+              </button>
+            </div>
+          </div>
+
+          <div class="lightweight-summary">
+            ${this.renderMiniMetric('Groups', this.state.allGroups.length)}
+            ${this.renderMiniMetric('Tabs', args.summary.totalTabs)}
+            ${this.renderMiniMetric('Devices', args.summary.deviceCount)}
+          </div>
+        </section>
+
+        ${renderStatusBanner(this.state.pageStatus, args.pageStatusIsError)}
+
+        <section class="panel lightweight-explorer">
+          <div class="explorer-head">
+            <div>
+              <h2 class="section-title">保存済みグループ</h2>
+              <p class="section-copy">検索対象はタブ名、URL、グループ名、端末名です。</p>
+            </div>
+          </div>
+
+          <div class="toolbar compact-toolbar">
+            <label class="field search-field">
+              <span class="field-label">検索</span>
+              <input
+                name="searchQuery"
+                type="search"
+                value="${escapeHtml(this.state.searchQuery)}"
+                placeholder="例: docs, github.com, Firefox Android"
+              />
+            </label>
+
+            <label class="field compact-field">
+              <span class="field-label">並び順</span>
+              <select name="sortMode">
+                <option value="newest"${this.state.sortMode === 'newest' ? ' selected' : ''}>新しい順</option>
+                <option value="oldest"${this.state.sortMode === 'oldest' ? ' selected' : ''}>古い順</option>
+                <option value="tabCount"${this.state.sortMode === 'tabCount' ? ' selected' : ''}>タブ数順</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="filter-row">
+            ${this.renderFilterButton('all', 'すべて')}
+            ${this.renderFilterButton('saved', '未復元あり')}
+            ${this.renderFilterButton('restored', '復元済みあり')}
+            <div class="result-meta">${args.visibleGroups.length} / ${args.filteredGroups.length} groups</div>
+          </div>
+
+          ${renderGroupList({
+            groups: args.visibleGroups,
+            emptyLabel: 'まだ保存済みグループはありません。',
+            expandedGroupIds: args.visibleExpandedGroupIds,
+            collapsible: true,
+            busy: this.state.actionBusy
+          })}
+
+          ${
+            remainingCount > 0
+              ? `
+                <div class="load-more-row">
+                  <button class="secondary" type="button" data-action="show-more-groups">
+                    ${loadMoreLabel}
+                  </button>
+                  <p class="result-meta">${remainingCount} groups remaining</p>
+                </div>
+              `
+              : ''
+          }
+        </section>
+
+        <section class="lightweight-panel-stack">
+          <section class="panel lightweight-utility-panel">
+            <div>
+              <h2 class="section-title">管理パネル</h2>
+              <p class="section-copy">保存や設定は必要なときだけ展開し、スクロール負荷を抑えます。</p>
+            </div>
+
+            <div class="actions">
+              <button
+                class="${this.state.savePanelOpen ? '' : 'secondary'}"
+                type="button"
+                data-action="toggle-save-panel"
+              >
+                ${this.state.savePanelOpen ? '保存パネルを閉じる' : '保存パネルを開く'}
+              </button>
+              <button
+                class="${this.state.settingsPanelOpen ? '' : 'ghost'}"
+                type="button"
+                data-action="toggle-settings-panel"
+              >
+                ${this.state.settingsPanelOpen ? '設定と認証を閉じる' : '設定と認証を開く'}
+              </button>
+            </div>
+          </section>
+
+          ${
+            this.state.savePanelOpen
+              ? renderSavePanel({
+                  title: this.state.groupTitle,
+                  status: this.state.saveStatus,
+                  windowBusy: this.state.saveWindowBusy,
+                  tabBusy: this.state.saveTabBusy
+                })
+              : ''
+          }
+
+          ${
+            this.state.settingsPanelOpen
+              ? `
+                <section class="lightweight-settings-grid">
+                  ${renderAuthPanel({
+                    email: this.state.email,
+                    password: this.state.password,
+                    status: this.state.authStatus,
+                    busy: this.state.authBusy
+                  })}
+                  ${renderConfigPanel({
+                    supabaseUrl: this.state.config.supabaseUrl,
+                    supabaseKey: this.state.config.supabaseKey,
+                    ignoreDomainsText: this.state.ignoreDomainsText,
+                    ignoreTitlesText: this.state.ignoreTitlesText,
+                    busy: this.state.configBusy
+                  })}
+                </section>
+              `
+              : ''
+          }
+        </section>
+      </main>
+    `;
+  }
+
+  private render(focus?: FocusState) {
+    this.cancelPendingSearchRender();
+    document.title = 'Tab Saver Dashboard';
+    document.body.classList.toggle('lightweight-ui', this.isLightweightMode);
+    document.body.classList.toggle('android-firefox-ui', this.runtimeProfile.isAndroidFirefox);
+
+    const pageStatusIsError = this.state.pageStatus.includes('失敗') || this.state.pageStatus === 'データを読み込めませんでした。';
+    const summary = this.summary;
+    const filteredGroups = this.filteredGroups;
+    const visibleGroups = this.getVisibleGroups(filteredGroups);
+    const visibleExpandedGroupIds = this.getVisibleExpandedGroupIds(visibleGroups);
+
+    this.root.innerHTML = this.isLightweightMode
+      ? this.renderLightweightLayout({
+          filteredGroups,
+          visibleGroups,
+          visibleExpandedGroupIds,
+          summary,
+          pageStatusIsError
+        })
+      : this.renderDefaultLayout({
+          filteredGroups,
+          visibleExpandedGroupIds,
+          summary,
+          pageStatusIsError
+        });
 
     if (focus) {
       const next = this.root.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${focus.name}"]`);
@@ -362,6 +624,7 @@ class NewtabApp {
         this.state.pageStatus = '設定が未完了です。';
         this.state.allGroups = [];
         this.state.expandedGroupIds = [];
+        this.resetVisibleGroupCount();
         return;
       }
 
@@ -372,17 +635,20 @@ class NewtabApp {
         this.state.allGroups = [];
         this.state.expandedGroupIds = [];
         this.state.pageStatus = 'ログインすると保存済みグループを表示します。';
+        this.resetVisibleGroupCount();
         return;
       }
 
       this.state.allGroups = await listGroups(false, user.id);
       this.state.expandedGroupIds = [];
       this.state.pageStatus = `${this.state.allGroups.length} グループを表示中`;
+      this.resetVisibleGroupCount();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.state.authStatus = `表示失敗: ${message}`;
       this.state.pageStatus = 'データを読み込めませんでした。';
       this.state.allGroups = [];
+      this.resetVisibleGroupCount();
     } finally {
       this.state.refreshBusy = false;
       this.render();
@@ -567,6 +833,12 @@ class NewtabApp {
   }
 
   private toggleGroup(groupId: string) {
+    if (this.isLightweightMode) {
+      this.state.expandedGroupIds = this.state.expandedGroupIds.includes(groupId) ? [] : [groupId];
+      this.render();
+      return;
+    }
+
     if (this.state.expandedGroupIds.includes(groupId)) {
       this.state.expandedGroupIds = this.state.expandedGroupIds.filter((value) => value !== groupId);
     } else {
@@ -585,6 +857,7 @@ class NewtabApp {
     switch (target.name) {
       case 'searchQuery': {
         this.state.searchQuery = target.value;
+        this.resetVisibleGroupCount();
         this.scheduleSearchRender({
           name: 'searchQuery',
           start: target.selectionStart,
@@ -626,6 +899,7 @@ class NewtabApp {
 
     if (target.name === 'sortMode') {
       this.state.sortMode = target.value as SortMode;
+      this.resetVisibleGroupCount();
       this.render();
     }
   }
@@ -700,10 +974,21 @@ class NewtabApp {
         const value = actionTarget.dataset.value as GroupFilter | undefined;
         if (value) {
           this.state.groupFilter = value;
+          this.resetVisibleGroupCount();
           this.render();
         }
         break;
       }
+      case 'show-more-groups':
+        this.state.visibleGroupCount += LIGHTWEIGHT_GROUP_BATCH_SIZE;
+        this.render();
+        break;
+      case 'toggle-save-panel':
+        this.toggleLightweightPanel('save');
+        break;
+      case 'toggle-settings-panel':
+        this.toggleLightweightPanel('settings');
+        break;
       default:
         break;
     }
@@ -716,5 +1001,6 @@ if (!target) {
   throw new Error('Newtab root element was not found.');
 }
 
-const app = new NewtabApp(target);
+const runtimeProfile = detectRuntimeProfile();
+const app = new NewtabApp(target, runtimeProfile);
 void app.bootstrap();
