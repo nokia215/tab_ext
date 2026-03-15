@@ -1,12 +1,12 @@
 import '../shared/ui.css';
 import '../shared/panels.css';
 import './popup.css';
-import { createTab, getRuntimeUrl } from '../shared/browser-api';
+import { createTab, getRuntimeUrl, runtimeSendMessage } from '../shared/browser-api';
 import { lineListToText, textToLineList } from '../shared/format';
 import { renderDisabled } from '../shared/html';
+import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
 import { renderAuthPanel, renderConfigPanel, renderSavePanel } from '../shared/renderers';
 import { getConfig, getOrCreateDeviceId, saveConfig } from '../shared/storage';
-import { getActiveTab, getCurrentWindowTabs } from '../shared/tabs';
 import {
   getCurrentSessionUser,
   listGroups,
@@ -156,6 +156,30 @@ class PopupApp {
     await this.refreshGroups();
   }
 
+  private async requestCurrentWindowTabs() {
+    const result = await runtimeSendMessage<PopupActionMessage, PopupActionResponse>({
+      type: 'get-current-window-tabs'
+    });
+
+    if (!result?.ok || !('tabs' in result)) {
+      throw new Error(result?.ok ? 'ウィンドウ内のタブ取得に失敗しました。' : result?.error ?? 'ウィンドウ内のタブ取得に失敗しました。');
+    }
+
+    return result.tabs;
+  }
+
+  private async requestActiveTab() {
+    const result = await runtimeSendMessage<PopupActionMessage, PopupActionResponse>({
+      type: 'get-active-tab'
+    });
+
+    if (!result?.ok || !('tab' in result)) {
+      throw new Error(result?.ok ? '現在タブの取得に失敗しました。' : result?.error ?? '現在タブの取得に失敗しました。');
+    }
+
+    return result.tab;
+  }
+
   private async handleSaveConfig() {
     this.state.configBusy = true;
     this.render();
@@ -237,7 +261,7 @@ class PopupApp {
     this.render();
 
     try {
-      await this.saveTabs(await getCurrentWindowTabs());
+      await this.saveTabs(await this.requestCurrentWindowTabs());
     } catch (error) {
       this.state.saveStatus = `保存失敗: ${error instanceof Error ? error.message : String(error)}`;
     } finally {
@@ -253,7 +277,7 @@ class PopupApp {
     this.render();
 
     try {
-      const tab = await getActiveTab();
+      const tab = await this.requestActiveTab();
       if (!tab) throw new Error('現在タブが取得できません。');
       await this.saveTabs([tab]);
     } catch (error) {

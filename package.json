@@ -1,6 +1,6 @@
 {
   "name": "tab_ext",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "ブラウザをまたいだタブ共有を行う拡張機能",
   "private": true,
   "homepage": "https://github.com/nokia215/tab_ext#readme",
@@ -34,7 +34,7 @@
     "sharp": "^0.34.5",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
-    "web-ext": "^9.4.0"
+    "web-ext": "^10.0.0"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",

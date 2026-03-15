@@ -28,6 +28,10 @@ export function createWindow(createData: chrome.windows.CreateData) {
   return ext.windows.create(createData);
 }
 
+export function getLastFocusedWindow(queryOptions?: chrome.windows.QueryOptions) {
+  return ext.windows.getLastFocused(queryOptions);
+}
+
 export function getRuntimeUrl(path: string) {
   return ext.runtime.getURL(path);
 }
