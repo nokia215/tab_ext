@@ -1,10 +1,9 @@
 import '../shared/ui.css';
 import '../shared/panels.css';
 import './popup.css';
-import { createTab, getRuntimeUrl, runtimeSendMessage } from '../shared/browser-api';
-import { formatDate, lineListToText, textToLineList } from '../shared/format';
-import { escapeHtml, renderDisabled, renderStatusBanner } from '../shared/html';
-import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
+import { createTab, getRuntimeUrl } from '../shared/browser-api';
+import { lineListToText, textToLineList } from '../shared/format';
+import { renderDisabled } from '../shared/html';
 import { renderAuthPanel, renderConfigPanel, renderSavePanel } from '../shared/renderers';
 import { getConfig, getOrCreateDeviceId, saveConfig } from '../shared/storage';
 import { getActiveTab, getCurrentWindowTabs } from '../shared/tabs';
@@ -21,7 +20,6 @@ import type { AppConfig, TabGroup } from '../shared/types';
 interface PopupState {
   authStatus: string;
   saveStatus: string;
-  actionStatus: string;
   allGroups: TabGroup[];
   email: string;
   password: string;
@@ -31,7 +29,6 @@ interface PopupState {
   refreshBusy: boolean;
   saveWindowBusy: boolean;
   saveTabBusy: boolean;
-  actionBusy: boolean;
   settingsOpen: boolean;
   config: AppConfig;
   ignoreDomainsText: string;
@@ -42,7 +39,6 @@ function createInitialState(): PopupState {
   return {
     authStatus: '状態を確認しています。',
     saveStatus: '',
-    actionStatus: '',
     allGroups: [],
     email: '',
     password: '',
@@ -52,7 +48,6 @@ function createInitialState(): PopupState {
     refreshBusy: false,
     saveWindowBusy: false,
     saveTabBusy: false,
-    actionBusy: false,
     settingsOpen: false,
     config: {
       supabaseUrl: '',
@@ -104,10 +99,6 @@ class PopupApp {
     return new Set(this.state.allGroups.map((group) => group.device_id)).size;
   }
 
-  private get recentGroups() {
-    return this.state.allGroups.slice(0, 5);
-  }
-
   private setConfigFields(next: AppConfig) {
     this.state.config = next;
     this.state.ignoreDomainsText = lineListToText(next.ignoreDomains);
@@ -151,21 +142,6 @@ class PopupApp {
       console.error('refreshGroups failed', error);
       this.state.allGroups = [];
     }
-  }
-
-  private findGroup(groupId: string) {
-    return this.state.allGroups.find((group) => group.id === groupId);
-  }
-
-  private findTab(tabId: string) {
-    for (const group of this.state.allGroups) {
-      const tab = group.tabs.find((item) => item.id === tabId);
-      if (tab) {
-        return { group, tab };
-      }
-    }
-
-    return null;
   }
 
   private async saveTabs(tabs: chrome.tabs.Tab[]) {
@@ -305,112 +281,6 @@ class PopupApp {
     await createTab({ url: getRuntimeUrl('newtab.html'), active: true });
   }
 
-  private async runPopupAction(message: PopupActionMessage, successMessage: string) {
-    if (this.state.actionBusy) return;
-
-    this.state.actionBusy = true;
-    this.state.actionStatus = '';
-    this.render();
-
-    try {
-      const result = await runtimeSendMessage<PopupActionMessage, PopupActionResponse>(message);
-      if (!result?.ok) {
-        throw new Error(result?.error ?? '操作に失敗しました。');
-      }
-
-      this.state.actionStatus = successMessage;
-      await this.refreshGroups();
-    } catch (error) {
-      this.state.actionStatus = `操作失敗: ${error instanceof Error ? error.message : String(error)}`;
-    } finally {
-      this.state.actionBusy = false;
-      this.render();
-    }
-  }
-
-  private async handleRestoreGroup(groupId: string) {
-    const group = this.findGroup(groupId);
-    if (!group) return;
-
-    await this.runPopupAction(
-      {
-        type: 'restore-group',
-        groupId: group.id,
-        urls: group.tabs.map((tab) => tab.url)
-      },
-      `「${group.title ?? '(untitled)'}」を復元しました。`
-    );
-  }
-
-  private async handleOpenSavedTab(tabId: string) {
-    const resolved = this.findTab(tabId);
-    if (!resolved) return;
-
-    await this.runPopupAction(
-      {
-        type: 'open-saved-tab',
-        tabId: resolved.tab.id,
-        url: resolved.tab.url
-      },
-      `「${resolved.group.title ?? '(untitled)'}」からタブを開きました。`
-    );
-  }
-
-  private renderRecentGroups(): string {
-    if (this.recentGroups.length === 0) {
-      return '<div class="empty-mini">まだ保存済みグループはありません。</div>';
-    }
-
-    return `
-      <div class="recent-list">
-        ${this.recentGroups
-          .map((group) => {
-            const tabs = group.tabs.slice(0, 3);
-            const moreCount = group.tabs.length - tabs.length;
-
-            return `
-              <article class="recent-item">
-                <div class="recent-main">
-                  <h3>${escapeHtml(group.title ?? '(untitled)')}</h3>
-                  <p>${escapeHtml(formatDate(group.created_at))} · ${group.tabs.length} tabs · ${escapeHtml(group.device_id)}</p>
-                </div>
-                <div class="recent-actions">
-                  <button
-                    class="secondary"
-                    type="button"
-                    data-action="restore-group"
-                    data-group-id="${escapeHtml(group.id)}"
-                    ${renderDisabled(this.state.actionBusy)}
-                  >
-                    全部復元
-                  </button>
-                </div>
-                <div class="recent-tabs">
-                  ${tabs
-                    .map(
-                      (tab) => `
-                        <button
-                          class="tab-chip"
-                          type="button"
-                          data-action="open-saved-tab"
-                          data-tab-id="${escapeHtml(tab.id)}"
-                          ${renderDisabled(this.state.actionBusy)}
-                        >
-                          <span class="tab-chip-title">${escapeHtml(tab.title || '(no title)')}</span>
-                        </button>
-                      `
-                    )
-                    .join('')}
-                  ${moreCount > 0 ? `<p class="more-tabs">ほか ${moreCount} 件はダッシュボードで操作</p>` : ''}
-                </div>
-              </article>
-            `;
-          })
-          .join('')}
-      </div>
-    `;
-  }
-
   private render() {
     document.title = 'Tab Saver';
     const totalTabs = this.totalTabs;
@@ -456,16 +326,6 @@ class PopupApp {
           windowBusy: this.state.saveWindowBusy,
           tabBusy: this.state.saveTabBusy
         })}
-
-        <section class="panel recent-panel">
-          <div>
-            <h2 class="section-title">最近の保存</h2>
-            <p class="section-copy">popup から最近の保存をすぐ復元できます。重い整理や検索はダッシュボードで行います。</p>
-          </div>
-          ${renderStatusBanner(this.state.actionStatus, this.state.actionStatus.startsWith('操作失敗'))}
-          ${this.renderRecentGroups()}
-          <button class="secondary" type="button" data-action="open-dashboard">詳細はダッシュボードで開く</button>
-        </section>
 
         <details class="settings-wrap"${this.state.settingsOpen ? ' open' : ''}>
           <summary>設定と認証</summary>
@@ -572,20 +432,6 @@ class PopupApp {
       case 'sign-out':
         await this.handleSignOut();
         break;
-      case 'restore-group': {
-        const groupId = actionTarget.dataset.groupId;
-        if (groupId) {
-          await this.handleRestoreGroup(groupId);
-        }
-        break;
-      }
-      case 'open-saved-tab': {
-        const tabId = actionTarget.dataset.tabId;
-        if (tabId) {
-          await this.handleOpenSavedTab(tabId);
-        }
-        break;
-      }
       default:
         break;
     }

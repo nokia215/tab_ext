@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getConfig } from './storage';
 import { storageLocalGet, storageLocalRemove, storageLocalSet } from './browser-api';
+import { isSavableTabUrl } from './tabs';
 import type { TabGroup } from './types';
 
 function createExtensionStorageAdapter() {
@@ -109,10 +110,8 @@ export async function filterSavableTabs(tabs: chrome.tabs.Tab[]): Promise<chrome
   const config = await getConfig();
 
   return tabs
-    .filter((tab) => !!tab.url)
+    .filter((tab) => isSavableTabUrl(tab.url))
     .filter((tab) => !tab.pinned)
-    .filter((tab) => !tab.url!.startsWith('chrome://'))
-    .filter((tab) => !tab.url!.startsWith('about:'))
     .filter((tab) => !shouldIgnoreTab(tab, config.ignoreDomains, config.ignoreTitles));
 }
 

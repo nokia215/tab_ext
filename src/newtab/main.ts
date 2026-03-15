@@ -138,6 +138,15 @@ class NewtabApp {
       : Number.MAX_SAFE_INTEGER;
   }
 
+  private reconcileExpandedGroupIds(groups: TabGroup[]) {
+    const groupIds = new Set(groups.map((group) => group.id));
+    const expandedGroupIds = this.state.expandedGroupIds.filter((groupId) => groupIds.has(groupId));
+
+    this.state.expandedGroupIds = this.isLightweightMode
+      ? expandedGroupIds.slice(0, 1)
+      : expandedGroupIds;
+  }
+
   private toggleLightweightPanel(panel: 'save' | 'settings') {
     if (panel === 'save') {
       const nextOpen = !this.state.savePanelOpen;
@@ -214,8 +223,10 @@ class NewtabApp {
         return;
       }
 
+      const expandedGroupIds = [...this.state.expandedGroupIds];
       this.state.allGroups = await listGroups(false, user.id);
-      this.state.expandedGroupIds = [];
+      this.state.expandedGroupIds = expandedGroupIds;
+      this.reconcileExpandedGroupIds(this.state.allGroups);
       this.state.pageStatus = `${this.state.allGroups.length} グループを表示中`;
       this.resetVisibleGroupCount();
     } catch (error) {
