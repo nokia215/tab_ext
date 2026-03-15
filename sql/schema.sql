@@ -26,6 +26,9 @@ create index if not exists idx_tab_groups_user_created_at
 create index if not exists idx_tabs_group_position
   on public.tabs(group_id, position);
 
+create index if not exists tabs_group_id_idx
+  on public.tabs using btree (group_id);
+
 alter table public.tab_groups enable row level security;
 alter table public.tabs enable row level security;
 
