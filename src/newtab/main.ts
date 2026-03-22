@@ -6,6 +6,7 @@ import { lineListToText, textToLineList } from '../shared/format';
 import { importTabGroups } from '../shared/import';
 import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
 import { filterGroups } from '../shared/search';
+import { formatImportStatus, getErrorMessage, isErrorStatus } from '../shared/status';
 import { getConfig, getOrCreateDeviceId, saveConfig } from '../shared/storage';
 import {
   deleteGroup,
@@ -72,7 +73,7 @@ class NewtabApp {
   }
 
   private get pageStatusIsError() {
-    return this.state.pageStatus.includes('失敗') || this.state.pageStatus === 'データを読み込めませんでした。';
+    return isErrorStatus(this.state.pageStatus);
   }
 
   private getVisibleGroups(groups: TabGroup[]) {
@@ -230,7 +231,7 @@ class NewtabApp {
       this.state.pageStatus = `${this.state.allGroups.length} グループを表示中`;
       this.resetVisibleGroupCount();
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       this.state.authStatus = `表示失敗: ${message}`;
       this.state.pageStatus = 'データを読み込めませんでした。';
       this.state.allGroups = [];
@@ -256,7 +257,7 @@ class NewtabApp {
       this.state.pageStatus = successMessage;
       await this.refreshAll();
     } catch (error) {
-      this.state.pageStatus = `操作失敗: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.pageStatus = `操作失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.actionBusy = false;
       this.render();
@@ -288,12 +289,10 @@ class NewtabApp {
       });
 
       this.state.importText = '';
-      this.state.saveStatus = skippedLineCount > 0
-        ? `${importedGroupCount} グループ / ${importedTabCount} 件をインポートしました。${skippedLineCount} 行はスキップしました。`
-        : `${importedGroupCount} グループ / ${importedTabCount} 件をインポートしました。`;
+      this.state.saveStatus = formatImportStatus(importedGroupCount, importedTabCount, skippedLineCount);
       await this.refreshAll();
     } catch (error) {
-      this.state.saveStatus = `インポート失敗: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.saveStatus = `インポート失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.importBusy = false;
       this.render();
@@ -335,7 +334,7 @@ class NewtabApp {
       this.state.pageStatus = '設定を保存しました。';
       await this.refreshAll();
     } catch (error) {
-      this.state.pageStatus = `設定保存失敗: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.pageStatus = `設定保存失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.configBusy = false;
       this.render();
@@ -354,7 +353,7 @@ class NewtabApp {
         : '登録しました。';
       await this.refreshAll();
     } catch (error) {
-      this.state.authStatus = `登録失敗: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.authStatus = `登録失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.authBusy = false;
       this.render();
@@ -371,7 +370,7 @@ class NewtabApp {
       this.state.authStatus = 'ログインしました。';
       await this.refreshAll();
     } catch (error) {
-      this.state.authStatus = `ログイン失敗: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.authStatus = `ログイン失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.authBusy = false;
       this.render();
@@ -388,7 +387,7 @@ class NewtabApp {
       this.state.authStatus = 'ログアウトしました。';
       await this.refreshAll();
     } catch (error) {
-      this.state.authStatus = `ログアウト失敗: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.authStatus = `ログアウト失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.authBusy = false;
       this.render();
@@ -404,7 +403,7 @@ class NewtabApp {
     try {
       await this.saveTabs(await this.requestCurrentWindowTabs());
     } catch (error) {
-      this.state.saveStatus = `保存失敗: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.saveStatus = `保存失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.saveWindowBusy = false;
       this.render();
@@ -422,7 +421,7 @@ class NewtabApp {
       if (!tab) throw new Error('現在タブが取得できません。');
       await this.saveTabs([tab]);
     } catch (error) {
-      this.state.saveStatus = `保存失敗: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.saveStatus = `保存失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.saveTabBusy = false;
       this.render();
@@ -448,7 +447,7 @@ class NewtabApp {
       await deleteGroup(groupId);
       await this.refreshAll();
     } catch (error) {
-      this.state.pageStatus = `削除失敗: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.pageStatus = `削除失敗: ${getErrorMessage(error)}`;
       this.render();
     }
   }

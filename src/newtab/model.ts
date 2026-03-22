@@ -1,3 +1,5 @@
+import type { GroupCollectionSummary } from '../shared/group-summary';
+import { summarizeGroupCollection } from '../shared/group-summary';
 import type { AppConfig, TabGroup } from '../shared/types';
 
 export const LIGHTWEIGHT_GROUP_BATCH_SIZE = 12;
@@ -44,13 +46,6 @@ export interface FocusState {
   name: string;
   start: number | null;
   end: number | null;
-}
-
-export interface GroupSummary {
-  totalTabs: number;
-  restoredTabs: number;
-  savedTabs: number;
-  deviceCount: number;
 }
 
 export function detectRuntimeProfile(): RuntimeProfile {
@@ -120,26 +115,8 @@ export function sortGroups(mode: SortMode) {
   };
 }
 
+export type GroupSummary = GroupCollectionSummary;
+
 export function summarizeGroups(groups: TabGroup[]): GroupSummary {
-  let totalTabs = 0;
-  let restoredTabs = 0;
-  let savedTabs = 0;
-  const devices = new Set<string>();
-
-  for (const group of groups) {
-    devices.add(group.device_id);
-
-    for (const tab of group.tabs) {
-      totalTabs += 1;
-      if (tab.status === 'restored') restoredTabs += 1;
-      if (tab.status === 'saved') savedTabs += 1;
-    }
-  }
-
-  return {
-    totalTabs,
-    restoredTabs,
-    savedTabs,
-    deviceCount: devices.size
-  };
+  return summarizeGroupCollection(groups);
 }

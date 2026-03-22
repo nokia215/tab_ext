@@ -17,6 +17,20 @@
     var(--panel-strong);
 }
 
+.masthead-layout {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.masthead-side {
+  display: grid;
+  gap: 12px;
+  justify-items: end;
+}
+
 .headline h1 {
   margin: 0 0 12px;
   max-width: 12ch;
@@ -40,6 +54,35 @@
 
 .masthead-metrics {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.overview-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.overview-card {
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.overview-card-accent {
+  background: linear-gradient(135deg, rgba(131, 224, 255, 0.16), rgba(255, 255, 255, 0.04));
+  border-color: rgba(131, 224, 255, 0.22);
+}
+
+.overview-card h3 {
+  margin: 0 0 8px;
+  font-size: 0.98rem;
+}
+
+.overview-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 .workspace-grid {
@@ -217,6 +260,10 @@
 
   .workspace-grid {
     grid-template-columns: 1fr;
+  }
+
+  .masthead-side {
+    justify-items: start;
   }
 }
 

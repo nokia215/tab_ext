@@ -3,10 +3,10 @@ import '../shared/panels.css';
 import './popup.css';
 import { createTab, getRuntimeUrl, runtimeSendMessage } from '../shared/browser-api';
 import { lineListToText, textToLineList } from '../shared/format';
-import { renderDisabled } from '../shared/html';
+import { summarizeGroupCollection } from '../shared/group-summary';
 import { importTabGroups } from '../shared/import';
 import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
-import { renderAuthPanel, renderConfigPanel, renderSavePanel } from '../shared/renderers';
+import { formatImportStatus, getErrorMessage } from '../shared/status';
 import { getConfig, getOrCreateDeviceId, saveConfig } from '../shared/storage';
 import {
   getCurrentSessionUser,
@@ -16,58 +16,13 @@ import {
   signOut,
   signUp
 } from '../shared/supabase';
-import type { AppConfig, TabGroup } from '../shared/types';
-
-interface PopupState {
-  authStatus: string;
-  saveStatus: string;
-  allGroups: TabGroup[];
-  email: string;
-  password: string;
-  groupTitle: string;
-  importText: string;
-  configBusy: boolean;
-  authBusy: boolean;
-  refreshBusy: boolean;
-  saveWindowBusy: boolean;
-  saveTabBusy: boolean;
-  importBusy: boolean;
-  settingsOpen: boolean;
-  config: AppConfig;
-  ignoreDomainsText: string;
-  ignoreTitlesText: string;
-}
-
-function createInitialState(): PopupState {
-  return {
-    authStatus: '状態を確認しています。',
-    saveStatus: '',
-    allGroups: [],
-    email: '',
-    password: '',
-    groupTitle: '',
-    importText: '',
-    configBusy: false,
-    authBusy: false,
-    refreshBusy: false,
-    saveWindowBusy: false,
-    saveTabBusy: false,
-    importBusy: false,
-    settingsOpen: false,
-    config: {
-      supabaseUrl: '',
-      supabaseKey: '',
-      ignoreDomains: [],
-      ignoreTitles: []
-    },
-    ignoreDomainsText: '',
-    ignoreTitlesText: ''
-  };
-}
+import type { AppConfig } from '../shared/types';
+import { createInitialPopupState, type PopupState } from './model';
+import { renderPopupView } from './view';
 
 class PopupApp {
   private readonly root: HTMLElement;
-  private state = createInitialState();
+  private state = createInitialPopupState();
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -96,12 +51,16 @@ class PopupApp {
     }
   }
 
-  private get totalTabs() {
-    return this.state.allGroups.reduce((sum, group) => sum + group.tabs.length, 0);
+  private get summary() {
+    return summarizeGroupCollection(this.state.allGroups);
   }
 
-  private get deviceCount() {
-    return new Set(this.state.allGroups.map((group) => group.device_id)).size;
+  private get setupComplete() {
+    return Boolean(this.state.config.supabaseUrl && this.state.config.supabaseKey);
+  }
+
+  private get signedIn() {
+    return this.state.authStatus.startsWith('ログイン中:');
   }
 
   private setConfigFields(next: AppConfig) {
@@ -124,7 +83,7 @@ class PopupApp {
       const user = await getCurrentSessionUser();
       this.state.authStatus = user ? `ログイン中: ${user.email}` : '未ログイン';
     } catch (error) {
-      this.state.authStatus = `状態確認失敗: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.authStatus = `状態確認失敗: ${getErrorMessage(error)}`;
     }
   }
 
@@ -174,12 +133,10 @@ class PopupApp {
       });
 
       this.state.importText = '';
-      this.state.saveStatus = skippedLineCount > 0
-        ? `${importedGroupCount} グループ / ${importedTabCount} 件をインポートしました。${skippedLineCount} 行はスキップしました。`
-        : `${importedGroupCount} グループ / ${importedTabCount} 件をインポートしました。`;
+      this.state.saveStatus = formatImportStatus(importedGroupCount, importedTabCount, skippedLineCount);
       await this.refreshGroups();
     } catch (error) {
-      this.state.saveStatus = `インポート失敗: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.saveStatus = `インポート失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.importBusy = false;
       this.render();
@@ -222,7 +179,7 @@ class PopupApp {
       await this.refreshAuthStatus();
       await this.refreshGroups();
     } catch (error) {
-      this.state.authStatus = `設定保存失敗: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.authStatus = `設定保存失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.configBusy = false;
       this.render();
@@ -241,7 +198,7 @@ class PopupApp {
         : '登録しました。';
       await this.refreshAuthStatus();
     } catch (error) {
-      this.state.authStatus = `登録失敗: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.authStatus = `登録失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.authBusy = false;
       this.render();
@@ -259,7 +216,7 @@ class PopupApp {
       await this.refreshAuthStatus();
       await this.refreshGroups();
     } catch (error) {
-      this.state.authStatus = `ログイン失敗: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.authStatus = `ログイン失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.authBusy = false;
       this.render();
@@ -277,7 +234,7 @@ class PopupApp {
       await this.refreshAuthStatus();
       await this.refreshGroups();
     } catch (error) {
-      this.state.authStatus = `ログアウト失敗: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.authStatus = `ログアウト失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.authBusy = false;
       this.render();
@@ -293,7 +250,7 @@ class PopupApp {
     try {
       await this.saveTabs(await this.requestCurrentWindowTabs());
     } catch (error) {
-      this.state.saveStatus = `保存失敗: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.saveStatus = `保存失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.saveWindowBusy = false;
       this.render();
@@ -311,7 +268,7 @@ class PopupApp {
       if (!tab) throw new Error('現在タブが取得できません。');
       await this.saveTabs([tab]);
     } catch (error) {
-      this.state.saveStatus = `保存失敗: ${error instanceof Error ? error.message : String(error)}`;
+      this.state.saveStatus = `保存失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.saveTabBusy = false;
       this.render();
@@ -337,72 +294,12 @@ class PopupApp {
 
   private render() {
     document.title = 'Tab Saver';
-    const totalTabs = this.totalTabs;
-    const deviceCount = this.deviceCount;
-
-    this.root.innerHTML = `
-      <main class="shell popup-shell">
-        <section class="hero panel">
-          <div class="hero-copy">
-            <p class="hero-kicker">Tab Saver</p>
-            <h1>ワンクリックで作業中のタブ群を退避</h1>
-            <p class="muted">
-              現在のウィンドウをスナップショット化し、別ブラウザや別マシンから復元できます。
-            </p>
-          </div>
-
-          <div class="metric-grid hero-metrics">
-            <article class="metric-card">
-              <p class="metric-label">Groups</p>
-              <p class="metric-value">${this.state.allGroups.length}</p>
-            </article>
-            <article class="metric-card">
-              <p class="metric-label">Tabs</p>
-              <p class="metric-value">${totalTabs}</p>
-            </article>
-            <article class="metric-card">
-              <p class="metric-label">Devices</p>
-              <p class="metric-value">${deviceCount}</p>
-            </article>
-          </div>
-
-          <div class="actions">
-            <button class="secondary" type="button" data-action="open-dashboard">ダッシュボードを開く</button>
-            <button class="ghost" type="button" data-action="refresh"${renderDisabled(this.state.refreshBusy)}>
-              更新
-            </button>
-          </div>
-        </section>
-
-        ${renderSavePanel({
-          title: this.state.groupTitle,
-          status: this.state.saveStatus,
-          windowBusy: this.state.saveWindowBusy,
-          tabBusy: this.state.saveTabBusy,
-          importText: this.state.importText,
-          importBusy: this.state.importBusy
-        })}
-
-        <details class="settings-wrap"${this.state.settingsOpen ? ' open' : ''}>
-          <summary>設定と認証</summary>
-          <div class="settings-grid">
-            ${renderConfigPanel({
-              supabaseUrl: this.state.config.supabaseUrl,
-              supabaseKey: this.state.config.supabaseKey,
-              ignoreDomainsText: this.state.ignoreDomainsText,
-              ignoreTitlesText: this.state.ignoreTitlesText,
-              busy: this.state.configBusy
-            })}
-            ${renderAuthPanel({
-              email: this.state.email,
-              password: this.state.password,
-              status: this.state.authStatus,
-              busy: this.state.authBusy
-            })}
-          </div>
-        </details>
-      </main>
-    `;
+    this.root.innerHTML = renderPopupView({
+      state: this.state,
+      summary: this.summary,
+      setupComplete: this.setupComplete,
+      signedIn: this.signedIn
+    });
   }
 
   private handleInput(event: Event) {

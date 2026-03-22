@@ -168,6 +168,10 @@ textarea {
   gap: 10px;
 }
 
+.success-text {
+  color: #8ff7c4;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

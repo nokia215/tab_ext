@@ -39,10 +39,32 @@ function isExpanded(group: TabGroup, expandedGroupIds: string[], collapsible: bo
   return !collapsible || expandedGroupIds.includes(group.id);
 }
 
+function formatHostname(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
+function renderTabStatus(status: SavedTab['status']): string {
+  const labels = {
+    saved: '未復元',
+    restored: '復元済み',
+    archived: '保管済み'
+  } as const;
+
+  return `<span class="tab-status tab-status-${status}">${labels[status]}</span>`;
+}
+
 function renderGroupTab(tab: SavedTab, busy: boolean): string {
   return `
     <button class="tab-row" type="button" data-action="open-tab" data-tab-id="${escapeHtml(tab.id)}"${renderDisabled(busy)}>
       <span class="tab-row-title">${escapeHtml(tab.title || '(no title)')}</span>
+      <span class="tab-row-meta">
+        <span class="tab-row-url">${escapeHtml(formatHostname(tab.url))}</span>
+        ${renderTabStatus(tab.status)}
+      </span>
     </button>
   `;
 }
@@ -56,7 +78,7 @@ export function renderSavePanel(view: SavePanelView): string {
         <div>
           <p class="eyebrow">Capture</p>
           <h2 class="section-title">今の作業をスナップショット化</h2>
-          <p class="section-copy">ウィンドウ全体か、選択中のタブだけを保存できます。</p>
+          <p class="section-copy">ウィンドウ全体、1タブ単位、テキスト貼り付けの3通りで保存できます。</p>
         </div>
       </div>
 
@@ -103,6 +125,7 @@ export function renderAuthPanel(view: AuthPanelView): string {
         <div>
           <p class="eyebrow">Account</p>
           <h2 class="section-title">Supabase 認証</h2>
+          <p class="section-copy">設定保存後にログインすると、保存済みグループを端末間で同期できます。</p>
         </div>
         <div class="badge">Sync ready</div>
       </div>
@@ -233,7 +256,11 @@ export function renderGroupList(view: GroupListView): string {
               >
                 <div class="group-text">
                   <h3>${escapeHtml(group.title ?? '(untitled)')}</h3>
-                  <p>${escapeHtml(formatDate(group.created_at))} · ${group.tabs.length} tabs · ${escapeHtml(group.device_id)}</p>
+                  <p>${escapeHtml(formatDate(group.created_at))}</p>
+                  <div class="group-meta">
+                    <span class="meta-pill">${group.tabs.length} tabs</span>
+                    <span class="meta-pill">${escapeHtml(group.device_id)}</span>
+                  </div>
                 </div>
                 <span class="indicator">${expanded ? '−' : '+'}</span>
               </button>
@@ -242,7 +269,11 @@ export function renderGroupList(view: GroupListView): string {
               <div class="group-trigger static-header">
                 <div class="group-text">
                   <h3>${escapeHtml(group.title ?? '(untitled)')}</h3>
-                  <p>${escapeHtml(formatDate(group.created_at))} · ${group.tabs.length} tabs · ${escapeHtml(group.device_id)}</p>
+                  <p>${escapeHtml(formatDate(group.created_at))}</p>
+                  <div class="group-meta">
+                    <span class="meta-pill">${group.tabs.length} tabs</span>
+                    <span class="meta-pill">${escapeHtml(group.device_id)}</span>
+                  </div>
                 </div>
               </div>
             `;

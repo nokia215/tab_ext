@@ -43,22 +43,73 @@ function renderMiniMetric(label: string, value: number) {
   `;
 }
 
+function renderOverviewCard(title: string, body: string, tone: 'default' | 'accent' = 'default') {
+  return `
+    <article class="overview-card${tone === 'accent' ? ' overview-card-accent' : ''}">
+      <h3>${escapeHtml(title)}</h3>
+      <p>${escapeHtml(body)}</p>
+    </article>
+  `;
+}
+
+function renderNextSteps(state: NewtabState, summary: GroupSummary) {
+  const cards: string[] = [];
+
+  const setupComplete = Boolean(state.config.supabaseUrl && state.config.supabaseKey);
+  const signedIn = state.authStatus.startsWith('ログイン中:');
+
+  cards.push(
+    renderOverviewCard(
+      '接続設定',
+      setupComplete ? '保存済みです。同期先の Supabase に接続できます。' : '未設定です。まずは Project URL と anon key を保存してください。',
+      setupComplete ? 'accent' : 'default'
+    )
+  );
+
+  cards.push(
+    renderOverviewCard(
+      'ログイン状態',
+      signedIn ? 'ログイン済みです。この端末から保存・復元・一覧確認ができます。' : '未ログインです。設定保存後にログインすると一覧を取得できます。'
+    )
+  );
+
+  cards.push(
+    renderOverviewCard(
+      '復元待ち',
+      summary.restorableGroupCount > 0
+        ? `${summary.restorableGroupCount} グループに未復元タブがあります。検索からすぐ絞り込めます。`
+        : 'いま未復元のグループはありません。必要な作業はほぼ同期済みです。'
+    )
+  );
+
+  return cards.join('');
+}
+
 function renderDefaultLayout(args: DefaultLayoutArgs) {
   return `
     <main class="shell page-shell">
       <section class="masthead panel">
-        <div class="headline">
-          <p class="hero-kicker">Shared Workspace</p>
-          <h1>ブラウザをまたいで、タブ作業をそのまま引き継ぐ</h1>
-          <p class="muted">
-            保存、検索、復元、整理を 1 画面に集約したダッシュボードです。現在の状態を確認しながら次の作業へ移れます。
-          </p>
+        <div class="masthead-layout">
+          <div class="headline">
+            <p class="hero-kicker">Shared Workspace</p>
+            <h1>ブラウザをまたいで、タブ作業をそのまま引き継ぐ</h1>
+            <p class="muted">
+              保存、検索、復元、整理を 1 画面に集約したダッシュボードです。現在の状態を確認しながら次の作業へ移れます。
+            </p>
+          </div>
+
+          <div class="masthead-side">
+            <div class="badge">${escapeHtml(args.state.authStatus)}</div>
+            <button class="ghost" type="button" data-action="refresh-all"${args.state.refreshBusy ? ' disabled' : ''}>
+              更新
+            </button>
+          </div>
         </div>
 
         <div class="metric-grid masthead-metrics">
           <article class="metric-card">
             <p class="metric-label">Saved groups</p>
-            <p class="metric-value">${args.state.allGroups.length}</p>
+            <p class="metric-value">${args.summary.groupCount}</p>
           </article>
           <article class="metric-card">
             <p class="metric-label">Active tabs</p>
@@ -78,11 +129,8 @@ function renderDefaultLayout(args: DefaultLayoutArgs) {
           </article>
         </div>
 
-        <div class="actions">
-          <div class="badge">${escapeHtml(args.state.authStatus)}</div>
-          <button class="ghost" type="button" data-action="refresh-all"${args.state.refreshBusy ? ' disabled' : ''}>
-            更新
-          </button>
+        <div class="overview-grid">
+          ${renderNextSteps(args.state, args.summary)}
         </div>
       </section>
 
@@ -123,7 +171,7 @@ function renderDefaultLayout(args: DefaultLayoutArgs) {
               ${renderFilterButton(args.state.groupFilter, 'all', 'すべて')}
               ${renderFilterButton(args.state.groupFilter, 'saved', '未復元あり')}
               ${renderFilterButton(args.state.groupFilter, 'restored', '復元済みあり')}
-              <div class="result-meta">${args.filteredGroups.length} groups</div>
+              <div class="result-meta">${args.filteredGroups.length} groups / ${args.summary.totalTabs} tabs</div>
             </div>
 
             ${renderGroupList({
@@ -191,8 +239,8 @@ function renderLightweightLayout(args: LightweightLayoutArgs) {
           </div>
         </div>
 
-        <div class="lightweight-summary">
-          ${renderMiniMetric('Groups', args.state.allGroups.length)}
+          <div class="lightweight-summary">
+          ${renderMiniMetric('Groups', args.summary.groupCount)}
           ${renderMiniMetric('Tabs', args.summary.totalTabs)}
           ${renderMiniMetric('Devices', args.summary.deviceCount)}
         </div>

@@ -1,6 +1,17 @@
+body {
+  width: 420px;
+  min-width: 420px;
+  max-width: 420px;
+}
+
+#app {
+  min-height: 100%;
+}
+
 .popup-shell {
   width: 420px;
-  min-height: 100vh;
+  max-width: 420px;
+  min-height: 100%;
   padding: 18px;
   display: grid;
   gap: 16px;
@@ -17,6 +28,16 @@
   background:
     linear-gradient(135deg, rgba(131, 224, 255, 0.14), transparent 46%),
     var(--panel-strong);
+}
+
+.hero-layout {
+  display: grid;
+  gap: 16px;
+}
+
+.hero-status {
+  display: grid;
+  gap: 12px;
 }
 
 .hero-kicker {
@@ -42,6 +63,31 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.popup-overview {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.insight-card {
+  padding: 14px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.insight-label {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.insight-value {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
 .settings-wrap {
   border: 1px solid var(--line);
   border-radius: 24px;
@@ -55,7 +101,29 @@
   font-weight: 700;
 }
 
+.settings-copy {
+  margin: 0 0 16px;
+}
+
 .settings-grid {
   display: grid;
   gap: 16px;
+}
+
+@media (max-width: 440px) {
+  body {
+    min-width: 0;
+    max-width: none;
+  }
+
+  .popup-shell {
+    width: 100%;
+    max-width: none;
+    padding: 14px;
+  }
+
+  .hero-metrics,
+  .popup-overview {
+    grid-template-columns: 1fr;
+  }
 }
