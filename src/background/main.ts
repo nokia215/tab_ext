@@ -41,6 +41,11 @@ async function resolveWindowTabs(sender: chrome.runtime.MessageSender) {
     }
   }
 
+  const currentWindowTabs = await queryTabs({ currentWindow: true });
+  if (currentWindowTabs.length > 0) {
+    candidates.push(currentWindowTabs);
+  }
+
   const lastFocusedTabs = await getLastFocusedWindowTabs();
   if (lastFocusedTabs.length > 0) {
     candidates.push(lastFocusedTabs);

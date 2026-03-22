@@ -25,11 +25,21 @@ export function createTab(createProperties: chrome.tabs.CreateProperties) {
 }
 
 export function createWindow(createData: chrome.windows.CreateData) {
-  return ext.windows.create(createData);
+  const windowsApi = (ext as typeof chrome & { windows?: typeof chrome.windows }).windows;
+  if (!windowsApi) {
+    return Promise.reject(new Error('windows API is not available in this browser.'));
+  }
+
+  return windowsApi.create(createData);
 }
 
 export function getLastFocusedWindow(queryOptions?: chrome.windows.QueryOptions) {
-  return ext.windows.getLastFocused(queryOptions);
+  const windowsApi = (ext as typeof chrome & { windows?: typeof chrome.windows }).windows;
+  if (!windowsApi?.getLastFocused) {
+    return Promise.resolve(null);
+  }
+
+  return windowsApi.getLastFocused(queryOptions);
 }
 
 export function getRuntimeUrl(path: string) {
