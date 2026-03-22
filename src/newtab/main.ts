@@ -3,6 +3,7 @@ import '../shared/panels.css';
 import './newtab.css';
 import { runtimeSendMessage } from '../shared/browser-api';
 import { lineListToText, textToLineList } from '../shared/format';
+import { importTabGroups } from '../shared/import';
 import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
 import { filterGroups } from '../shared/search';
 import { getConfig, getOrCreateDeviceId, saveConfig } from '../shared/storage';
@@ -274,6 +275,31 @@ class NewtabApp {
     await this.refreshAll();
   }
 
+  private async handleImportTabs() {
+    if (this.state.saveWindowBusy || this.state.saveTabBusy || this.state.importBusy) return;
+
+    this.state.importBusy = true;
+    this.render();
+
+    try {
+      const { importedGroupCount, importedTabCount, skippedLineCount } = await importTabGroups({
+        groupTitle: this.state.groupTitle,
+        importText: this.state.importText
+      });
+
+      this.state.importText = '';
+      this.state.saveStatus = skippedLineCount > 0
+        ? `${importedGroupCount} グループ / ${importedTabCount} 件をインポートしました。${skippedLineCount} 行はスキップしました。`
+        : `${importedGroupCount} グループ / ${importedTabCount} 件をインポートしました。`;
+      await this.refreshAll();
+    } catch (error) {
+      this.state.saveStatus = `インポート失敗: ${error instanceof Error ? error.message : String(error)}`;
+    } finally {
+      this.state.importBusy = false;
+      this.render();
+    }
+  }
+
   private async requestCurrentWindowTabs() {
     const result = await runtimeSendMessage<PopupActionMessage, PopupActionResponse>({
       type: 'get-current-window-tabs'
@@ -480,6 +506,9 @@ class NewtabApp {
       case 'groupTitle':
         this.state.groupTitle = target.value;
         break;
+      case 'importText':
+        this.state.importText = target.value;
+        break;
       case 'email':
         this.state.email = target.value;
         break;
@@ -541,6 +570,9 @@ class NewtabApp {
         break;
       case 'save-tab':
         await this.handleSaveTab();
+        break;
+      case 'import-tabs':
+        await this.handleImportTabs();
         break;
       case 'save-config':
         await this.handleSaveConfig();

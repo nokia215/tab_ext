@@ -141,7 +141,9 @@ function renderDefaultLayout(args: DefaultLayoutArgs) {
             title: args.state.groupTitle,
             status: args.state.saveStatus,
             windowBusy: args.state.saveWindowBusy,
-            tabBusy: args.state.saveTabBusy
+            tabBusy: args.state.saveTabBusy,
+            importText: args.state.importText,
+            importBusy: args.state.importBusy
           })}
           ${renderAuthPanel({
             email: args.state.email,
@@ -287,7 +289,9 @@ function renderLightweightLayout(args: LightweightLayoutArgs) {
                 title: args.state.groupTitle,
                 status: args.state.saveStatus,
                 windowBusy: args.state.saveWindowBusy,
-                tabBusy: args.state.saveTabBusy
+                tabBusy: args.state.saveTabBusy,
+                importText: args.state.importText,
+                importBusy: args.state.importBusy
               })
             : ''
         }

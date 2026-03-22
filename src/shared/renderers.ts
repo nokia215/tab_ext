@@ -7,6 +7,8 @@ export interface SavePanelView {
   status: string;
   windowBusy: boolean;
   tabBusy: boolean;
+  importText: string;
+  importBusy: boolean;
 }
 
 export interface AuthPanelView {
@@ -46,7 +48,7 @@ function renderGroupTab(tab: SavedTab, busy: boolean): string {
 }
 
 export function renderSavePanel(view: SavePanelView): string {
-  const busy = view.windowBusy || view.tabBusy;
+  const busy = view.windowBusy || view.tabBusy || view.importBusy;
 
   return `
     <section class="panel save-panel">
@@ -72,7 +74,24 @@ export function renderSavePanel(view: SavePanelView): string {
         </button>
       </div>
 
-      ${renderStatusBanner(view.status, view.status.startsWith('保存失敗'))}
+      <label class="field">
+        <span class="field-label">インポート</span>
+        <textarea
+          name="importText"
+          rows="7"
+          placeholder="https://example.com | Example&#10;https://another.example.com | Another Tab&#10;&#10;https://group-two.example.com | Group Two"
+        >${escapeHtml(view.importText)}</textarea>
+      </label>
+
+      <div class="actions">
+        <button class="secondary" type="button" data-action="import-tabs"${renderDisabled(busy)}>
+          テキストからインポート
+        </button>
+      </div>
+
+      <p class="section-copy"><code>URL | タブ名</code> を1行ずつ貼り付け、空行でグループを分けられます。</p>
+
+      ${renderStatusBanner(view.status, view.status.includes('失敗'))}
     </section>
   `;
 }

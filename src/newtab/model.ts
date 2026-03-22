@@ -23,11 +23,13 @@ export interface NewtabState {
   email: string;
   password: string;
   groupTitle: string;
+  importText: string;
   configBusy: boolean;
   authBusy: boolean;
   refreshBusy: boolean;
   saveWindowBusy: boolean;
   saveTabBusy: boolean;
+  importBusy: boolean;
   actionBusy: boolean;
   config: AppConfig;
   ignoreDomainsText: string;
@@ -74,11 +76,13 @@ export function createInitialState(runtimeProfile: RuntimeProfile): NewtabState 
     email: '',
     password: '',
     groupTitle: '',
+    importText: '',
     configBusy: false,
     authBusy: false,
     refreshBusy: false,
     saveWindowBusy: false,
     saveTabBusy: false,
+    importBusy: false,
     actionBusy: false,
     config: {
       supabaseUrl: '',

@@ -4,6 +4,17 @@ import { storageLocalGet, storageLocalRemove, storageLocalSet } from './browser-
 import { isSavableTabUrl } from './tabs';
 import type { TabGroup } from './types';
 
+export interface ImportableTabInput {
+  url: string;
+  title?: string;
+}
+
+type TabLike = {
+  url?: string | null;
+  title?: string | null;
+  pinned?: boolean;
+};
+
 function createExtensionStorageAdapter() {
   return {
     getItem: async (key: string): Promise<string | null> => {
@@ -81,7 +92,7 @@ function safeHostName(url: string): string {
 }
 
 function shouldIgnoreTab(
-  tab: chrome.tabs.Tab,
+  tab: TabLike,
   ignoreDomains: string[],
   ignoreTitles: string[]
 ): boolean {
@@ -113,6 +124,26 @@ export async function filterSavableTabs(tabs: chrome.tabs.Tab[]): Promise<chrome
     .filter((tab) => isSavableTabUrl(tab.url))
     .filter((tab) => !tab.pinned)
     .filter((tab) => !shouldIgnoreTab(tab, config.ignoreDomains, config.ignoreTitles));
+}
+
+export async function filterSavableImportedTabs(tabs: ImportableTabInput[]): Promise<ImportableTabInput[]> {
+  const config = await getConfig();
+
+  return tabs
+    .filter((tab) => isSavableTabUrl(tab.url))
+    .filter((tab) => !shouldIgnoreTab(tab, config.ignoreDomains, config.ignoreTitles));
+}
+
+function normalizeTabInputs(tabs: chrome.tabs.Tab[]): Promise<chrome.tabs.Tab[]>;
+function normalizeTabInputs(tabs: ImportableTabInput[]): Promise<ImportableTabInput[]>;
+function normalizeTabInputs(tabs: chrome.tabs.Tab[] | ImportableTabInput[]) {
+  if (tabs.length === 0) {
+    return Promise.resolve([]);
+  }
+
+  return 'pinned' in tabs[0]
+    ? filterSavableTabs(tabs as chrome.tabs.Tab[])
+    : filterSavableImportedTabs(tabs as ImportableTabInput[]);
 }
 
 function normalizeUrl(raw: string): string {
@@ -168,18 +199,41 @@ export async function saveTabGroup(input: {
   deviceId: string;
   tabs: chrome.tabs.Tab[];
 }) {
+  return persistTabGroup({
+    title: input.title,
+    deviceId: input.deviceId,
+    tabs: await normalizeTabInputs(input.tabs)
+  });
+}
+
+export async function saveImportedTabGroup(input: {
+  title: string;
+  deviceId: string;
+  tabs: ImportableTabInput[];
+}) {
+  return persistTabGroup({
+    title: input.title,
+    deviceId: input.deviceId,
+    tabs: await normalizeTabInputs(input.tabs)
+  });
+}
+
+async function persistTabGroup(input: {
+  title: string;
+  deviceId: string;
+  tabs: Array<chrome.tabs.Tab | ImportableTabInput>;
+}) {
   const supabase = await getSupabase();
   const user = await getCurrentUser();
   if (!user) throw new Error('ログインしてください。');
-  const candidateTabs = await filterSavableTabs(input.tabs);
 
-  if (candidateTabs.length === 0) {
+  if (input.tabs.length === 0) {
     throw new Error('保存対象のタブがありません。');
   }
 
   const seen = new Set<string>();
 
-  const uniqueTabs = candidateTabs.filter((tab) => {
+  const uniqueTabs = input.tabs.filter((tab) => {
     const normalized = normalizeUrl(tab.url ?? '');
     if (!normalized) return false;
     if (seen.has(normalized)) return false;

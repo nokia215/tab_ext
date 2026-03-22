@@ -4,6 +4,7 @@ import './popup.css';
 import { createTab, getRuntimeUrl, runtimeSendMessage } from '../shared/browser-api';
 import { lineListToText, textToLineList } from '../shared/format';
 import { renderDisabled } from '../shared/html';
+import { importTabGroups } from '../shared/import';
 import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
 import { renderAuthPanel, renderConfigPanel, renderSavePanel } from '../shared/renderers';
 import { getConfig, getOrCreateDeviceId, saveConfig } from '../shared/storage';
@@ -24,11 +25,13 @@ interface PopupState {
   email: string;
   password: string;
   groupTitle: string;
+  importText: string;
   configBusy: boolean;
   authBusy: boolean;
   refreshBusy: boolean;
   saveWindowBusy: boolean;
   saveTabBusy: boolean;
+  importBusy: boolean;
   settingsOpen: boolean;
   config: AppConfig;
   ignoreDomainsText: string;
@@ -43,11 +46,13 @@ function createInitialState(): PopupState {
     email: '',
     password: '',
     groupTitle: '',
+    importText: '',
     configBusy: false,
     authBusy: false,
     refreshBusy: false,
     saveWindowBusy: false,
     saveTabBusy: false,
+    importBusy: false,
     settingsOpen: false,
     config: {
       supabaseUrl: '',
@@ -154,6 +159,31 @@ class PopupApp {
 
     this.state.saveStatus = `${result.count} 件保存しました。`;
     await this.refreshGroups();
+  }
+
+  private async handleImportTabs() {
+    if (this.state.saveWindowBusy || this.state.saveTabBusy || this.state.importBusy) return;
+
+    this.state.importBusy = true;
+    this.render();
+
+    try {
+      const { importedGroupCount, importedTabCount, skippedLineCount } = await importTabGroups({
+        groupTitle: this.state.groupTitle,
+        importText: this.state.importText
+      });
+
+      this.state.importText = '';
+      this.state.saveStatus = skippedLineCount > 0
+        ? `${importedGroupCount} グループ / ${importedTabCount} 件をインポートしました。${skippedLineCount} 行はスキップしました。`
+        : `${importedGroupCount} グループ / ${importedTabCount} 件をインポートしました。`;
+      await this.refreshGroups();
+    } catch (error) {
+      this.state.saveStatus = `インポート失敗: ${error instanceof Error ? error.message : String(error)}`;
+    } finally {
+      this.state.importBusy = false;
+      this.render();
+    }
   }
 
   private async requestCurrentWindowTabs() {
@@ -348,7 +378,9 @@ class PopupApp {
           title: this.state.groupTitle,
           status: this.state.saveStatus,
           windowBusy: this.state.saveWindowBusy,
-          tabBusy: this.state.saveTabBusy
+          tabBusy: this.state.saveTabBusy,
+          importText: this.state.importText,
+          importBusy: this.state.importBusy
         })}
 
         <details class="settings-wrap"${this.state.settingsOpen ? ' open' : ''}>
@@ -382,6 +414,9 @@ class PopupApp {
     switch (target.name) {
       case 'groupTitle':
         this.state.groupTitle = target.value;
+        break;
+      case 'importText':
+        this.state.importText = target.value;
         break;
       case 'email':
         this.state.email = target.value;
@@ -443,6 +478,9 @@ class PopupApp {
         break;
       case 'save-tab':
         await this.handleSaveTab();
+        break;
+      case 'import-tabs':
+        await this.handleImportTabs();
         break;
       case 'save-config':
         await this.handleSaveConfig();
