@@ -87,6 +87,7 @@ dist/chrome ディレクトリを 「パッケージ化されていない拡張�
 
 ## プロジェクト構造
 ```
+docs/             # 設計メモ・ガイドライン
 src/
   popup/        # ポップアップUI
   newtab/       # 新しいタブページ
@@ -96,3 +97,7 @@ src/
 manifests/      # browser manifest
 scripts/        # build scripts
 ```
+
+## UI ドキュメント
+
+- 一覧性を重視した UI 方針: `docs/ui-guidelines.md`

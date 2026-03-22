@@ -43,48 +43,6 @@ function renderMiniMetric(label: string, value: number) {
   `;
 }
 
-function renderOverviewCard(title: string, body: string, tone: 'default' | 'accent' = 'default') {
-  return `
-    <article class="overview-card${tone === 'accent' ? ' overview-card-accent' : ''}">
-      <h3>${escapeHtml(title)}</h3>
-      <p>${escapeHtml(body)}</p>
-    </article>
-  `;
-}
-
-function renderNextSteps(state: NewtabState, summary: GroupSummary) {
-  const cards: string[] = [];
-
-  const setupComplete = Boolean(state.config.supabaseUrl && state.config.supabaseKey);
-  const signedIn = state.authStatus.startsWith('ログイン中:');
-
-  cards.push(
-    renderOverviewCard(
-      '接続設定',
-      setupComplete ? '保存済みです。同期先の Supabase に接続できます。' : '未設定です。まずは Project URL と anon key を保存してください。',
-      setupComplete ? 'accent' : 'default'
-    )
-  );
-
-  cards.push(
-    renderOverviewCard(
-      'ログイン状態',
-      signedIn ? 'ログイン済みです。この端末から保存・復元・一覧確認ができます。' : '未ログインです。設定保存後にログインすると一覧を取得できます。'
-    )
-  );
-
-  cards.push(
-    renderOverviewCard(
-      '復元待ち',
-      summary.restorableGroupCount > 0
-        ? `${summary.restorableGroupCount} グループに未復元タブがあります。検索からすぐ絞り込めます。`
-        : 'いま未復元のグループはありません。必要な作業はほぼ同期済みです。'
-    )
-  );
-
-  return cards.join('');
-}
-
 function renderDefaultLayout(args: DefaultLayoutArgs) {
   return `
     <main class="shell page-shell">
@@ -92,9 +50,9 @@ function renderDefaultLayout(args: DefaultLayoutArgs) {
         <div class="masthead-layout">
           <div class="headline">
             <p class="hero-kicker">Shared Workspace</p>
-            <h1>ブラウザをまたいで、タブ作業をそのまま引き継ぐ</h1>
+            <h1>保存済みタブをすばやく見渡せる一覧ダッシュボード</h1>
             <p class="muted">
-              保存、検索、復元、整理を 1 画面に集約したダッシュボードです。現在の状態を確認しながら次の作業へ移れます。
+              検索、並び替え、復元を最短導線に寄せて、一覧を中心に確認できるレイアウトです。
             </p>
           </div>
 
@@ -127,10 +85,6 @@ function renderDefaultLayout(args: DefaultLayoutArgs) {
             <p class="metric-label">Devices</p>
             <p class="metric-value">${args.summary.deviceCount}</p>
           </article>
-        </div>
-
-        <div class="overview-grid">
-          ${renderNextSteps(args.state, args.summary)}
         </div>
       </section>
 

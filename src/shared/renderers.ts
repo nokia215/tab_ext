@@ -60,9 +60,11 @@ function renderTabStatus(status: SavedTab['status']): string {
 function renderGroupTab(tab: SavedTab, busy: boolean): string {
   return `
     <button class="tab-row" type="button" data-action="open-tab" data-tab-id="${escapeHtml(tab.id)}"${renderDisabled(busy)}>
-      <span class="tab-row-title">${escapeHtml(tab.title || '(no title)')}</span>
-      <span class="tab-row-meta">
+      <span class="tab-row-main">
+        <span class="tab-row-title">${escapeHtml(tab.title || '(no title)')}</span>
         <span class="tab-row-url">${escapeHtml(formatHostname(tab.url))}</span>
+      </span>
+      <span class="tab-row-meta">
         ${renderTabStatus(tab.status)}
       </span>
     </button>
@@ -255,8 +257,10 @@ export function renderGroupList(view: GroupListView): string {
                 ${renderDisabled(view.busy)}
               >
                 <div class="group-text">
-                  <h3>${escapeHtml(group.title ?? '(untitled)')}</h3>
-                  <p>${escapeHtml(formatDate(group.created_at))}</p>
+                  <div class="group-title-row">
+                    <h3>${escapeHtml(group.title ?? '(untitled)')}</h3>
+                    <p>${escapeHtml(formatDate(group.created_at))}</p>
+                  </div>
                   <div class="group-meta">
                     <span class="meta-pill">${group.tabs.length} tabs</span>
                     <span class="meta-pill">${escapeHtml(group.device_id)}</span>
@@ -268,8 +272,10 @@ export function renderGroupList(view: GroupListView): string {
             : `
               <div class="group-trigger static-header">
                 <div class="group-text">
-                  <h3>${escapeHtml(group.title ?? '(untitled)')}</h3>
-                  <p>${escapeHtml(formatDate(group.created_at))}</p>
+                  <div class="group-title-row">
+                    <h3>${escapeHtml(group.title ?? '(untitled)')}</h3>
+                    <p>${escapeHtml(formatDate(group.created_at))}</p>
+                  </div>
                   <div class="group-meta">
                     <span class="meta-pill">${group.tabs.length} tabs</span>
                     <span class="meta-pill">${escapeHtml(group.device_id)}</span>
