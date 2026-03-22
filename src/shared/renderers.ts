@@ -33,6 +33,8 @@ export interface GroupListView {
   collapsible: boolean;
   busy: boolean;
   extraActionLabel?: string;
+  editableGroupId?: string | null;
+  editableGroupTitle?: string;
 }
 
 function isExpanded(group: TabGroup, expandedGroupIds: string[], collapsible: boolean) {
@@ -232,6 +234,11 @@ export function renderGroupList(view: GroupListView): string {
       ${view.groups
         .map((group) => {
           const expanded = isExpanded(group, view.expandedGroupIds, view.collapsible);
+          const isEditing = Boolean(view.editableGroupId && view.editableGroupId === group.id);
+          const editingTitle = isEditing ? (view.editableGroupTitle ?? '') : (group.title ?? '');
+          const previewTabs = group.tabs.slice(0, 6);
+          const visibleTabs = expanded ? group.tabs : previewTabs;
+          const hiddenTabCount = Math.max(group.tabs.length - previewTabs.length, 0);
           const extraAction = view.extraActionLabel
             ? `
               <button
@@ -246,7 +253,27 @@ export function renderGroupList(view: GroupListView): string {
             `
             : '';
 
-          const header = view.collapsible
+          const titleBlock = isEditing
+            ? `
+              <div class="group-title-editor">
+                <input
+                  name="groupTitleEdit"
+                  type="text"
+                  value="${escapeHtml(editingTitle)}"
+                  data-group-id="${escapeHtml(group.id)}"
+                  placeholder="グループ名を入力"
+                  ${renderDisabled(view.busy)}
+                />
+              </div>
+            `
+            : `
+              <div class="group-title-row">
+                <h3>${escapeHtml(group.title ?? '(untitled)')}</h3>
+                <p>${escapeHtml(formatDate(group.created_at))}</p>
+              </div>
+            `;
+
+          const header = view.collapsible && !isEditing
             ? `
               <button
                 aria-expanded="${expanded ? 'true' : 'false'}"
@@ -257,10 +284,7 @@ export function renderGroupList(view: GroupListView): string {
                 ${renderDisabled(view.busy)}
               >
                 <div class="group-text">
-                  <div class="group-title-row">
-                    <h3>${escapeHtml(group.title ?? '(untitled)')}</h3>
-                    <p>${escapeHtml(formatDate(group.created_at))}</p>
-                  </div>
+                  ${titleBlock}
                   <div class="group-meta">
                     <span class="meta-pill">${group.tabs.length} tabs</span>
                     <span class="meta-pill">${escapeHtml(group.device_id)}</span>
@@ -272,10 +296,7 @@ export function renderGroupList(view: GroupListView): string {
             : `
               <div class="group-trigger static-header">
                 <div class="group-text">
-                  <div class="group-title-row">
-                    <h3>${escapeHtml(group.title ?? '(untitled)')}</h3>
-                    <p>${escapeHtml(formatDate(group.created_at))}</p>
-                  </div>
+                  ${titleBlock}
                   <div class="group-meta">
                     <span class="meta-pill">${group.tabs.length} tabs</span>
                     <span class="meta-pill">${escapeHtml(group.device_id)}</span>
@@ -291,6 +312,39 @@ export function renderGroupList(view: GroupListView): string {
 
                 <div class="actions">
                   ${extraAction}
+                  ${
+                    isEditing
+                      ? `
+                        <button
+                          type="button"
+                          data-action="save-group-title"
+                          data-group-id="${escapeHtml(group.id)}"
+                          ${renderDisabled(view.busy)}
+                        >
+                          名前を保存
+                        </button>
+                        <button
+                          class="ghost"
+                          type="button"
+                          data-action="cancel-edit-group-title"
+                          data-group-id="${escapeHtml(group.id)}"
+                          ${renderDisabled(view.busy)}
+                        >
+                          キャンセル
+                        </button>
+                      `
+                      : `
+                        <button
+                          class="ghost"
+                          type="button"
+                          data-action="edit-group-title"
+                          data-group-id="${escapeHtml(group.id)}"
+                          ${renderDisabled(view.busy)}
+                        >
+                          名前編集
+                        </button>
+                      `
+                  }
                   <button
                     class="secondary"
                     type="button"
@@ -313,10 +367,25 @@ export function renderGroupList(view: GroupListView): string {
               </div>
 
               ${
-                expanded
+                visibleTabs.length > 0
                   ? `
-                    <div class="tab-list">
-                      ${group.tabs.map((tab) => renderGroupTab(tab, view.busy)).join('')}
+                    <div class="tab-list${expanded ? '' : ' tab-list-preview'}">
+                      ${visibleTabs.map((tab) => renderGroupTab(tab, view.busy)).join('')}
+                      ${
+                        !expanded && hiddenTabCount > 0
+                          ? `
+                            <button
+                              class="ghost tab-row-more"
+                              type="button"
+                              data-action="toggle-group"
+                              data-group-id="${escapeHtml(group.id)}"
+                              ${renderDisabled(view.busy)}
+                            >
+                              残り ${hiddenTabCount} 件を表示
+                            </button>
+                          `
+                          : ''
+                      }
                     </div>
                   `
                   : ''

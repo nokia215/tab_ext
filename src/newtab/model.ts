@@ -22,6 +22,8 @@ export interface NewtabState {
   sortMode: SortMode;
   allGroups: TabGroup[];
   expandedGroupIds: string[];
+  editingGroupId: string | null;
+  editingGroupTitle: string;
   email: string;
   password: string;
   groupTitle: string;
@@ -68,6 +70,8 @@ export function createInitialState(runtimeProfile: RuntimeProfile): NewtabState 
     sortMode: 'newest',
     allGroups: [],
     expandedGroupIds: [],
+    editingGroupId: null,
+    editingGroupTitle: '',
     email: '',
     password: '',
     groupTitle: '',

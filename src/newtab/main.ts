@@ -15,7 +15,8 @@ import {
   saveTabGroup,
   signIn,
   signOut,
-  signUp
+  signUp,
+  updateGroupTitle
 } from '../shared/supabase';
 import type { AppConfig, TabGroup } from '../shared/types';
 import {
@@ -148,6 +149,49 @@ class NewtabApp {
       : expandedGroupIds;
   }
 
+  private startEditingGroupTitle(groupId: string) {
+    const group = this.findGroup(groupId);
+    if (!group) return;
+
+    const title = group.title ?? '';
+    this.state.editingGroupId = groupId;
+    this.state.editingGroupTitle = title;
+    this.render({
+      name: 'groupTitleEdit',
+      start: title.length,
+      end: title.length
+    });
+  }
+
+  private stopEditingGroupTitle() {
+    this.state.editingGroupId = null;
+    this.state.editingGroupTitle = '';
+  }
+
+  private async handleSaveGroupTitle(groupId: string) {
+    if (this.state.actionBusy || this.state.editingGroupId !== groupId) return;
+
+    this.state.actionBusy = true;
+    this.render();
+
+    try {
+      await updateGroupTitle(groupId, this.state.editingGroupTitle);
+      this.stopEditingGroupTitle();
+      this.state.pageStatus = 'グループ名を更新しました。';
+      await this.refreshAll();
+    } catch (error) {
+      this.state.pageStatus = `グループ名更新失敗: ${getErrorMessage(error)}`;
+      this.render({
+        name: 'groupTitleEdit',
+        start: this.state.editingGroupTitle.length,
+        end: this.state.editingGroupTitle.length
+      });
+    } finally {
+      this.state.actionBusy = false;
+      this.render();
+    }
+  }
+
   private toggleLightweightPanel(panel: 'save' | 'settings') {
     if (panel === 'save') {
       const nextOpen = !this.state.savePanelOpen;
@@ -209,6 +253,7 @@ class NewtabApp {
         this.state.pageStatus = '設定が未完了です。';
         this.state.allGroups = [];
         this.state.expandedGroupIds = [];
+        this.stopEditingGroupTitle();
         this.resetVisibleGroupCount();
         return;
       }
@@ -219,6 +264,7 @@ class NewtabApp {
       if (!user) {
         this.state.allGroups = [];
         this.state.expandedGroupIds = [];
+        this.stopEditingGroupTitle();
         this.state.pageStatus = 'ログインすると保存済みグループを表示します。';
         this.resetVisibleGroupCount();
         return;
@@ -228,6 +274,9 @@ class NewtabApp {
       this.state.allGroups = await listGroups(false, user.id);
       this.state.expandedGroupIds = expandedGroupIds;
       this.reconcileExpandedGroupIds(this.state.allGroups);
+      if (this.state.editingGroupId && !this.findGroup(this.state.editingGroupId)) {
+        this.stopEditingGroupTitle();
+      }
       this.state.pageStatus = `${this.state.allGroups.length} グループを表示中`;
       this.resetVisibleGroupCount();
     } catch (error) {
@@ -235,6 +284,7 @@ class NewtabApp {
       this.state.authStatus = `表示失敗: ${message}`;
       this.state.pageStatus = 'データを読み込めませんでした。';
       this.state.allGroups = [];
+      this.stopEditingGroupTitle();
       this.resetVisibleGroupCount();
     } finally {
       this.state.refreshBusy = false;
@@ -505,6 +555,11 @@ class NewtabApp {
       case 'groupTitle':
         this.state.groupTitle = target.value;
         break;
+      case 'groupTitleEdit':
+        if (target.dataset.groupId === this.state.editingGroupId) {
+          this.state.editingGroupTitle = target.value;
+        }
+        break;
       case 'importText':
         this.state.importText = target.value;
         break;
@@ -592,6 +647,24 @@ class NewtabApp {
         }
         break;
       }
+      case 'edit-group-title': {
+        const groupId = actionTarget.dataset.groupId;
+        if (groupId) {
+          this.startEditingGroupTitle(groupId);
+        }
+        break;
+      }
+      case 'save-group-title': {
+        const groupId = actionTarget.dataset.groupId;
+        if (groupId) {
+          await this.handleSaveGroupTitle(groupId);
+        }
+        break;
+      }
+      case 'cancel-edit-group-title':
+        this.stopEditingGroupTitle();
+        this.render();
+        break;
       case 'restore-group': {
         const groupId = actionTarget.dataset.groupId;
         if (groupId) {
@@ -618,6 +691,7 @@ class NewtabApp {
         if (value) {
           this.state.groupFilter = value;
           this.resetVisibleGroupCount();
+          this.stopEditingGroupTitle();
           this.render();
         }
         break;

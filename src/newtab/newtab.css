@@ -1,16 +1,16 @@
 .page-shell {
   max-width: 1720px;
   margin: 0 auto;
-  padding: 20px 20px 36px;
+  padding: 14px 18px 28px;
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .masthead {
-  padding: 18px 20px;
-  border-radius: 24px;
+  padding: 14px 16px;
+  border-radius: 18px;
   display: grid;
-  gap: 16px;
+  gap: 10px;
   background:
     radial-gradient(circle at top right, rgba(131, 224, 255, 0.24), transparent 24%),
     radial-gradient(circle at left center, rgba(20, 255, 194, 0.12), transparent 28%),
@@ -32,10 +32,10 @@
 }
 
 .headline h1 {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   max-width: 18ch;
-  font-size: clamp(1.8rem, 3vw, 3rem);
-  line-height: 1.02;
+  font-size: clamp(1.4rem, 2.2vw, 2.2rem);
+  line-height: 1.05;
 }
 
 .headline p {
@@ -54,27 +54,27 @@
 }
 
 .masthead-metrics {
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
 }
 
 .workspace-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.95fr) minmax(280px, 0.85fr);
-  gap: 16px;
+  grid-template-columns: minmax(0, 2.1fr) minmax(260px, 0.75fr);
+  gap: 12px;
   align-items: start;
 }
 
 .primary-column,
 .side-column {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .explorer-panel {
-  padding: 18px;
-  border-radius: 22px;
+  padding: 14px;
+  border-radius: 16px;
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .explorer-head {

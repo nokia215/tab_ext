@@ -133,7 +133,9 @@ function renderDefaultLayout(args: DefaultLayoutArgs) {
               emptyLabel: 'まだ保存済みグループはありません。',
               expandedGroupIds: args.visibleExpandedGroupIds,
               collapsible: true,
-              busy: args.state.actionBusy
+              busy: args.state.actionBusy,
+              editableGroupId: args.state.editingGroupId,
+              editableGroupTitle: args.state.editingGroupTitle
             })}
           </section>
         </div>
@@ -243,7 +245,9 @@ function renderLightweightLayout(args: LightweightLayoutArgs) {
           emptyLabel: 'まだ保存済みグループはありません。',
           expandedGroupIds: args.visibleExpandedGroupIds,
           collapsible: true,
-          busy: args.state.actionBusy
+          busy: args.state.actionBusy,
+          editableGroupId: args.state.editingGroupId,
+          editableGroupTitle: args.state.editingGroupTitle
         })}
 
         ${

@@ -48,7 +48,7 @@
 
 .group-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .empty-state {
@@ -59,26 +59,27 @@
 }
 
 .group-card {
-  border-radius: 18px;
-  padding: 12px;
+  border-radius: 16px;
+  padding: 10px;
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .group-header {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
 }
 
 .group-trigger {
   width: 100%;
+  min-height: 0;
   padding: 0;
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 8px;
   background: transparent;
   border: none;
   color: inherit;
@@ -97,22 +98,30 @@
 
 .group-text h3 {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
+  line-height: 1.25;
+  word-break: break-word;
 }
 
 .group-title-row {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px 12px;
-  margin-bottom: 6px;
+  gap: 6px 10px;
+  margin-bottom: 4px;
 }
 
 .group-title-row p {
   margin: 0;
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   word-break: break-word;
+}
+
+.group-title-editor input {
+  min-height: 34px;
+  border-radius: 10px;
+  padding: 6px 10px;
 }
 
 .group-meta {
@@ -135,30 +144,31 @@
 }
 
 .indicator {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: inline-grid;
   place-items: center;
   border-radius: 50%;
   border: 1px solid var(--line);
   color: var(--accent);
-  font-size: 1rem;
+  font-size: 0.9rem;
   flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .tab-list {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .tab-row {
   width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
-  padding: 10px 12px;
-  border-radius: 14px;
+  padding: 8px 10px;
+  border-radius: 10px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
@@ -169,13 +179,13 @@
 .tab-row-main {
   min-width: 0;
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .tab-row-title {
-  font-weight: 700;
-  font-size: 0.88rem;
-  line-height: 1.35;
+  font-weight: 650;
+  font-size: 0.83rem;
+  line-height: 1.28;
   word-break: break-word;
 }
 
@@ -189,18 +199,30 @@
 
 .tab-row-url {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.69rem;
   word-break: break-all;
 }
 
 .group-card .actions {
   justify-content: flex-end;
+  gap: 6px;
 }
 
 .group-card .actions button {
-  padding: 8px 10px;
-  border-radius: 12px;
-  font-size: 0.78rem;
+  padding: 6px 9px;
+  border-radius: 10px;
+  font-size: 0.74rem;
+}
+
+.tab-list-preview .tab-row .tab-status {
+  display: none;
+}
+
+.tab-row-more {
+  justify-self: start;
+  padding: 4px 8px;
+  border-radius: 10px;
+  font-size: 0.72rem;
 }
 
 @media (max-width: 920px) {

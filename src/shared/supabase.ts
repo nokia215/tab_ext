@@ -336,6 +336,25 @@ export async function deleteSavedTab(tabId: string) {
   if (error) throw error;
 }
 
+export async function updateGroupTitle(groupId: string, title: string) {
+  const supabase = await getSupabase();
+  const user = await getCurrentSessionUser();
+  if (!user) throw new Error('ログインしてください。');
+
+  const nextTitle = title.trim();
+  if (!nextTitle) {
+    throw new Error('グループ名を入力してください。');
+  }
+
+  const { error } = await supabase
+    .from('tab_groups')
+    .update({ title: nextTitle })
+    .eq('id', groupId)
+    .eq('user_id', user.id);
+
+  if (error) throw error;
+}
+
 export async function deleteGroup(groupId: string) {
   const supabase = await getSupabase();
   const { error } = await supabase
