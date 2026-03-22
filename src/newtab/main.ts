@@ -9,6 +9,7 @@ import { filterGroups } from '../shared/search';
 import { formatImportStatus, getErrorMessage, isErrorStatus } from '../shared/status';
 import { getConfig, getOrCreateDeviceId, saveConfig } from '../shared/storage';
 import {
+  buildDefaultGroupTitle,
   deleteGroup,
   getCurrentSessionUser,
   listGroups,
@@ -170,12 +171,17 @@ class NewtabApp {
 
   private async handleSaveGroupTitle(groupId: string) {
     if (this.state.actionBusy || this.state.editingGroupId !== groupId) return;
+    const group = this.findGroup(groupId);
+    if (!group) return;
 
     this.state.actionBusy = true;
     this.render();
 
     try {
-      await updateGroupTitle(groupId, this.state.editingGroupTitle);
+      const resolvedTitle = this.state.editingGroupTitle.trim()
+        || buildDefaultGroupTitle(group.device_id, group.tabs.length);
+
+      await updateGroupTitle(groupId, resolvedTitle);
       this.stopEditingGroupTitle();
       this.state.pageStatus = 'グループ名を更新しました。';
       await this.refreshAll();

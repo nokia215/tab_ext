@@ -180,7 +180,7 @@ function normalizeUrl(raw: string): string {
   }
 }
 
-function buildDefaultGroupTitle(deviceId: string, tabCount: number): string {
+export function buildDefaultGroupTitle(deviceId: string, tabCount: number): string {
   const deviceLabel = deviceId.split('·')[0]?.trim() || deviceId;
   const timestamp = new Intl.DateTimeFormat('ja-JP', {
     year: 'numeric',
