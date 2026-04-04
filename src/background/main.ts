@@ -1,4 +1,5 @@
 import { createTab, ext, getLastFocusedWindow, getRuntimeUrl, queryTabs } from '../shared/browser-api';
+import { resolveDashboardUrl } from '../shared/dashboard-url';
 import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
 import { deleteSavedTab, markGroupRestored } from '../shared/supabase';
 import { isSavableTabUrl, openSavedTab, restoreTabs } from '../shared/tabs';
@@ -7,7 +8,7 @@ if (ext.action?.onClicked) {
   ext.action.onClicked.addListener(async () => {
     try {
       await createTab({
-        url: getRuntimeUrl('newtab.html'),
+        url: resolveDashboardUrl(getRuntimeUrl),
         active: true
       });
     } catch (error) {

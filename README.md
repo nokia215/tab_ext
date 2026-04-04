@@ -15,6 +15,7 @@
 - ダッシュボード検索はグループ名 / タブ名 / URL / 端末名に対応
 - 折りたたみ時も先頭タブをプレビュー表示する高密度一覧
 - Android 版 Firefox では新しいタブを自動で軽量 UI に切り替え
+- Android 版 Firefox のダッシュボードは GitHub Pages 側のタブレット UI に移譲可能
 - タブの復元
 - 保存済みタブを開くと 自動でリストから削除
 - Supabase による デバイス間同期
@@ -86,6 +87,16 @@ npm run build:chrome
 chrome://extensions
 
 dist/chrome ディレクトリを 「パッケージ化されていない拡張機能を読み込む」 から追加してください。
+
+## GitHub Pages 版タブレット UI
+
+タブレット向けの軽量ダッシュボードは `tablet.html` エントリとして別ビルドできます。
+
+```bash
+npm run build:pages
+```
+
+出力先は `dist/pages/` です。`main` への push 時は `.github/workflows/deploy-pages.yml` から GitHub Pages へデプロイされます。
 
 ## プロジェクト構造
 ```

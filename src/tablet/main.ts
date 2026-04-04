@@ -1,51 +1,45 @@
 import '../shared/ui.css';
 import '../shared/panels.css';
-import './newtab.css';
-import { runtimeSendMessage } from '../shared/browser-api';
-import { EXTERNAL_TABLET_DASHBOARD_URL, shouldDelegateDashboardToWeb } from '../shared/dashboard-url';
+import '../newtab/newtab.css';
+import './tablet.css';
 import { lineListToText, textToLineList } from '../shared/format';
 import { importTabGroups } from '../shared/import';
-import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
 import { filterGroups } from '../shared/search';
 import { formatImportStatus, getErrorMessage, isErrorStatus } from '../shared/status';
-import { getConfig, getOrCreateDeviceId, saveConfig } from '../shared/storage';
+import { getConfig, saveConfig } from '../shared/storage';
 import {
   buildDefaultGroupTitle,
   deleteGroup,
+  deleteSavedTab,
   getCurrentSessionUser,
   listGroups,
-  saveTabGroup,
+  markGroupRestored,
   signIn,
   signOut,
   signUp,
   updateGroupTitle
 } from '../shared/supabase';
+import { openSavedTab, restoreTabs } from '../shared/tabs';
 import type { AppConfig, TabGroup } from '../shared/types';
 import {
   LIGHTWEIGHT_GROUP_BATCH_SIZE,
   createInitialState,
-  detectRuntimeProfile,
   matchesGroupFilter,
   sortGroups,
   summarizeGroups,
   type FocusState,
-  type GroupFilter,
-  type NewtabState,
-  type RuntimeProfile,
-  type SortMode
-} from './model';
-import { renderNewtabView } from './view';
+  type NewtabState
+} from '../newtab/model';
+import { renderTabletView } from './view';
 
-class NewtabApp {
+class TabletApp {
   private readonly root: HTMLElement;
-  private readonly runtimeProfile: RuntimeProfile;
   private state: NewtabState;
   private pendingSearchRenderId: number | null = null;
 
-  constructor(root: HTMLElement, runtimeProfile: RuntimeProfile) {
+  constructor(root: HTMLElement) {
     this.root = root;
-    this.runtimeProfile = runtimeProfile;
-    this.state = createInitialState(runtimeProfile);
+    this.state = createInitialState({ isAndroidFirefox: false, uiMode: 'lightweight' });
     this.root.addEventListener('click', (event) => {
       void this.handleClick(event);
     });
@@ -59,10 +53,6 @@ class NewtabApp {
 
   async bootstrap() {
     await this.refreshAll();
-  }
-
-  private get isLightweightMode() {
-    return this.state.uiMode === 'lightweight';
   }
 
   private get filteredGroups() {
@@ -80,9 +70,7 @@ class NewtabApp {
   }
 
   private getVisibleGroups(groups: TabGroup[]) {
-    return this.isLightweightMode
-      ? groups.slice(0, this.state.visibleGroupCount)
-      : groups;
+    return groups.slice(0, this.state.visibleGroupCount);
   }
 
   private getVisibleExpandedGroupIds(groups: TabGroup[]) {
@@ -137,18 +125,14 @@ class NewtabApp {
   }
 
   private resetVisibleGroupCount() {
-    this.state.visibleGroupCount = this.isLightweightMode
-      ? LIGHTWEIGHT_GROUP_BATCH_SIZE
-      : Number.MAX_SAFE_INTEGER;
+    this.state.visibleGroupCount = LIGHTWEIGHT_GROUP_BATCH_SIZE;
   }
 
   private reconcileExpandedGroupIds(groups: TabGroup[]) {
     const groupIds = new Set(groups.map((group) => group.id));
-    const expandedGroupIds = this.state.expandedGroupIds.filter((groupId) => groupIds.has(groupId));
-
-    this.state.expandedGroupIds = this.isLightweightMode
-      ? expandedGroupIds.slice(0, 1)
-      : expandedGroupIds;
+    this.state.expandedGroupIds = this.state.expandedGroupIds
+      .filter((groupId) => groupIds.has(groupId))
+      .slice(0, 1);
   }
 
   private startEditingGroupTitle(groupId: string) {
@@ -199,35 +183,16 @@ class NewtabApp {
     }
   }
 
-  private toggleLightweightPanel(panel: 'save' | 'settings') {
-    if (panel === 'save') {
-      const nextOpen = !this.state.savePanelOpen;
-      this.state.savePanelOpen = nextOpen;
-      if (nextOpen) {
-        this.state.settingsPanelOpen = false;
-      }
-    } else {
-      const nextOpen = !this.state.settingsPanelOpen;
-      this.state.settingsPanelOpen = nextOpen;
-      if (nextOpen) {
-        this.state.savePanelOpen = false;
-      }
-    }
-
-    this.render();
-  }
-
   private render(focus?: FocusState) {
     this.cancelPendingSearchRender();
-    document.title = 'Tab Saver Dashboard';
-    document.body.classList.toggle('lightweight-ui', this.isLightweightMode);
-    document.body.classList.toggle('android-firefox-ui', this.runtimeProfile.isAndroidFirefox);
+    document.title = 'Tab Saver Tablet';
+    document.body.classList.add('lightweight-ui');
 
     const filteredGroups = this.filteredGroups;
     const visibleGroups = this.getVisibleGroups(filteredGroups);
     const visibleExpandedGroupIds = this.getVisibleExpandedGroupIds(visibleGroups);
 
-    this.root.innerHTML = renderNewtabView({
+    this.root.innerHTML = renderTabletView({
       state: this.state,
       summary: this.summary,
       filteredGroups,
@@ -299,42 +264,8 @@ class NewtabApp {
     }
   }
 
-  private async runGroupAction(message: PopupActionMessage, successMessage: string) {
-    if (this.state.actionBusy) return;
-
-    this.state.actionBusy = true;
-    this.render();
-
-    try {
-      const result = await runtimeSendMessage<PopupActionMessage, PopupActionResponse>(message);
-      if (!result?.ok) {
-        throw new Error(result?.error ?? '操作に失敗しました。');
-      }
-
-      this.state.pageStatus = successMessage;
-      await this.refreshAll();
-    } catch (error) {
-      this.state.pageStatus = `操作失敗: ${getErrorMessage(error)}`;
-    } finally {
-      this.state.actionBusy = false;
-      this.render();
-    }
-  }
-
-  private async saveTabs(tabs: chrome.tabs.Tab[]) {
-    const deviceId = await getOrCreateDeviceId();
-    const result = await saveTabGroup({
-      title: this.state.groupTitle,
-      deviceId,
-      tabs
-    });
-
-    this.state.saveStatus = `${result.count} 件保存しました。`;
-    await this.refreshAll();
-  }
-
   private async handleImportTabs() {
-    if (this.state.saveWindowBusy || this.state.saveTabBusy || this.state.importBusy) return;
+    if (this.state.importBusy) return;
 
     this.state.importBusy = true;
     this.render();
@@ -354,30 +285,6 @@ class NewtabApp {
       this.state.importBusy = false;
       this.render();
     }
-  }
-
-  private async requestCurrentWindowTabs() {
-    const result = await runtimeSendMessage<PopupActionMessage, PopupActionResponse>({
-      type: 'get-current-window-tabs'
-    });
-
-    if (!result?.ok || !('tabs' in result)) {
-      throw new Error(result?.ok ? 'ウィンドウ内のタブ取得に失敗しました。' : result?.error ?? 'ウィンドウ内のタブ取得に失敗しました。');
-    }
-
-    return result.tabs;
-  }
-
-  private async requestActiveTab() {
-    const result = await runtimeSendMessage<PopupActionMessage, PopupActionResponse>({
-      type: 'get-active-tab'
-    });
-
-    if (!result?.ok || !('tab' in result)) {
-      throw new Error(result?.ok ? '現在タブの取得に失敗しました。' : result?.error ?? '現在タブの取得に失敗しました。');
-    }
-
-    return result.tab;
   }
 
   private async handleSaveConfig() {
@@ -451,52 +358,24 @@ class NewtabApp {
     }
   }
 
-  private async handleSaveWindow() {
-    if (this.state.saveWindowBusy || this.state.saveTabBusy) return;
-
-    this.state.saveWindowBusy = true;
-    this.render();
-
-    try {
-      await this.saveTabs(await this.requestCurrentWindowTabs());
-    } catch (error) {
-      this.state.saveStatus = `保存失敗: ${getErrorMessage(error)}`;
-    } finally {
-      this.state.saveWindowBusy = false;
-      this.render();
-    }
-  }
-
-  private async handleSaveTab() {
-    if (this.state.saveWindowBusy || this.state.saveTabBusy) return;
-
-    this.state.saveTabBusy = true;
-    this.render();
-
-    try {
-      const tab = await this.requestActiveTab();
-      if (!tab) throw new Error('現在タブが取得できません。');
-      await this.saveTabs([tab]);
-    } catch (error) {
-      this.state.saveStatus = `保存失敗: ${getErrorMessage(error)}`;
-    } finally {
-      this.state.saveTabBusy = false;
-      this.render();
-    }
-  }
-
   private async handleRestore(groupId: string) {
     const group = this.findGroup(groupId);
-    if (!group) return;
+    if (!group || this.state.actionBusy) return;
 
-    await this.runGroupAction(
-      {
-        type: 'restore-group',
-        groupId: group.id,
-        urls: group.tabs.map((tab) => tab.url)
-      },
-      `「${group.title ?? '(untitled)'}」を復元しました。`
-    );
+    this.state.actionBusy = true;
+    this.render();
+
+    try {
+      await restoreTabs(group.tabs.map((tab) => tab.url));
+      await markGroupRestored(group.id);
+      this.state.pageStatus = `「${group.title ?? '(untitled)'}」を復元しました。`;
+      await this.refreshAll();
+    } catch (error) {
+      this.state.pageStatus = `復元失敗: ${getErrorMessage(error)}`;
+    } finally {
+      this.state.actionBusy = false;
+      this.render();
+    }
   }
 
   private async handleDeleteGroup(groupId: string) {
@@ -511,42 +390,22 @@ class NewtabApp {
 
   private async handleOpenTab(tabId: string) {
     const resolved = this.findTab(tabId);
-    if (!resolved) return;
+    if (!resolved || this.state.actionBusy) return;
 
-    await this.runGroupAction(
-      {
-        type: 'open-saved-tab',
-        tabId: resolved.tab.id,
-        url: resolved.tab.url
-      },
-      'タブを開きました。'
-    );
-  }
-
-  private toggleGroup(groupId: string) {
-    if (this.isLightweightMode) {
-      this.state.expandedGroupIds = this.state.expandedGroupIds.includes(groupId) ? [] : [groupId];
-      this.render();
-      return;
-    }
-
-    if (this.state.expandedGroupIds.includes(groupId)) {
-      this.state.expandedGroupIds = this.state.expandedGroupIds.filter((value) => value !== groupId);
-    } else {
-      this.state.expandedGroupIds = [...this.state.expandedGroupIds, groupId];
-    }
-
+    this.state.actionBusy = true;
     this.render();
-  }
 
-  private handleSearchInput(target: HTMLInputElement | HTMLTextAreaElement) {
-    this.state.searchQuery = target.value;
-    this.resetVisibleGroupCount();
-    this.scheduleSearchRender({
-      name: 'searchQuery',
-      start: target.selectionStart,
-      end: target.selectionEnd
-    });
+    try {
+      await openSavedTab(resolved.tab.url);
+      await deleteSavedTab(resolved.tab.id);
+      this.state.pageStatus = `「${resolved.tab.title || '(no title)'}」を開きました。`;
+      await this.refreshAll();
+    } catch (error) {
+      this.state.pageStatus = `タブを開けませんでした: ${getErrorMessage(error)}`;
+    } finally {
+      this.state.actionBusy = false;
+      this.render();
+    }
   }
 
   private handleInput(event: Event) {
@@ -557,15 +416,18 @@ class NewtabApp {
 
     switch (target.name) {
       case 'searchQuery':
-        this.handleSearchInput(target);
-        break;
+        this.state.searchQuery = target.value;
+        this.scheduleSearchRender({
+          name: 'searchQuery',
+          start: target.selectionStart,
+          end: target.selectionEnd
+        });
+        return;
       case 'groupTitle':
         this.state.groupTitle = target.value;
         break;
       case 'groupTitleEdit':
-        if (target.dataset.groupId === this.state.editingGroupId) {
-          this.state.editingGroupTitle = target.value;
-        }
+        this.state.editingGroupTitle = target.value;
         break;
       case 'importText':
         this.state.importText = target.value;
@@ -600,8 +462,7 @@ class NewtabApp {
     }
 
     if (target.name === 'sortMode') {
-      this.state.sortMode = target.value as SortMode;
-      this.resetVisibleGroupCount();
+      this.state.sortMode = target.value as NewtabState['sortMode'];
       this.render();
     }
   }
@@ -618,19 +479,12 @@ class NewtabApp {
     }
 
     const action = actionTarget.dataset.action;
-    if (!action) {
-      return;
-    }
+    const groupId = actionTarget.dataset.groupId;
+    const tabId = actionTarget.dataset.tabId;
 
     switch (action) {
       case 'refresh-all':
         await this.refreshAll();
-        break;
-      case 'save-window':
-        await this.handleSaveWindow();
-        break;
-      case 'save-tab':
-        await this.handleSaveTab();
         break;
       case 'import-tabs':
         await this.handleImportTabs();
@@ -647,71 +501,42 @@ class NewtabApp {
       case 'sign-out':
         await this.handleSignOut();
         break;
-      case 'toggle-group': {
-        const groupId = actionTarget.dataset.groupId;
-        if (groupId) {
-          this.toggleGroup(groupId);
-        }
+      case 'set-group-filter':
+        this.state.groupFilter = (actionTarget.dataset.value as NewtabState['groupFilter']) ?? 'all';
+        this.render();
         break;
-      }
-      case 'edit-group-title': {
-        const groupId = actionTarget.dataset.groupId;
-        if (groupId) {
-          this.startEditingGroupTitle(groupId);
-        }
+      case 'toggle-group':
+        if (!groupId) break;
+        this.state.expandedGroupIds = this.state.expandedGroupIds.includes(groupId) ? [] : [groupId];
+        this.render();
         break;
-      }
-      case 'save-group-title': {
-        const groupId = actionTarget.dataset.groupId;
-        if (groupId) {
-          await this.handleSaveGroupTitle(groupId);
-        }
+      case 'restore-group':
+        if (!groupId) break;
+        await this.handleRestore(groupId);
         break;
-      }
+      case 'delete-group':
+        if (!groupId) break;
+        await this.handleDeleteGroup(groupId);
+        break;
+      case 'open-tab':
+        if (!tabId) break;
+        await this.handleOpenTab(tabId);
+        break;
+      case 'edit-group-title':
+        if (!groupId) break;
+        this.startEditingGroupTitle(groupId);
+        break;
       case 'cancel-edit-group-title':
         this.stopEditingGroupTitle();
         this.render();
         break;
-      case 'restore-group': {
-        const groupId = actionTarget.dataset.groupId;
-        if (groupId) {
-          await this.handleRestore(groupId);
-        }
+      case 'save-group-title':
+        if (!groupId) break;
+        await this.handleSaveGroupTitle(groupId);
         break;
-      }
-      case 'delete-group': {
-        const groupId = actionTarget.dataset.groupId;
-        if (groupId) {
-          await this.handleDeleteGroup(groupId);
-        }
-        break;
-      }
-      case 'open-tab': {
-        const tabId = actionTarget.dataset.tabId;
-        if (tabId) {
-          await this.handleOpenTab(tabId);
-        }
-        break;
-      }
-      case 'set-group-filter': {
-        const value = actionTarget.dataset.value as GroupFilter | undefined;
-        if (value) {
-          this.state.groupFilter = value;
-          this.resetVisibleGroupCount();
-          this.stopEditingGroupTitle();
-          this.render();
-        }
-        break;
-      }
       case 'show-more-groups':
         this.state.visibleGroupCount += LIGHTWEIGHT_GROUP_BATCH_SIZE;
         this.render();
-        break;
-      case 'toggle-save-panel':
-        this.toggleLightweightPanel('save');
-        break;
-      case 'toggle-settings-panel':
-        this.toggleLightweightPanel('settings');
         break;
       default:
         break;
@@ -722,13 +547,8 @@ class NewtabApp {
 const target = document.getElementById('app');
 
 if (!target) {
-  throw new Error('Newtab root element was not found.');
+  throw new Error('Tablet root element was not found.');
 }
 
-if (shouldDelegateDashboardToWeb()) {
-  window.location.replace(EXTERNAL_TABLET_DASHBOARD_URL);
-} else {
-  const runtimeProfile = detectRuntimeProfile();
-  const app = new NewtabApp(target, runtimeProfile);
-  void app.bootstrap();
-}
+const app = new TabletApp(target);
+void app.bootstrap();

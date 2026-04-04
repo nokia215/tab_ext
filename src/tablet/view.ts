@@ -1,0 +1,189 @@
+import { escapeHtml, renderStatusBanner } from '../shared/html';
+import { renderAuthPanel, renderConfigPanel, renderGroupList } from '../shared/renderers';
+import type { TabGroup } from '../shared/types';
+import type { GroupFilter, NewtabState, SortMode } from '../newtab/model';
+
+export interface TabletViewArgs {
+  state: NewtabState;
+  summary: {
+    groupCount: number;
+    totalTabs: number;
+    restoredTabs: number;
+    savedTabs: number;
+    deviceCount: number;
+  };
+  filteredGroups: TabGroup[];
+  visibleGroups: TabGroup[];
+  visibleExpandedGroupIds: string[];
+  pageStatusIsError: boolean;
+}
+
+function renderFilterButton(activeFilter: GroupFilter, value: GroupFilter, label: string) {
+  const activeClass = activeFilter === value ? ' active-chip' : '';
+  return `<button class="chip${activeClass}" type="button" data-action="set-group-filter" data-value="${value}">${label}</button>`;
+}
+
+function renderSortOption(current: SortMode, value: SortMode, label: string) {
+  return `<option value="${value}"${current === value ? ' selected' : ''}>${label}</option>`;
+}
+
+function renderImportPanel(state: NewtabState) {
+  return `
+    <section class="panel lightweight-utility-panel tablet-import-panel">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Capture</p>
+          <h2 class="section-title">Web ダッシュボード経由で追加</h2>
+          <p class="section-copy">
+            タブレット版は GitHub Pages で動作します。現在開いているタブの自動取得は行わず、URL リストの貼り付けで保存します。
+          </p>
+        </div>
+        <div class="badge">GitHub Pages</div>
+      </div>
+
+      <label class="field">
+        <span class="field-label">グループ名</span>
+        <input name="groupTitle" type="text" value="${escapeHtml(state.groupTitle)}" placeholder="未入力なら自動命名" />
+      </label>
+
+      <label class="field">
+        <span class="field-label">インポート</span>
+        <textarea
+          name="importText"
+          rows="7"
+          placeholder="https://example.com | Example&#10;https://another.example.com | Another Tab&#10;&#10;https://group-two.example.com | Group Two"
+        >${escapeHtml(state.importText)}</textarea>
+      </label>
+
+      <div class="actions">
+        <button class="secondary" type="button" data-action="import-tabs"${state.importBusy ? ' disabled' : ''}>
+          テキストから保存
+        </button>
+      </div>
+
+      <p class="section-copy"><code>URL | タブ名</code> を1行ずつ貼り付け、空行でグループを分けられます。</p>
+      ${renderStatusBanner(state.saveStatus, state.saveStatus.includes('失敗'))}
+    </section>
+  `;
+}
+
+export function renderTabletView(args: TabletViewArgs) {
+  const remainingCount = Math.max(args.filteredGroups.length - args.visibleGroups.length, 0);
+
+  return `
+    <main class="shell page-shell lightweight-shell tablet-shell">
+      <section class="panel lightweight-hero tablet-hero">
+        <div class="lightweight-hero-top">
+          <div>
+            <p class="hero-kicker">Tab Saver Tablet</p>
+            <h1>タブレット用ダッシュボード</h1>
+            <p class="muted">
+              GitHub Pages 上で保存済みタブを一覧・検索・復元できる軽量UIです。
+            </p>
+          </div>
+
+          <div class="actions lightweight-actions">
+            <div class="badge accent-badge">${escapeHtml(args.state.authStatus)}</div>
+            <button class="ghost" type="button" data-action="refresh-all"${args.state.refreshBusy ? ' disabled' : ''}>
+              更新
+            </button>
+          </div>
+        </div>
+
+        <div class="lightweight-summary">
+          <article class="mini-metric">
+            <span class="mini-metric-label">Groups</span>
+            <strong class="mini-metric-value">${args.summary.groupCount}</strong>
+          </article>
+          <article class="mini-metric">
+            <span class="mini-metric-label">Tabs</span>
+            <strong class="mini-metric-value">${args.summary.totalTabs}</strong>
+          </article>
+          <article class="mini-metric">
+            <span class="mini-metric-label">Devices</span>
+            <strong class="mini-metric-value">${args.summary.deviceCount}</strong>
+          </article>
+        </div>
+      </section>
+
+      ${renderStatusBanner(args.state.pageStatus, args.pageStatusIsError)}
+
+      <section class="panel lightweight-explorer tablet-explorer">
+        <div class="explorer-head">
+          <div>
+            <h2 class="section-title">保存済みグループ</h2>
+            <p class="section-copy">タブ名、URL、グループ名、端末名で横断検索できます。</p>
+          </div>
+        </div>
+
+        <div class="toolbar compact-toolbar">
+          <label class="field search-field">
+            <span class="field-label">検索</span>
+            <input
+              name="searchQuery"
+              type="search"
+              value="${escapeHtml(args.state.searchQuery)}"
+              placeholder="例: docs, github.com, tablet"
+            />
+          </label>
+
+          <label class="field compact-field">
+            <span class="field-label">並び順</span>
+            <select name="sortMode">
+              ${renderSortOption(args.state.sortMode, 'newest', '新しい順')}
+              ${renderSortOption(args.state.sortMode, 'oldest', '古い順')}
+              ${renderSortOption(args.state.sortMode, 'tabCount', 'タブ数順')}
+            </select>
+          </label>
+        </div>
+
+        <div class="filter-row">
+          ${renderFilterButton(args.state.groupFilter, 'all', 'すべて')}
+          ${renderFilterButton(args.state.groupFilter, 'saved', '未復元あり')}
+          ${renderFilterButton(args.state.groupFilter, 'restored', '復元済みあり')}
+          <div class="result-meta">${args.visibleGroups.length} / ${args.filteredGroups.length} groups</div>
+        </div>
+
+        ${renderGroupList({
+          groups: args.visibleGroups,
+          emptyLabel: 'まだ保存済みグループはありません。',
+          expandedGroupIds: args.visibleExpandedGroupIds,
+          collapsible: true,
+          busy: args.state.actionBusy,
+          editableGroupId: args.state.editingGroupId,
+          editableGroupTitle: args.state.editingGroupTitle
+        })}
+
+        ${
+          remainingCount > 0
+            ? `
+              <div class="load-more-row">
+                <button class="secondary" type="button" data-action="show-more-groups">
+                  さらに表示
+                </button>
+                <p class="result-meta">${remainingCount} groups remaining</p>
+              </div>
+            `
+            : ''
+        }
+      </section>
+
+      <section class="lightweight-panel-stack">
+        ${renderImportPanel(args.state)}
+        ${renderAuthPanel({
+          email: args.state.email,
+          password: args.state.password,
+          status: args.state.authStatus,
+          busy: args.state.authBusy
+        })}
+        ${renderConfigPanel({
+          supabaseUrl: args.state.config.supabaseUrl,
+          supabaseKey: args.state.config.supabaseKey,
+          ignoreDomainsText: args.state.ignoreDomainsText,
+          ignoreTitlesText: args.state.ignoreTitlesText,
+          busy: args.state.configBusy
+        })}
+      </section>
+    </main>
+  `;
+}

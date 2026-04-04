@@ -1,0 +1,25 @@
+.tablet-shell {
+  max-width: 1100px;
+}
+
+.tablet-hero {
+  background:
+    radial-gradient(circle at top right, rgba(131, 224, 255, 0.18), transparent 30%),
+    radial-gradient(circle at left center, rgba(20, 255, 194, 0.1), transparent 24%),
+    rgba(10, 18, 32, 0.96);
+}
+
+.tablet-import-panel code {
+  font-size: 0.88em;
+}
+
+@media (min-width: 900px) {
+  .tablet-shell .lightweight-panel-stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .tablet-shell .config-panel {
+    grid-column: 1 / -1;
+  }
+}

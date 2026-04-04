@@ -2,6 +2,7 @@ import '../shared/ui.css';
 import '../shared/panels.css';
 import './popup.css';
 import { createTab, getRuntimeUrl, runtimeSendMessage } from '../shared/browser-api';
+import { resolveDashboardUrl } from '../shared/dashboard-url';
 import { lineListToText, textToLineList } from '../shared/format';
 import { summarizeGroupCollection } from '../shared/group-summary';
 import { importTabGroups } from '../shared/import';
@@ -289,7 +290,7 @@ class PopupApp {
   }
 
   private async openDashboard() {
-    await createTab({ url: getRuntimeUrl('newtab.html'), active: true });
+    await createTab({ url: resolveDashboardUrl(getRuntimeUrl), active: true });
   }
 
   private render() {
