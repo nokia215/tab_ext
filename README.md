@@ -98,6 +98,14 @@ npm run build:pages
 
 出力先は `dist/pages/` です。`main` への push 時は `.github/workflows/deploy-pages.yml` から GitHub Pages へデプロイされます。
 
+初回のみ、GitHub のリポジトリ設定で Pages を有効にしてください。
+
+1. `Settings`
+2. `Pages`
+3. `Build and deployment` の `Source` を `GitHub Actions` にする
+
+これが未設定だと `actions/deploy-pages` は `404 Not Found` で失敗します。
+
 ## プロジェクト構造
 ```
 docs/             # 設計メモ・ガイドライン
