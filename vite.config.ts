@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
   const outDir = path.resolve(__dirname, 'dist', isPagesBuild ? 'pages' : browser);
   const input: Record<string, string> = isPagesBuild
     ? {
+        index: path.resolve(__dirname, 'index.html'),
         tablet: path.resolve(__dirname, 'tablet.html')
       }
     : {

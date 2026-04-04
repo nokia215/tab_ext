@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - id: pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5
       - uses: actions/setup-node@v6
         with:
           node-version: 24
