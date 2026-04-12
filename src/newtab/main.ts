@@ -5,6 +5,7 @@ import { runtimeSendMessage } from '../shared/browser-api';
 import { EXTERNAL_TABLET_DASHBOARD_URL, shouldDelegateDashboardToWeb } from '../shared/dashboard-url';
 import { countFavoriteGroups, getFavoriteGroupIds, removeFavoriteGroupIds, saveFavoriteGroupIds, toggleFavoriteGroupId } from '../shared/favorites';
 import { lineListToText, textToLineList } from '../shared/format';
+import { isStaleGroupByAge } from '../shared/group-age';
 import { mergeGroupIds, reconcileGroupIds, resolveGroupsByIds, toggleGroupId } from '../shared/group-helpers';
 import { importTabGroups } from '../shared/import';
 import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
@@ -26,6 +27,8 @@ import {
 import type { AppConfig, TabGroup } from '../shared/types';
 import {
   LIGHTWEIGHT_GROUP_BATCH_SIZE,
+  collectDeviceFilterOptions,
+  countStaleGroups,
   createInitialState,
   detectRuntimeProfile,
   queryGroups,
@@ -83,6 +86,18 @@ class NewtabApp {
 
   private get selectedSummary() {
     return summarizeSelectedGroups(this.state.allGroups, this.state.selectedGroupIds);
+  }
+
+  private get deviceFilterOptions() {
+    return collectDeviceFilterOptions(this.state.allGroups);
+  }
+
+  private get staleSelectableCount() {
+    return countStaleGroups(this.bulkSelectableGroups);
+  }
+
+  private get filteredStaleGroupCount() {
+    return countStaleGroups(this.filteredGroups);
   }
 
   private get pageStatusIsError() {
@@ -277,7 +292,11 @@ class NewtabApp {
       summary: this.summary,
       selectedSummary: this.selectedSummary,
       bulkSelectableCount: this.bulkSelectableGroups.length,
+      staleSelectableCount: this.staleSelectableCount,
+      filteredStaleGroupCount: this.filteredStaleGroupCount,
+      staleSelectLabel: this.isLightweightMode ? '表示中の30日以上を選択' : '30日以上を選択',
       favoriteGroupCount: this.favoriteGroupCount,
+      deviceFilterOptions: this.deviceFilterOptions,
       archiveActionLabel: this.archiveActionLabel,
       archiveActionName: this.archiveActionName,
       filteredGroups,
@@ -686,6 +705,18 @@ class NewtabApp {
     this.render();
   }
 
+  private selectStaleGroups() {
+    const staleGroups = this.bulkSelectableGroups.filter((group) => isStaleGroupByAge(group));
+
+    if (staleGroups.length === 0) {
+      return;
+    }
+
+    this.state.selectedGroupIds = mergeGroupIds(this.state.selectedGroupIds, staleGroups);
+    this.state.pageStatus = `30日以上の ${staleGroups.length} グループを選択しました。`;
+    this.render();
+  }
+
   private clearGroupSelection() {
     if (this.state.selectedGroupIds.length === 0) {
       return;
@@ -900,6 +931,10 @@ class NewtabApp {
       this.state.sortMode = target.value as SortMode;
       this.resetVisibleGroupCount();
       this.render();
+    } else if (target.name === 'deviceFilter') {
+      this.state.deviceFilter = target.value;
+      this.resetVisibleGroupCount();
+      this.render();
     }
   }
 
@@ -1043,8 +1078,20 @@ class NewtabApp {
         }
         break;
       }
+      case 'set-date-range-filter': {
+        const value = actionTarget.dataset.value as NewtabState['dateRangeFilter'] | undefined;
+        if (value) {
+          this.state.dateRangeFilter = value;
+          this.resetVisibleGroupCount();
+          this.render();
+        }
+        break;
+      }
       case 'toggle-favorite-only':
         this.toggleFavoriteOnly();
+        break;
+      case 'select-stale-groups':
+        this.selectStaleGroups();
         break;
       case 'show-more-groups':
         this.state.visibleGroupCount += LIGHTWEIGHT_GROUP_BATCH_SIZE;

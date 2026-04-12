@@ -4,6 +4,7 @@ import '../newtab/newtab.css';
 import './tablet.css';
 import { countFavoriteGroups, getFavoriteGroupIds, removeFavoriteGroupIds, saveFavoriteGroupIds, toggleFavoriteGroupId } from '../shared/favorites';
 import { lineListToText, textToLineList } from '../shared/format';
+import { isStaleGroupByAge } from '../shared/group-age';
 import { mergeGroupIds, reconcileGroupIds, resolveGroupsByIds, toggleGroupId } from '../shared/group-helpers';
 import { importTabGroups } from '../shared/import';
 import { formatImportStatus, getErrorMessage, isErrorStatus } from '../shared/status';
@@ -26,6 +27,8 @@ import { openSavedTab, restoreTabs } from '../shared/tabs';
 import type { AppConfig, TabGroup } from '../shared/types';
 import {
   LIGHTWEIGHT_GROUP_BATCH_SIZE,
+  collectDeviceFilterOptions,
+  countStaleGroups,
   createInitialState,
   queryGroups,
   summarizeSelectedGroups,
@@ -73,6 +76,18 @@ class TabletApp {
 
   private get selectedSummary() {
     return summarizeSelectedGroups(this.state.allGroups, this.state.selectedGroupIds);
+  }
+
+  private get deviceFilterOptions() {
+    return collectDeviceFilterOptions(this.state.allGroups);
+  }
+
+  private get staleSelectableCount() {
+    return countStaleGroups(this.bulkSelectableGroups);
+  }
+
+  private get filteredStaleGroupCount() {
+    return countStaleGroups(this.filteredGroups);
   }
 
   private get pageStatusIsError() {
@@ -241,7 +256,11 @@ class TabletApp {
       summary: this.summary,
       selectedSummary: this.selectedSummary,
       bulkSelectableCount: this.bulkSelectableGroups.length,
+      staleSelectableCount: this.staleSelectableCount,
+      filteredStaleGroupCount: this.filteredStaleGroupCount,
+      staleSelectLabel: '表示中の30日以上を選択',
       favoriteGroupCount: this.favoriteGroupCount,
+      deviceFilterOptions: this.deviceFilterOptions,
       archiveActionLabel: this.archiveActionLabel,
       archiveActionName: this.archiveActionName,
       filteredGroups,
@@ -589,6 +608,18 @@ class TabletApp {
     this.render();
   }
 
+  private selectStaleGroups() {
+    const staleGroups = this.bulkSelectableGroups.filter((group) => isStaleGroupByAge(group));
+
+    if (staleGroups.length === 0) {
+      return;
+    }
+
+    this.state.selectedGroupIds = mergeGroupIds(this.state.selectedGroupIds, staleGroups);
+    this.state.pageStatus = `30日以上の ${staleGroups.length} グループを選択しました。`;
+    this.render();
+  }
+
   private clearGroupSelection() {
     if (this.state.selectedGroupIds.length === 0) {
       return;
@@ -748,6 +779,14 @@ class TabletApp {
 
     if (target.name === 'sortMode') {
       this.state.sortMode = target.value as NewtabState['sortMode'];
+      this.resetVisibleGroupCount();
+      this.render();
+      return;
+    }
+
+    if (target.name === 'deviceFilter') {
+      this.state.deviceFilter = target.value;
+      this.resetVisibleGroupCount();
       this.render();
     }
   }
@@ -789,6 +828,11 @@ class TabletApp {
       case 'set-group-filter':
         await this.setGroupFilter((actionTarget.dataset.value as NewtabState['groupFilter']) ?? 'all');
         break;
+      case 'set-date-range-filter':
+        this.state.dateRangeFilter = (actionTarget.dataset.value as NewtabState['dateRangeFilter']) ?? 'all';
+        this.resetVisibleGroupCount();
+        this.render();
+        break;
       case 'toggle-favorite-only':
         this.toggleFavoriteOnly();
         break;
@@ -823,6 +867,9 @@ class TabletApp {
         break;
       case 'select-visible-groups':
         this.selectVisibleGroups();
+        break;
+      case 'select-stale-groups':
+        this.selectStaleGroups();
         break;
       case 'clear-group-selection':
         this.clearGroupSelection();

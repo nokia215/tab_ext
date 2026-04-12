@@ -1,7 +1,14 @@
 import { escapeHtml, renderDisabled, renderStatusBanner } from '../shared/html';
 import { renderAuthPanel, renderConfigPanel, renderGroupList } from '../shared/renderers';
 import type { TabGroup } from '../shared/types';
-import type { GroupFilter, NewtabState, SelectedGroupSummary, SortMode } from '../newtab/model';
+import type {
+  DateRangeFilter,
+  DeviceFilterOption,
+  GroupFilter,
+  NewtabState,
+  SelectedGroupSummary,
+  SortMode
+} from '../newtab/model';
 
 export interface TabletViewArgs {
   state: NewtabState;
@@ -11,10 +18,15 @@ export interface TabletViewArgs {
     restoredTabs: number;
     savedTabs: number;
     deviceCount: number;
+    staleGroupCount: number;
   };
   selectedSummary: SelectedGroupSummary;
   bulkSelectableCount: number;
+  staleSelectableCount: number;
+  filteredStaleGroupCount: number;
+  staleSelectLabel: string;
   favoriteGroupCount: number;
+  deviceFilterOptions: DeviceFilterOption[];
   archiveActionLabel: string;
   archiveActionName: string;
   filteredGroups: TabGroup[];
@@ -48,8 +60,35 @@ function renderFilterButton(activeFilter: GroupFilter, value: GroupFilter, label
   });
 }
 
+function renderDateFilterButton(activeFilter: DateRangeFilter, value: DateRangeFilter, label: string) {
+  return renderChip({
+    active: activeFilter === value,
+    action: 'set-date-range-filter',
+    label,
+    value
+  });
+}
+
 function renderSortOption(current: SortMode, value: SortMode, label: string) {
   return `<option value="${value}"${current === value ? ' selected' : ''}>${label}</option>`;
+}
+
+function renderDeviceFilter(options: DeviceFilterOption[], selectedValue: string) {
+  return `
+    <label class="field compact-field device-field">
+      <span class="field-label">端末</span>
+      <select name="deviceFilter">
+        <option value="all">すべての端末</option>
+        ${options
+          .map((option) => `
+            <option value="${escapeHtml(option.value)}"${selectedValue === option.value ? ' selected' : ''}>
+              ${escapeHtml(option.label)}
+            </option>
+          `)
+          .join('')}
+      </select>
+    </label>
+  `;
 }
 
 function renderImportPanel(state: NewtabState) {
@@ -96,6 +135,8 @@ function renderBulkActionBar(args: {
   busy: boolean;
   selectedSummary: SelectedGroupSummary;
   bulkSelectableCount: number;
+  staleSelectableCount: number;
+  staleSelectLabel: string;
   archiveActionLabel: string;
   archiveActionName: string;
 }) {
@@ -122,6 +163,14 @@ function renderBulkActionBar(args: {
           ${renderDisabled(args.busy || args.bulkSelectableCount === 0)}
         >
           表示中を選択
+        </button>
+        <button
+          class="ghost"
+          type="button"
+          data-action="select-stale-groups"
+          ${renderDisabled(args.busy || args.staleSelectableCount === 0)}
+        >
+          ${escapeHtml(args.staleSelectLabel)}
         </button>
         <button
           class="ghost"
@@ -200,6 +249,10 @@ export function renderTabletView(args: TabletViewArgs) {
             <span class="mini-metric-label">Favorites</span>
             <strong class="mini-metric-value">${args.favoriteGroupCount}</strong>
           </article>
+          <article class="mini-metric">
+            <span class="mini-metric-label">30d+</span>
+            <strong class="mini-metric-value">${args.summary.staleGroupCount}</strong>
+          </article>
         </div>
       </section>
 
@@ -232,6 +285,16 @@ export function renderTabletView(args: TabletViewArgs) {
               ${renderSortOption(args.state.sortMode, 'tabCount', 'タブ数順')}
             </select>
           </label>
+
+          ${renderDeviceFilter(args.deviceFilterOptions, args.state.deviceFilter)}
+        </div>
+
+        <div class="filter-row filter-row-secondary">
+          ${renderDateFilterButton(args.state.dateRangeFilter, 'all', '全期間')}
+          ${renderDateFilterButton(args.state.dateRangeFilter, 'today', '今日')}
+          ${renderDateFilterButton(args.state.dateRangeFilter, 'week', '7日以内')}
+          ${renderDateFilterButton(args.state.dateRangeFilter, 'month', '30日未満')}
+          ${renderDateFilterButton(args.state.dateRangeFilter, 'stale', '30日以上')}
         </div>
 
         <div class="filter-row">
@@ -244,13 +307,17 @@ export function renderTabletView(args: TabletViewArgs) {
             action: 'toggle-favorite-only',
             label: 'お気に入りのみ'
           })}
-          <div class="result-meta">${args.visibleGroups.length} / ${args.filteredGroups.length} groups</div>
+          <div class="result-meta">
+            ${args.visibleGroups.length} / ${args.filteredGroups.length} groups / 30日以上 ${args.filteredStaleGroupCount}
+          </div>
         </div>
 
         ${renderBulkActionBar({
           busy: args.state.actionBusy,
           selectedSummary: args.selectedSummary,
           bulkSelectableCount: args.bulkSelectableCount,
+          staleSelectableCount: args.staleSelectableCount,
+          staleSelectLabel: args.staleSelectLabel,
           archiveActionLabel: args.archiveActionLabel,
           archiveActionName: args.archiveActionName
         })}

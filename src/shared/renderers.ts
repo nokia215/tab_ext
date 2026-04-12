@@ -1,3 +1,4 @@
+import { describeGroupAge } from './group-age';
 import { formatDate } from './format';
 import { isArchivedGroup } from './group-helpers';
 import { escapeHtml, renderDisabled, renderStatusBanner } from './html';
@@ -242,6 +243,7 @@ export function renderGroupList(view: GroupListView): string {
           const archived = isArchivedGroup(group);
           const isEditing = Boolean(view.editableGroupId && view.editableGroupId === group.id);
           const editingTitle = isEditing ? (view.editableGroupTitle ?? '') : (group.title ?? '');
+          const age = describeGroupAge(group.created_at);
           const previewTabs = group.tabs.slice(0, 6);
           const visibleTabs = expanded ? group.tabs : previewTabs;
           const hiddenTabCount = Math.max(group.tabs.length - previewTabs.length, 0);
@@ -293,6 +295,7 @@ export function renderGroupList(view: GroupListView): string {
                   ${titleBlock}
                   <div class="group-meta">
                     <span class="meta-pill">${group.tabs.length} tabs</span>
+                    <span class="meta-pill meta-pill-${age.tone}">${escapeHtml(age.label)}</span>
                     <span class="meta-pill">${escapeHtml(group.device_id)}</span>
                     ${favorite ? '<span class="meta-pill favorite-pill">お気に入り</span>' : ''}
                   </div>
@@ -306,6 +309,7 @@ export function renderGroupList(view: GroupListView): string {
                   ${titleBlock}
                   <div class="group-meta">
                     <span class="meta-pill">${group.tabs.length} tabs</span>
+                    <span class="meta-pill meta-pill-${age.tone}">${escapeHtml(age.label)}</span>
                     <span class="meta-pill">${escapeHtml(group.device_id)}</span>
                     ${favorite ? '<span class="meta-pill favorite-pill">お気に入り</span>' : ''}
                   </div>

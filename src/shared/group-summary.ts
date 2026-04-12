@@ -1,3 +1,4 @@
+import { isStaleGroupByAge } from './group-age';
 import type { TabGroup } from './types';
 
 export interface GroupCollectionSummary {
@@ -9,6 +10,8 @@ export interface GroupCollectionSummary {
   deviceCount: number;
   restorableGroupCount: number;
   restoredGroupCount: number;
+  staleGroupCount: number;
+  staleTabCount: number;
 }
 
 export function summarizeGroupCollection(groups: TabGroup[]): GroupCollectionSummary {
@@ -18,10 +21,17 @@ export function summarizeGroupCollection(groups: TabGroup[]): GroupCollectionSum
   let archivedTabs = 0;
   let restorableGroupCount = 0;
   let restoredGroupCount = 0;
+  let staleGroupCount = 0;
+  let staleTabCount = 0;
   const devices = new Set<string>();
 
   for (const group of groups) {
     devices.add(group.device_id);
+
+    if (isStaleGroupByAge(group)) {
+      staleGroupCount += 1;
+      staleTabCount += group.tabs.length;
+    }
 
     let hasSavedTab = false;
     let hasRestoredTab = false;
@@ -57,6 +67,8 @@ export function summarizeGroupCollection(groups: TabGroup[]): GroupCollectionSum
     archivedTabs,
     deviceCount: devices.size,
     restorableGroupCount,
-    restoredGroupCount
+    restoredGroupCount,
+    staleGroupCount,
+    staleTabCount
   };
 }

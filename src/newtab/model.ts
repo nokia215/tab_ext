@@ -1,4 +1,5 @@
 import type { GroupCollectionSummary } from '../shared/group-summary';
+import { isStaleGroupByAge, matchesDateRangeFilter, type DateRangeFilter } from '../shared/group-age';
 import { groupHasStatus } from '../shared/group-helpers';
 import { summarizeGroupCollection } from '../shared/group-summary';
 import { filterGroups } from '../shared/search';
@@ -9,6 +10,13 @@ export const LIGHTWEIGHT_GROUP_BATCH_SIZE = 12;
 export type GroupFilter = 'all' | SaveStatus;
 export type SortMode = 'newest' | 'oldest' | 'tabCount';
 export type UiMode = 'default' | 'lightweight';
+export type { DateRangeFilter };
+
+export interface DeviceFilterOption {
+  value: string;
+  label: string;
+  count: number;
+}
 
 export interface RuntimeProfile {
   isAndroidFirefox: boolean;
@@ -22,6 +30,8 @@ export interface NewtabState {
   searchQuery: string;
   favoriteOnly: boolean;
   groupFilter: GroupFilter;
+  dateRangeFilter: DateRangeFilter;
+  deviceFilter: string;
   sortMode: SortMode;
   allGroups: TabGroup[];
   favoriteGroupIds: string[];
@@ -79,6 +89,8 @@ export function createInitialState(runtimeProfile: RuntimeProfile): NewtabState 
     searchQuery: '',
     favoriteOnly: false,
     groupFilter: 'all',
+    dateRangeFilter: 'all',
+    deviceFilter: 'all',
     sortMode: 'newest',
     allGroups: [],
     favoriteGroupIds: [],
@@ -119,6 +131,10 @@ export function matchesGroupFilter(group: TabGroup, filter: GroupFilter) {
   return groupHasStatus(group, filter);
 }
 
+function matchesDeviceFilter(group: TabGroup, deviceFilter: string) {
+  return deviceFilter === 'all' || group.device_id === deviceFilter;
+}
+
 function compareFavoriteOrder(a: TabGroup, b: TabGroup, favoriteGroupIds: Set<string>) {
   return Number(favoriteGroupIds.has(b.id)) - Number(favoriteGroupIds.has(a.id));
 }
@@ -149,12 +165,17 @@ export function sortGroups(mode: SortMode, favoriteGroupIds = new Set<string>())
 
 export function queryGroups(
   groups: TabGroup[],
-  options: Pick<NewtabState, 'searchQuery' | 'favoriteOnly' | 'groupFilter' | 'sortMode' | 'favoriteGroupIds'>
+  options: Pick<
+    NewtabState,
+    'searchQuery' | 'favoriteOnly' | 'groupFilter' | 'dateRangeFilter' | 'deviceFilter' | 'sortMode' | 'favoriteGroupIds'
+  >
 ) {
   const favoriteGroupIds = new Set(options.favoriteGroupIds);
 
   return filterGroups(groups, options.searchQuery)
     .filter((group) => matchesGroupFilter(group, options.groupFilter))
+    .filter((group) => matchesDateRangeFilter(group.created_at, options.dateRangeFilter))
+    .filter((group) => matchesDeviceFilter(group, options.deviceFilter))
     .filter((group) => !options.favoriteOnly || favoriteGroupIds.has(group.id))
     .sort(sortGroups(options.sortMode, favoriteGroupIds));
 }
@@ -163,6 +184,26 @@ export type GroupSummary = GroupCollectionSummary;
 
 export function summarizeGroups(groups: TabGroup[]): GroupSummary {
   return summarizeGroupCollection(groups);
+}
+
+export function collectDeviceFilterOptions(groups: TabGroup[]): DeviceFilterOption[] {
+  const deviceCounts = new Map<string, number>();
+
+  for (const group of groups) {
+    deviceCounts.set(group.device_id, (deviceCounts.get(group.device_id) ?? 0) + 1);
+  }
+
+  return [...deviceCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ja'))
+    .map(([value, count]) => ({
+      value,
+      label: `${value} (${count})`,
+      count
+    }));
+}
+
+export function countStaleGroups(groups: TabGroup[]) {
+  return groups.filter((group) => isStaleGroupByAge(group)).length;
 }
 
 export function summarizeSelectedGroups(groups: TabGroup[], selectedGroupIds: string[]): SelectedGroupSummary {

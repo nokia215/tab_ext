@@ -1,113 +1,181 @@
 # Tab Saver
 
-ブラウザのタブグループを Supabase に保存し、あとから復元できるブラウザ拡張です。
+Tab Saver は、ブラウザのタブをローカルに閉じ込めず、Supabase に保存してあとから復元できる Chrome / Firefox 向け拡張です。
 
-シンプルで高速、そして 複数デバイス間で同期できます。
+単なる「タブを溜め込む箱」ではなく、保存済みタブを **一時的なキュー** として扱い、必要なものを復元したら自然に片づいていく体験を目指しています。
 
-一般的なタブ管理拡張と違い、保存されたタブはローカルではなく クラウドデータベースに保存されるため、別のPCやブラウザからでもアクセスできます。
+## 何がうれしいのか
 
-## 特徴
+- 今のウィンドウをそのまま退避して、別の PC や別ブラウザで続きを再開できる
+- 保存済みタブを検索、絞り込み、整理しながら扱えるので、リストが肥大化しにくい
+- Android 版 Firefox では GitHub Pages 上の軽量ダッシュボードに自動で切り替わる
 
-- 現在のウィンドウのタブを保存
-- 現在のタブのみ保存
-- 保存されたタブグループの一覧表示
+## この拡張の思想
+
+多くのタブ管理ツールには、次の 2 つの悩みがあります。
+
+1. 保存先がローカル中心で、端末をまたぐと取り出しづらい
+2. 保存済みタブが増え続けて、結局あとで見返しにくくなる
+
+Tab Saver はこの問題に対して、保存済みタブを **長期保管庫** ではなく **一時キュー** として扱います。
+
+- 個別に開いた保存済みタブは、自動でリストから削除される
+- グループ単位の復元や保管、削除を一覧からすばやく実行できる
+- 30 日以上経ったグループをまとめて選び、古いキューを掃除しやすい
+
+「あとで見る」が永遠に積み上がるのではなく、必要なときに戻して、使い終わったら自然に消えていくのが基本設計です。
+
+## 主な機能
+
+### 保存
+
+- 現在のウィンドウのタブをまとめて保存
+- 現在のタブだけを単体で保存
+- テキスト貼り付けによる URL リストのインポート
 - 保存後のグループ名編集
-- ダッシュボード検索はグループ名 / タブ名 / URL / 端末名に対応
-- ダッシュボードでお気に入り固定し、常に先頭表示 + お気に入りのみ絞り込み
+
+### 探す
+
+- グループ名 / タブ名 / URL / 端末名の横断検索
+- 日付クイックフィルタ
+  - 今日
+  - 7日以内
+  - 30日未満
+  - 30日以上
+- 端末フィルタで、特定デバイスの保存だけを素早く絞り込み
 - 折りたたみ時も先頭タブをプレビュー表示する高密度一覧
-- Android 版 Firefox では GitHub Pages 上のタブレット向け軽量ダッシュボードへ自動で切り替え
-- タブの復元
-- 保存済みタブを開くと 自動でリストから削除
-- Supabase による デバイス間同期
-- Popup UI + New Tab ダッシュボード
+- お気に入り固定と「お気に入りのみ」表示
 
-## 今後追加すると良い機能
+### 整理する
 
-- タグやメモを付けて、あとで見返すグループの文脈も残せるようにする
-- 複数選択による一括復元 / 一括削除で、保存済みグループの整理を速くする
-- 自動アーカイブや保存期限ルールで、古いグループを自然に掃除できるようにする
-- 端末別 / ブラウザ別 / 日付別のクイックフィルタで、必要な保存をすぐ見つけられるようにする
-- 大量データ向けのページングや仮想スクロールで、モバイル環境でも一覧を軽く保つ
+- 複数グループの一括選択
+- 一括復元 / 一括保管 / 一括削除
+- 30日以上経過したグループを一括選択して、そのまま整理
+- 各グループに経過日数を表示し、古い保存を見つけやすくする
 
-## なぜ作ったのか
+### 同期する
 
-既存のタブ管理ツールには、主に次の2つの問題があります。
+- Supabase によるデバイス間同期
+- Chrome / Firefox の両対応
+- Android 版 Firefox では GitHub Pages 上のタブレット向け軽量ダッシュボードへ自動切り替え
 
-1. タブがローカルにしか保存されない
+## 保存時のルール
 
-デバイスを変えるとアクセスできません。
+- `about:` / `chrome://` / `edge://` / `moz-extension://` などの内部 URL は保存対象外
+- ピン留めタブは保存対象外
+- 除外ドメイン / 除外タイトルを設定できる
+- URL は正規化され、重複や追跡パラメータをある程度落として保存される
 
-2. 保存されたタブが永遠に増え続ける
+## 使いどころ
 
-結果としてリストが散らかります。
+- 作業中のタブ群をいったん退避して、PC をまたいで再開したい
+- 調査用に大量のタブを開いたが、あとで少しずつ見返したい
+- Android タブレット上で、保存済みリンクを軽い UI で確認したい
+- 「とりあえず保存」が増えがちなので、古いものから整理したい
 
-この拡張は、保存されたタブを **「一時的なキュー」**として扱います。
+## セットアップ
 
-保存されたタブを開くと、そのタブは 自動的にリストから削除されます。
+### 1. Supabase プロジェクトを用意する
 
-これにより、リストは常に整理された状態を保てます。
+Supabase で新しいプロジェクトを作成し、[sql/schema.sql](sql/schema.sql) を実行してください。
 
-## アーキテクチャ
+このスキーマでは次を用意しています。
 
-### フロントエンド
+- `tab_groups`
+  - 保存されたグループ本体
+- `tabs`
+  - 各タブの URL / title / position / status
+- Row Level Security
+  - ログインユーザー本人のデータだけを読み書き可能
 
-Chrome / Firefox 拡張
+拡張側で必要なのは次の 2 つです。
 
-TypeScript
+- Project URL
+- Publishable / anon key
 
-Vite (ビルド)
+`service_role` は使いません。
 
-### ストレージ
+### 2. 依存関係をインストールする
 
-Supabase
-
-Row Level Security
-
-クラウド同期
-
-### データ構造
-
-#### tables
-
-**tab_groups**
-
-保存されたタブグループ（ウィンドウ状態）
-
-**tabs**
-
-各タブの情報
-
-## 開発環境でのインストール
-
+```bash
 npm install
+```
+
+### 3. 拡張をビルドする
+
+Chrome:
+
+```bash
 npm run build:chrome
+```
 
-ビルド後、以下から拡張を読み込みます。
+Firefox:
 
-chrome://extensions
+```bash
+npm run build:firefox
+```
 
-dist/chrome ディレクトリを 「パッケージ化されていない拡張機能を読み込む」 から追加してください。
+### 4. ブラウザに読み込む
+
+Chrome:
+
+1. `chrome://extensions` を開く
+2. デベロッパーモードを有効にする
+3. `dist/chrome` を「パッケージ化されていない拡張機能を読み込む」から追加する
+
+Firefox:
+
+- 開発中は `npm run run:firefox` でも確認できます
+
+### 5. 拡張内で接続設定を保存する
+
+Popup またはダッシュボードの設定画面で、次を入力します。
+
+- Supabase Project URL
+- Supabase Publishable / anon key
+- 必要に応じて除外ドメイン / 除外タイトル
+
+その後、メールアドレスとパスワードで新規登録またはログインすると同期を使い始められます。
+
+## 画面構成
+
+### Popup UI
+
+- 現在ウィンドウ / 現在タブの保存
+- ダッシュボードを開く導線
+- 接続設定と認証の確認
+
+### New Tab ダッシュボード
+
+- 保存済みグループの一覧、検索、復元、整理の中心画面
+- お気に入りや古い保存の管理に向いた高密度 UI
+
+### Tablet ダッシュボード
+
+- Android 版 Firefox 向けの軽量 UI
+- 表示負荷を抑えつつ、検索・復元・整理に必要な機能を残した構成
 
 ## GitHub Pages 版タブレット UI
 
-Android 版 Firefox 向けには、拡張内の `newtab.html` ではなく GitHub Pages 上の軽量ダッシュボードを使います。
+Android 版 Firefox では、拡張内の `newtab.html` ではなく GitHub Pages 上の `tablet.html` を使います。
 
-このダッシュボードは `index.html` と `tablet.html` の 2 つのエントリで配信され、ルートURLへアクセスした場合は `tablet.html` へ遷移します。
+- ルート URL: [https://nokia215.github.io/tab_ext/](https://nokia215.github.io/tab_ext/)
+- 直接 URL: [https://nokia215.github.io/tab_ext/tablet.html](https://nokia215.github.io/tab_ext/tablet.html)
 
-ダッシュボードのお気に入り固定はローカル保存です。拡張内ダッシュボードと GitHub Pages 版ダッシュボードでは保存先が別になるため、それぞれの環境で独立して保持されます。
+このダッシュボードは `index.html` と `tablet.html` の 2 エントリで配信され、ルートへアクセスすると `tablet.html` へリダイレクトします。
+
+ビルド:
 
 ```bash
 npm run build:pages
 ```
 
-出力先は `dist/pages/` です。`main` への push 時は `.github/workflows/deploy-pages.yml` から GitHub Pages へデプロイされます。
+出力先は `dist/pages/` です。`main` への push 時は `.github/workflows/deploy-pages.yml` から GitHub Pages にデプロイされます。
 
-公開URLは以下です。
+注意点:
 
-- `https://nokia215.github.io/tab_ext/`
-- `https://nokia215.github.io/tab_ext/tablet.html`
-
-ルートURLには `index.html` を置き、`tablet.html` へリダイレクトしています。
+- お気に入り固定はローカル保存です
+- 拡張内ダッシュボードと GitHub Pages 版ダッシュボードでは保存先が別のため、それぞれ独立して保持されます
 
 初回のみ、GitHub のリポジトリ設定で Pages を有効にしてください。
 
@@ -119,23 +187,64 @@ npm run build:pages
 
 ### GitHub Actions メモ
 
-- Pages workflow は Node 24 前提で実行するため `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` を設定しています。
-- `checkout` / `setup-node` / `configure-pages` は Node 24 対応版を使っています。
-- `deploy-pages` 側は GitHub 提供 action の更新状況により一時的に非推奨警告が残る場合がありますが、Node 24 での実行を強制しているため現時点ではそのまま運用できます。
+- Pages workflow は Node 24 前提で実行するため `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` を設定しています
+- `checkout` / `setup-node` / `configure-pages` は Node 24 対応版を使っています
+- `deploy-pages` 側は GitHub 提供 action の更新状況により一時的に非推奨警告が残る場合があります
+
+## 技術構成
+
+### フロントエンド
+
+- TypeScript
+- Vite
+- Chrome / Firefox Extension
+
+### ストレージ
+
+- Supabase
+- Row Level Security
+- クラウド同期
+
+### データモデル
+
+- `tab_groups`
+  - 保存されたタブグループ
+- `tabs`
+  - 各タブの URL / title / status / position
+
+## 開発用コマンド
+
+```bash
+npm run typecheck
+npm run build:chrome
+npm run build:firefox
+npm run build:pages
+npm run run:firefox
+```
 
 ## プロジェクト構造
-```
+
+```text
 docs/             # 設計メモ・ガイドライン
+sql/              # Supabase schema
 src/
-  popup/        # ポップアップUI
-  newtab/       # 新しいタブページ
-  background/   # background script
-  shared/       # 共通ロジック
+  background/     # background script
+  newtab/         # 新しいタブページ
+  popup/          # popup UI
+  shared/         # 共通ロジック
+  tablet/         # GitHub Pages / tablet UI
 
-manifests/      # browser manifest
-scripts/        # build scripts
+manifests/        # browser manifest
+scripts/          # build scripts
 ```
 
-## UI ドキュメント
+## 関連ドキュメント
 
-- 一覧性を重視した UI 方針: `docs/ui-guidelines.md`
+- UI ガイドライン: [docs/ui-guidelines.md](docs/ui-guidelines.md)
+
+## 今後のアイデア
+
+- タグやメモを付けて、あとで見返す文脈も残せるようにする
+- 自動アーカイブや保存期限ルールで、古いグループを自然に掃除する
+- 端末フィルタをブラウザ種別や OS 単位にも広げる
+- 大量データ向けのページングや仮想スクロールを導入する
