@@ -1,7 +1,7 @@
-import { escapeHtml, renderStatusBanner } from '../shared/html';
+import { escapeHtml, renderDisabled, renderStatusBanner } from '../shared/html';
 import { renderAuthPanel, renderConfigPanel, renderGroupList } from '../shared/renderers';
 import type { TabGroup } from '../shared/types';
-import type { GroupFilter, NewtabState, SortMode } from '../newtab/model';
+import type { GroupFilter, NewtabState, SelectedGroupSummary, SortMode } from '../newtab/model';
 
 export interface TabletViewArgs {
   state: NewtabState;
@@ -12,6 +12,10 @@ export interface TabletViewArgs {
     savedTabs: number;
     deviceCount: number;
   };
+  selectedSummary: SelectedGroupSummary;
+  bulkSelectableCount: number;
+  archiveActionLabel: string;
+  archiveActionName: string;
   filteredGroups: TabGroup[];
   visibleGroups: TabGroup[];
   visibleExpandedGroupIds: string[];
@@ -63,6 +67,74 @@ function renderImportPanel(state: NewtabState) {
 
       <p class="section-copy"><code>URL | タブ名</code> を1行ずつ貼り付け、空行でグループを分けられます。</p>
       ${renderStatusBanner(state.saveStatus, state.saveStatus.includes('失敗'))}
+    </section>
+  `;
+}
+
+function renderBulkActionBar(args: {
+  busy: boolean;
+  selectedSummary: SelectedGroupSummary;
+  bulkSelectableCount: number;
+  archiveActionLabel: string;
+  archiveActionName: string;
+}) {
+  const hasSelection = args.selectedSummary.selectedCount > 0;
+
+  return `
+    <section class="bulk-toolbar">
+      <div class="bulk-toolbar-copy">
+        <strong>一括整理</strong>
+        <p class="section-copy">
+          ${
+            hasSelection
+              ? `${args.selectedSummary.selectedCount} groups / ${args.selectedSummary.selectedTabCount} tabs を選択中`
+              : '表示中のグループをまとめて復元・整理できます。'
+          }
+        </p>
+      </div>
+
+      <div class="actions bulk-toolbar-actions">
+        <button
+          class="ghost"
+          type="button"
+          data-action="select-visible-groups"
+          ${renderDisabled(args.busy || args.bulkSelectableCount === 0)}
+        >
+          表示中を選択
+        </button>
+        <button
+          class="ghost"
+          type="button"
+          data-action="clear-group-selection"
+          ${renderDisabled(args.busy || !hasSelection)}
+        >
+          選択解除
+        </button>
+        <button
+          class="secondary"
+          type="button"
+          data-action="restore-selected-groups"
+          ${renderDisabled(args.busy || args.selectedSummary.restorableGroupCount === 0)}
+        >
+          まとめて復元
+        </button>
+        <button
+          class="secondary"
+          type="button"
+          data-action="${escapeHtml(args.archiveActionName)}"
+          ${renderDisabled(args.busy || !hasSelection)}
+        >
+          ${escapeHtml(args.archiveActionLabel)}
+        </button>
+        <button
+          class="danger"
+          type="button"
+          data-action="delete-selected-groups"
+          ${renderDisabled(args.busy || !hasSelection)}
+        >
+          まとめて削除
+        </button>
+      </div>
     </section>
   `;
 }
@@ -141,8 +213,17 @@ export function renderTabletView(args: TabletViewArgs) {
           ${renderFilterButton(args.state.groupFilter, 'all', 'すべて')}
           ${renderFilterButton(args.state.groupFilter, 'saved', '未復元あり')}
           ${renderFilterButton(args.state.groupFilter, 'restored', '復元済みあり')}
+          ${renderFilterButton(args.state.groupFilter, 'archived', '保管済み')}
           <div class="result-meta">${args.visibleGroups.length} / ${args.filteredGroups.length} groups</div>
         </div>
+
+        ${renderBulkActionBar({
+          busy: args.state.actionBusy,
+          selectedSummary: args.selectedSummary,
+          bulkSelectableCount: args.bulkSelectableCount,
+          archiveActionLabel: args.archiveActionLabel,
+          archiveActionName: args.archiveActionName
+        })}
 
         ${renderGroupList({
           groups: args.visibleGroups,
@@ -150,6 +231,7 @@ export function renderTabletView(args: TabletViewArgs) {
           expandedGroupIds: args.visibleExpandedGroupIds,
           collapsible: true,
           busy: args.state.actionBusy,
+          selectedGroupIds: args.state.selectedGroupIds,
           editableGroupId: args.state.editingGroupId,
           editableGroupTitle: args.state.editingGroupTitle
         })}

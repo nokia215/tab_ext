@@ -1,4 +1,5 @@
 import { formatDate } from './format';
+import { isArchivedGroup } from './group-helpers';
 import { escapeHtml, renderDisabled, renderStatusBanner } from './html';
 import type { SavedTab, TabGroup } from './types';
 
@@ -32,6 +33,7 @@ export interface GroupListView {
   expandedGroupIds: string[];
   collapsible: boolean;
   busy: boolean;
+  selectedGroupIds?: string[];
   extraActionLabel?: string;
   editableGroupId?: string | null;
   editableGroupTitle?: string;
@@ -234,6 +236,8 @@ export function renderGroupList(view: GroupListView): string {
       ${view.groups
         .map((group) => {
           const expanded = isExpanded(group, view.expandedGroupIds, view.collapsible);
+          const selected = Boolean(view.selectedGroupIds?.includes(group.id));
+          const archived = isArchivedGroup(group);
           const isEditing = Boolean(view.editableGroupId && view.editableGroupId === group.id);
           const editingTitle = isEditing ? (view.editableGroupTitle ?? '') : (group.title ?? '');
           const previewTabs = group.tabs.slice(0, 6);
@@ -306,9 +310,22 @@ export function renderGroupList(view: GroupListView): string {
             `;
 
           return `
-            <article class="group-card panel">
+            <article class="group-card panel${selected ? ' group-card-selected' : ''}">
               <div class="group-header">
-                ${header}
+                <div class="group-header-main">
+                  <button
+                    class="group-select${selected ? ' selected-group-select' : ''}"
+                    type="button"
+                    data-action="toggle-group-selection"
+                    data-group-id="${escapeHtml(group.id)}"
+                    aria-pressed="${selected ? 'true' : 'false'}"
+                    aria-label="${selected ? 'グループ選択を解除' : 'グループを選択'}"
+                    ${renderDisabled(view.busy)}
+                  >
+                    ${selected ? '選択中' : '選択'}
+                  </button>
+                  ${header}
+                </div>
 
                 <div class="actions">
                   ${extraAction}
@@ -353,6 +370,15 @@ export function renderGroupList(view: GroupListView): string {
                     ${renderDisabled(view.busy)}
                   >
                     全部復元
+                  </button>
+                  <button
+                    class="ghost"
+                    type="button"
+                    data-action="${archived ? 'unarchive-group' : 'archive-group'}"
+                    data-group-id="${escapeHtml(group.id)}"
+                    ${renderDisabled(view.busy)}
+                  >
+                    ${archived ? '一覧に戻す' : '一覧から外す'}
                   </button>
                   <button
                     class="danger"

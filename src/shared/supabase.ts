@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getConfig } from './storage';
 import { storageLocalGet, storageLocalRemove, storageLocalSet } from './browser-api';
 import { isSavableTabUrl } from './tabs';
-import type { TabGroup } from './types';
+import type { SaveStatus, TabGroup } from './types';
 
 export interface ImportableTabInput {
   url: string;
@@ -305,25 +305,36 @@ export async function listGroups(includeArchived = false, userId?: string): Prom
     .filter((group) => group.tabs.length > 0) as TabGroup[];
 }
 
-export async function markGroupRestored(groupId: string) {
+async function updateGroupTabStatus(
+  groupId: string,
+  status: SaveStatus,
+  options?: { excludeArchived?: boolean }
+) {
   const supabase = await getSupabase();
-  const { error } = await supabase
+  let query = supabase
     .from('tabs')
-    .update({ status: 'restored', updated_at: new Date().toISOString() })
-    .eq('group_id', groupId)
-    .neq('status', 'archived');
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('group_id', groupId);
+
+  if (options?.excludeArchived) {
+    query = query.neq('status', 'archived');
+  }
+
+  const { error } = await query;
 
   if (error) throw error;
 }
 
-export async function markGroupArchived(groupId: string) {
-  const supabase = await getSupabase();
-  const { error } = await supabase
-    .from('tabs')
-    .update({ status: 'archived', updated_at: new Date().toISOString() })
-    .eq('group_id', groupId);
+export async function markGroupRestored(groupId: string) {
+  await updateGroupTabStatus(groupId, 'restored', { excludeArchived: true });
+}
 
-  if (error) throw error;
+export async function markGroupArchived(groupId: string) {
+  await updateGroupTabStatus(groupId, 'archived');
+}
+
+export async function markGroupSaved(groupId: string) {
+  await updateGroupTabStatus(groupId, 'saved');
 }
 
 export async function deleteSavedTab(tabId: string) {

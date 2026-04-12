@@ -111,6 +111,33 @@
   align-items: center;
 }
 
+.bulk-toolbar {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.bulk-toolbar-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.bulk-toolbar-copy strong {
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+
+.bulk-toolbar-copy .section-copy {
+  margin: 0;
+}
+
+.bulk-toolbar-actions {
+  gap: 6px;
+}
+
 .chip {
   background: rgba(255, 255, 255, 0.04);
   border-color: var(--line);

@@ -1,11 +1,21 @@
-import { escapeHtml, renderStatusBanner } from '../shared/html';
+import { escapeHtml, renderDisabled, renderStatusBanner } from '../shared/html';
 import { renderAuthPanel, renderConfigPanel, renderGroupList, renderSavePanel } from '../shared/renderers';
 import type { TabGroup } from '../shared/types';
-import { LIGHTWEIGHT_GROUP_BATCH_SIZE, type GroupFilter, type GroupSummary, type NewtabState } from './model';
+import {
+  LIGHTWEIGHT_GROUP_BATCH_SIZE,
+  type GroupFilter,
+  type GroupSummary,
+  type NewtabState,
+  type SelectedGroupSummary
+} from './model';
 
 interface BaseLayoutArgs {
   state: NewtabState;
   summary: GroupSummary;
+  selectedSummary: SelectedGroupSummary;
+  bulkSelectableCount: number;
+  archiveActionLabel: string;
+  archiveActionName: string;
   pageStatusIsError: boolean;
 }
 
@@ -23,6 +33,10 @@ interface LightweightLayoutArgs extends BaseLayoutArgs {
 export interface NewtabViewArgs {
   state: NewtabState;
   summary: GroupSummary;
+  selectedSummary: SelectedGroupSummary;
+  bulkSelectableCount: number;
+  archiveActionLabel: string;
+  archiveActionName: string;
   filteredGroups: TabGroup[];
   visibleGroups: TabGroup[];
   visibleExpandedGroupIds: string[];
@@ -40,6 +54,76 @@ function renderMiniMetric(label: string, value: number) {
       <span class="mini-metric-label">${escapeHtml(label)}</span>
       <strong class="mini-metric-value">${value}</strong>
     </article>
+  `;
+}
+
+function renderBulkActionBar(args: {
+  busy: boolean;
+  selectedSummary: SelectedGroupSummary;
+  bulkSelectableCount: number;
+  selectLabel: string;
+  archiveActionLabel: string;
+  archiveActionName: string;
+}) {
+  const { selectedSummary } = args;
+  const hasSelection = selectedSummary.selectedCount > 0;
+
+  return `
+    <section class="bulk-toolbar">
+      <div class="bulk-toolbar-copy">
+        <strong>一括整理</strong>
+        <p class="section-copy">
+          ${
+            hasSelection
+              ? `${selectedSummary.selectedCount} groups / ${selectedSummary.selectedTabCount} tabs を選択中`
+              : '複数のグループを選んで、まとめて復元・整理できます。'
+          }
+        </p>
+      </div>
+
+      <div class="actions bulk-toolbar-actions">
+        <button
+          class="ghost"
+          type="button"
+          data-action="select-visible-groups"
+          ${renderDisabled(args.busy || args.bulkSelectableCount === 0)}
+        >
+          ${escapeHtml(args.selectLabel)}
+        </button>
+        <button
+          class="ghost"
+          type="button"
+          data-action="clear-group-selection"
+          ${renderDisabled(args.busy || !hasSelection)}
+        >
+          選択解除
+        </button>
+        <button
+          class="secondary"
+          type="button"
+          data-action="restore-selected-groups"
+          ${renderDisabled(args.busy || selectedSummary.restorableGroupCount === 0)}
+        >
+          まとめて復元
+        </button>
+        <button
+          class="secondary"
+          type="button"
+          data-action="${escapeHtml(args.archiveActionName)}"
+          ${renderDisabled(args.busy || !hasSelection)}
+        >
+          ${escapeHtml(args.archiveActionLabel)}
+        </button>
+        <button
+          class="danger"
+          type="button"
+          data-action="delete-selected-groups"
+          ${renderDisabled(args.busy || !hasSelection)}
+        >
+          まとめて削除
+        </button>
+      </div>
+    </section>
   `;
 }
 
@@ -125,8 +209,18 @@ function renderDefaultLayout(args: DefaultLayoutArgs) {
               ${renderFilterButton(args.state.groupFilter, 'all', 'すべて')}
               ${renderFilterButton(args.state.groupFilter, 'saved', '未復元あり')}
               ${renderFilterButton(args.state.groupFilter, 'restored', '復元済みあり')}
+              ${renderFilterButton(args.state.groupFilter, 'archived', '保管済み')}
               <div class="result-meta">${args.filteredGroups.length} groups / ${args.summary.totalTabs} tabs</div>
             </div>
+
+            ${renderBulkActionBar({
+              busy: args.state.actionBusy,
+              selectedSummary: args.selectedSummary,
+              bulkSelectableCount: args.bulkSelectableCount,
+              selectLabel: '検索結果を選択',
+              archiveActionLabel: args.archiveActionLabel,
+              archiveActionName: args.archiveActionName
+            })}
 
             ${renderGroupList({
               groups: args.filteredGroups,
@@ -134,6 +228,7 @@ function renderDefaultLayout(args: DefaultLayoutArgs) {
               expandedGroupIds: args.visibleExpandedGroupIds,
               collapsible: true,
               busy: args.state.actionBusy,
+              selectedGroupIds: args.state.selectedGroupIds,
               editableGroupId: args.state.editingGroupId,
               editableGroupTitle: args.state.editingGroupTitle
             })}
@@ -237,8 +332,18 @@ function renderLightweightLayout(args: LightweightLayoutArgs) {
           ${renderFilterButton(args.state.groupFilter, 'all', 'すべて')}
           ${renderFilterButton(args.state.groupFilter, 'saved', '未復元あり')}
           ${renderFilterButton(args.state.groupFilter, 'restored', '復元済みあり')}
+          ${renderFilterButton(args.state.groupFilter, 'archived', '保管済み')}
           <div class="result-meta">${args.visibleGroups.length} / ${args.filteredGroups.length} groups</div>
         </div>
+
+        ${renderBulkActionBar({
+          busy: args.state.actionBusy,
+          selectedSummary: args.selectedSummary,
+          bulkSelectableCount: args.bulkSelectableCount,
+          selectLabel: '表示中を選択',
+          archiveActionLabel: args.archiveActionLabel,
+          archiveActionName: args.archiveActionName
+        })}
 
         ${renderGroupList({
           groups: args.visibleGroups,
@@ -246,6 +351,7 @@ function renderLightweightLayout(args: LightweightLayoutArgs) {
           expandedGroupIds: args.visibleExpandedGroupIds,
           collapsible: true,
           busy: args.state.actionBusy,
+          selectedGroupIds: args.state.selectedGroupIds,
           editableGroupId: args.state.editingGroupId,
           editableGroupTitle: args.state.editingGroupTitle
         })}

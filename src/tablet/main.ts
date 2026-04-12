@@ -3,6 +3,7 @@ import '../shared/panels.css';
 import '../newtab/newtab.css';
 import './tablet.css';
 import { lineListToText, textToLineList } from '../shared/format';
+import { mergeGroupIds, reconcileGroupIds, resolveGroupsByIds, toggleGroupId } from '../shared/group-helpers';
 import { importTabGroups } from '../shared/import';
 import { filterGroups } from '../shared/search';
 import { formatImportStatus, getErrorMessage, isErrorStatus } from '../shared/status';
@@ -13,6 +14,8 @@ import {
   deleteSavedTab,
   getCurrentSessionUser,
   listGroups,
+  markGroupArchived,
+  markGroupSaved,
   markGroupRestored,
   signIn,
   signOut,
@@ -26,7 +29,9 @@ import {
   createInitialState,
   matchesGroupFilter,
   sortGroups,
+  summarizeSelectedGroups,
   summarizeGroups,
+  shouldIncludeArchivedGroups,
   type FocusState,
   type NewtabState
 } from '../newtab/model';
@@ -65,8 +70,20 @@ class TabletApp {
     return summarizeGroups(this.state.allGroups);
   }
 
+  private get selectedSummary() {
+    return summarizeSelectedGroups(this.state.allGroups, this.state.selectedGroupIds);
+  }
+
   private get pageStatusIsError() {
     return isErrorStatus(this.state.pageStatus);
+  }
+
+  private get archiveActionLabel() {
+    return this.state.groupFilter === 'archived' ? '一覧に戻す' : '一覧から外す';
+  }
+
+  private get archiveActionName() {
+    return this.state.groupFilter === 'archived' ? 'unarchive-selected-groups' : 'archive-selected-groups';
   }
 
   private getVisibleGroups(groups: TabGroup[]) {
@@ -77,6 +94,10 @@ class TabletApp {
     return this.state.expandedGroupIds.filter((groupId) =>
       groups.some((group) => group.id === groupId)
     );
+  }
+
+  private get bulkSelectableGroups() {
+    return this.getVisibleGroups(this.filteredGroups);
   }
 
   private setConfigFields(next: AppConfig) {
@@ -96,6 +117,10 @@ class TabletApp {
 
   private findGroup(groupId: string) {
     return this.state.allGroups.find((group) => group.id === groupId);
+  }
+
+  private getSelectedGroups() {
+    return resolveGroupsByIds(this.state.allGroups, this.state.selectedGroupIds);
   }
 
   private findTab(tabId: string) {
@@ -133,6 +158,10 @@ class TabletApp {
     this.state.expandedGroupIds = this.state.expandedGroupIds
       .filter((groupId) => groupIds.has(groupId))
       .slice(0, 1);
+  }
+
+  private reconcileSelectedGroupIds(groups: TabGroup[]) {
+    this.state.selectedGroupIds = reconcileGroupIds(this.state.selectedGroupIds, groups);
   }
 
   private startEditingGroupTitle(groupId: string) {
@@ -195,6 +224,10 @@ class TabletApp {
     this.root.innerHTML = renderTabletView({
       state: this.state,
       summary: this.summary,
+      selectedSummary: this.selectedSummary,
+      bulkSelectableCount: this.bulkSelectableGroups.length,
+      archiveActionLabel: this.archiveActionLabel,
+      archiveActionName: this.archiveActionName,
       filteredGroups,
       visibleGroups,
       visibleExpandedGroupIds,
@@ -224,6 +257,7 @@ class TabletApp {
         this.state.authStatus = 'Supabase 設定を入力してください。';
         this.state.pageStatus = '設定が未完了です。';
         this.state.allGroups = [];
+        this.state.selectedGroupIds = [];
         this.state.expandedGroupIds = [];
         this.stopEditingGroupTitle();
         this.resetVisibleGroupCount();
@@ -235,6 +269,7 @@ class TabletApp {
 
       if (!user) {
         this.state.allGroups = [];
+        this.state.selectedGroupIds = [];
         this.state.expandedGroupIds = [];
         this.stopEditingGroupTitle();
         this.state.pageStatus = 'ログインすると保存済みグループを表示します。';
@@ -243,9 +278,10 @@ class TabletApp {
       }
 
       const expandedGroupIds = [...this.state.expandedGroupIds];
-      this.state.allGroups = await listGroups(false, user.id);
+      this.state.allGroups = await listGroups(shouldIncludeArchivedGroups(this.state.groupFilter), user.id);
       this.state.expandedGroupIds = expandedGroupIds;
       this.reconcileExpandedGroupIds(this.state.allGroups);
+      this.reconcileSelectedGroupIds(this.state.allGroups);
       if (this.state.editingGroupId && !this.findGroup(this.state.editingGroupId)) {
         this.stopEditingGroupTitle();
       }
@@ -256,6 +292,7 @@ class TabletApp {
       this.state.authStatus = `表示失敗: ${message}`;
       this.state.pageStatus = 'データを読み込めませんでした。';
       this.state.allGroups = [];
+      this.state.selectedGroupIds = [];
       this.stopEditingGroupTitle();
       this.resetVisibleGroupCount();
     } finally {
@@ -379,11 +416,61 @@ class TabletApp {
   }
 
   private async handleDeleteGroup(groupId: string) {
+    if (this.state.actionBusy) return;
+
+    this.state.actionBusy = true;
+    this.render();
+
     try {
       await deleteGroup(groupId);
+      this.state.pageStatus = 'グループを削除しました。';
       await this.refreshAll();
     } catch (error) {
       this.state.pageStatus = `削除失敗: ${getErrorMessage(error)}`;
+    } finally {
+      this.state.actionBusy = false;
+      this.render();
+    }
+  }
+
+  private async handleArchiveGroup(groupId: string) {
+    if (this.state.actionBusy) return;
+
+    const group = this.findGroup(groupId);
+    if (!group) return;
+
+    this.state.actionBusy = true;
+    this.render();
+
+    try {
+      await markGroupArchived(groupId);
+      this.state.pageStatus = `「${group.title ?? '(untitled)'}」を一覧から外しました。`;
+      await this.refreshAll();
+    } catch (error) {
+      this.state.pageStatus = `整理失敗: ${getErrorMessage(error)}`;
+    } finally {
+      this.state.actionBusy = false;
+      this.render();
+    }
+  }
+
+  private async handleUnarchiveGroup(groupId: string) {
+    if (this.state.actionBusy) return;
+
+    const group = this.findGroup(groupId);
+    if (!group) return;
+
+    this.state.actionBusy = true;
+    this.render();
+
+    try {
+      await markGroupSaved(groupId);
+      this.state.pageStatus = `「${group.title ?? '(untitled)'}」を一覧に戻しました。`;
+      await this.refreshAll();
+    } catch (error) {
+      this.state.pageStatus = `復帰失敗: ${getErrorMessage(error)}`;
+    } finally {
+      this.state.actionBusy = false;
       this.render();
     }
   }
@@ -455,6 +542,161 @@ class TabletApp {
     }
   }
 
+  private toggleGroupSelection(groupId: string) {
+    this.state.selectedGroupIds = toggleGroupId(this.state.selectedGroupIds, groupId);
+    this.render();
+  }
+
+  private selectVisibleGroups() {
+    this.state.selectedGroupIds = mergeGroupIds(this.state.selectedGroupIds, this.bulkSelectableGroups);
+    this.render();
+  }
+
+  private clearGroupSelection() {
+    if (this.state.selectedGroupIds.length === 0) {
+      return;
+    }
+
+    this.state.selectedGroupIds = [];
+    this.render();
+  }
+
+  private async handleRestoreSelectedGroups() {
+    if (this.state.actionBusy) return;
+
+    const groups = this.getSelectedGroups().filter((group) => group.tabs.some((tab) => tab.status === 'saved'));
+    if (groups.length === 0) return;
+
+    this.state.actionBusy = true;
+    this.render();
+
+    let restoredCount = 0;
+
+    try {
+      for (const group of groups) {
+        await restoreTabs(group.tabs.map((tab) => tab.url));
+        await markGroupRestored(group.id);
+        restoredCount += 1;
+      }
+
+      this.state.selectedGroupIds = [];
+      this.state.pageStatus = `${restoredCount} グループを復元しました。`;
+      await this.refreshAll();
+    } catch (error) {
+      this.state.pageStatus = restoredCount > 0
+        ? `${restoredCount} グループ復元後に失敗: ${getErrorMessage(error)}`
+        : `一括復元失敗: ${getErrorMessage(error)}`;
+    } finally {
+      this.state.actionBusy = false;
+      this.render();
+    }
+  }
+
+  private async handleArchiveSelectedGroups() {
+    if (this.state.actionBusy) return;
+
+    const groups = this.getSelectedGroups();
+    if (groups.length === 0) return;
+
+    this.state.actionBusy = true;
+    this.render();
+
+    let archivedCount = 0;
+
+    try {
+      for (const group of groups) {
+        await markGroupArchived(group.id);
+        archivedCount += 1;
+      }
+
+      this.state.selectedGroupIds = [];
+      this.state.pageStatus = `${archivedCount} グループを一覧から外しました。`;
+      await this.refreshAll();
+    } catch (error) {
+      this.state.pageStatus = archivedCount > 0
+        ? `${archivedCount} グループ整理後に失敗: ${getErrorMessage(error)}`
+        : `一括整理失敗: ${getErrorMessage(error)}`;
+    } finally {
+      this.state.actionBusy = false;
+      this.render();
+    }
+  }
+
+  private async handleUnarchiveSelectedGroups() {
+    if (this.state.actionBusy) return;
+
+    const groups = this.getSelectedGroups();
+    if (groups.length === 0) return;
+
+    this.state.actionBusy = true;
+    this.render();
+
+    let restoredToListCount = 0;
+
+    try {
+      for (const group of groups) {
+        await markGroupSaved(group.id);
+        restoredToListCount += 1;
+      }
+
+      this.state.selectedGroupIds = [];
+      this.state.pageStatus = `${restoredToListCount} グループを一覧に戻しました。`;
+      await this.refreshAll();
+    } catch (error) {
+      this.state.pageStatus = restoredToListCount > 0
+        ? `${restoredToListCount} グループ復帰後に失敗: ${getErrorMessage(error)}`
+        : `一覧復帰失敗: ${getErrorMessage(error)}`;
+    } finally {
+      this.state.actionBusy = false;
+      this.render();
+    }
+  }
+
+  private async setGroupFilter(filter: NewtabState['groupFilter']) {
+    const shouldReload = shouldIncludeArchivedGroups(filter) !== shouldIncludeArchivedGroups(this.state.groupFilter);
+
+    this.state.groupFilter = filter;
+    this.resetVisibleGroupCount();
+    this.stopEditingGroupTitle();
+
+    if (shouldReload) {
+      await this.refreshAll();
+      return;
+    }
+
+    this.render();
+  }
+
+  private async handleDeleteSelectedGroups() {
+    if (this.state.actionBusy) return;
+
+    const groups = this.getSelectedGroups();
+    if (groups.length === 0) return;
+
+    this.state.actionBusy = true;
+    this.render();
+
+    let deletedCount = 0;
+
+    try {
+      for (const group of groups) {
+        await deleteGroup(group.id);
+        deletedCount += 1;
+      }
+
+      this.state.selectedGroupIds = [];
+      this.state.pageStatus = `${deletedCount} グループを削除しました。`;
+      await this.refreshAll();
+    } catch (error) {
+      this.state.pageStatus = deletedCount > 0
+        ? `${deletedCount} グループ削除後に失敗: ${getErrorMessage(error)}`
+        : `一括削除失敗: ${getErrorMessage(error)}`;
+    } finally {
+      this.state.actionBusy = false;
+      this.render();
+    }
+  }
+
   private handleChange(event: Event) {
     const target = event.target;
     if (!(target instanceof HTMLSelectElement)) {
@@ -502,21 +744,50 @@ class TabletApp {
         await this.handleSignOut();
         break;
       case 'set-group-filter':
-        this.state.groupFilter = (actionTarget.dataset.value as NewtabState['groupFilter']) ?? 'all';
-        this.render();
+        await this.setGroupFilter((actionTarget.dataset.value as NewtabState['groupFilter']) ?? 'all');
         break;
       case 'toggle-group':
         if (!groupId) break;
         this.state.expandedGroupIds = this.state.expandedGroupIds.includes(groupId) ? [] : [groupId];
         this.render();
         break;
+      case 'toggle-group-selection':
+        if (!groupId) break;
+        this.toggleGroupSelection(groupId);
+        break;
       case 'restore-group':
         if (!groupId) break;
         await this.handleRestore(groupId);
         break;
+      case 'archive-group':
+        if (!groupId) break;
+        await this.handleArchiveGroup(groupId);
+        break;
+      case 'unarchive-group':
+        if (!groupId) break;
+        await this.handleUnarchiveGroup(groupId);
+        break;
       case 'delete-group':
         if (!groupId) break;
         await this.handleDeleteGroup(groupId);
+        break;
+      case 'select-visible-groups':
+        this.selectVisibleGroups();
+        break;
+      case 'clear-group-selection':
+        this.clearGroupSelection();
+        break;
+      case 'restore-selected-groups':
+        await this.handleRestoreSelectedGroups();
+        break;
+      case 'archive-selected-groups':
+        await this.handleArchiveSelectedGroups();
+        break;
+      case 'unarchive-selected-groups':
+        await this.handleUnarchiveSelectedGroups();
+        break;
+      case 'delete-selected-groups':
+        await this.handleDeleteSelectedGroups();
         break;
       case 'open-tab':
         if (!tabId) break;
