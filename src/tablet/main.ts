@@ -2,10 +2,10 @@ import '../shared/ui.css';
 import '../shared/panels.css';
 import '../newtab/newtab.css';
 import './tablet.css';
+import { countFavoriteGroups, getFavoriteGroupIds, removeFavoriteGroupIds, saveFavoriteGroupIds, toggleFavoriteGroupId } from '../shared/favorites';
 import { lineListToText, textToLineList } from '../shared/format';
 import { mergeGroupIds, reconcileGroupIds, resolveGroupsByIds, toggleGroupId } from '../shared/group-helpers';
 import { importTabGroups } from '../shared/import';
-import { filterGroups } from '../shared/search';
 import { formatImportStatus, getErrorMessage, isErrorStatus } from '../shared/status';
 import { getConfig, saveConfig } from '../shared/storage';
 import {
@@ -27,8 +27,7 @@ import type { AppConfig, TabGroup } from '../shared/types';
 import {
   LIGHTWEIGHT_GROUP_BATCH_SIZE,
   createInitialState,
-  matchesGroupFilter,
-  sortGroups,
+  queryGroups,
   summarizeSelectedGroups,
   summarizeGroups,
   shouldIncludeArchivedGroups,
@@ -61,13 +60,15 @@ class TabletApp {
   }
 
   private get filteredGroups() {
-    return filterGroups(this.state.allGroups, this.state.searchQuery)
-      .filter((group) => matchesGroupFilter(group, this.state.groupFilter))
-      .sort(sortGroups(this.state.sortMode));
+    return queryGroups(this.state.allGroups, this.state);
   }
 
   private get summary() {
     return summarizeGroups(this.state.allGroups);
+  }
+
+  private get favoriteGroupCount() {
+    return countFavoriteGroups(this.state.allGroups, this.state.favoriteGroupIds);
   }
 
   private get selectedSummary() {
@@ -98,6 +99,20 @@ class TabletApp {
 
   private get bulkSelectableGroups() {
     return this.getVisibleGroups(this.filteredGroups);
+  }
+
+  private async persistFavoriteGroupIds(groupIds: string[]) {
+    this.state.favoriteGroupIds = groupIds;
+    await saveFavoriteGroupIds(groupIds);
+  }
+
+  private async removeDeletedFavoriteGroups(groupIds: string[]) {
+    const nextFavoriteGroupIds = removeFavoriteGroupIds(this.state.favoriteGroupIds, groupIds);
+    if (nextFavoriteGroupIds.length === this.state.favoriteGroupIds.length) {
+      return;
+    }
+
+    await this.persistFavoriteGroupIds(nextFavoriteGroupIds);
   }
 
   private setConfigFields(next: AppConfig) {
@@ -226,6 +241,7 @@ class TabletApp {
       summary: this.summary,
       selectedSummary: this.selectedSummary,
       bulkSelectableCount: this.bulkSelectableGroups.length,
+      favoriteGroupCount: this.favoriteGroupCount,
       archiveActionLabel: this.archiveActionLabel,
       archiveActionName: this.archiveActionName,
       filteredGroups,
@@ -250,6 +266,7 @@ class TabletApp {
     this.render();
 
     try {
+      this.state.favoriteGroupIds = await getFavoriteGroupIds();
       const nextConfig = await getConfig();
       this.setConfigFields(nextConfig);
 
@@ -423,6 +440,7 @@ class TabletApp {
 
     try {
       await deleteGroup(groupId);
+      await this.removeDeletedFavoriteGroups([groupId]);
       this.state.pageStatus = 'グループを削除しました。';
       await this.refreshAll();
     } catch (error) {
@@ -544,6 +562,25 @@ class TabletApp {
 
   private toggleGroupSelection(groupId: string) {
     this.state.selectedGroupIds = toggleGroupId(this.state.selectedGroupIds, groupId);
+    this.render();
+  }
+
+  private toggleFavoriteOnly() {
+    this.state.favoriteOnly = !this.state.favoriteOnly;
+    this.resetVisibleGroupCount();
+    this.render();
+  }
+
+  private async handleToggleFavoriteGroup(groupId: string) {
+    if (this.state.actionBusy) return;
+
+    const group = this.findGroup(groupId);
+    if (!group) return;
+
+    this.state.favoriteGroupIds = await toggleFavoriteGroupId(groupId);
+    this.state.pageStatus = this.state.favoriteGroupIds.includes(groupId)
+      ? `「${group.title ?? '(untitled)'}」をお気に入りに追加しました。`
+      : `「${group.title ?? '(untitled)'}」をお気に入りから外しました。`;
     this.render();
   }
 
@@ -677,17 +714,23 @@ class TabletApp {
     this.render();
 
     let deletedCount = 0;
+    const deletedGroupIds: string[] = [];
 
     try {
       for (const group of groups) {
         await deleteGroup(group.id);
         deletedCount += 1;
+        deletedGroupIds.push(group.id);
       }
 
+      await this.removeDeletedFavoriteGroups(deletedGroupIds);
       this.state.selectedGroupIds = [];
       this.state.pageStatus = `${deletedCount} グループを削除しました。`;
       await this.refreshAll();
     } catch (error) {
+      if (deletedGroupIds.length > 0) {
+        await this.removeDeletedFavoriteGroups(deletedGroupIds);
+      }
       this.state.pageStatus = deletedCount > 0
         ? `${deletedCount} グループ削除後に失敗: ${getErrorMessage(error)}`
         : `一括削除失敗: ${getErrorMessage(error)}`;
@@ -746,6 +789,9 @@ class TabletApp {
       case 'set-group-filter':
         await this.setGroupFilter((actionTarget.dataset.value as NewtabState['groupFilter']) ?? 'all');
         break;
+      case 'toggle-favorite-only':
+        this.toggleFavoriteOnly();
+        break;
       case 'toggle-group':
         if (!groupId) break;
         this.state.expandedGroupIds = this.state.expandedGroupIds.includes(groupId) ? [] : [groupId];
@@ -754,6 +800,10 @@ class TabletApp {
       case 'toggle-group-selection':
         if (!groupId) break;
         this.toggleGroupSelection(groupId);
+        break;
+      case 'toggle-favorite-group':
+        if (!groupId) break;
+        await this.handleToggleFavoriteGroup(groupId);
         break;
       case 'restore-group':
         if (!groupId) break;

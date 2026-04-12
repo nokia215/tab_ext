@@ -14,6 +14,7 @@ interface BaseLayoutArgs {
   summary: GroupSummary;
   selectedSummary: SelectedGroupSummary;
   bulkSelectableCount: number;
+  favoriteGroupCount: number;
   archiveActionLabel: string;
   archiveActionName: string;
   pageStatusIsError: boolean;
@@ -35,6 +36,7 @@ export interface NewtabViewArgs {
   summary: GroupSummary;
   selectedSummary: SelectedGroupSummary;
   bulkSelectableCount: number;
+  favoriteGroupCount: number;
   archiveActionLabel: string;
   archiveActionName: string;
   filteredGroups: TabGroup[];
@@ -43,9 +45,29 @@ export interface NewtabViewArgs {
   pageStatusIsError: boolean;
 }
 
+function renderChip(args: {
+  active: boolean;
+  action: string;
+  label: string;
+  value?: string;
+}) {
+  const activeClass = args.active ? ' active-chip' : '';
+  const valueAttr = args.value ? ` data-value="${escapeHtml(args.value)}"` : '';
+
+  return `
+    <button class="chip${activeClass}" type="button" data-action="${escapeHtml(args.action)}"${valueAttr}>
+      ${escapeHtml(args.label)}
+    </button>
+  `;
+}
+
 function renderFilterButton(activeFilter: GroupFilter, value: GroupFilter, label: string) {
-  const activeClass = activeFilter === value ? ' active-chip' : '';
-  return `<button class="chip${activeClass}" type="button" data-action="set-group-filter" data-value="${value}">${label}</button>`;
+  return renderChip({
+    active: activeFilter === value,
+    action: 'set-group-filter',
+    label,
+    value
+  });
 }
 
 function renderMiniMetric(label: string, value: number) {
@@ -169,6 +191,10 @@ function renderDefaultLayout(args: DefaultLayoutArgs) {
             <p class="metric-label">Devices</p>
             <p class="metric-value">${args.summary.deviceCount}</p>
           </article>
+          <article class="metric-card">
+            <p class="metric-label">Favorites</p>
+            <p class="metric-value">${args.favoriteGroupCount}</p>
+          </article>
         </div>
       </section>
 
@@ -210,7 +236,12 @@ function renderDefaultLayout(args: DefaultLayoutArgs) {
               ${renderFilterButton(args.state.groupFilter, 'saved', '未復元あり')}
               ${renderFilterButton(args.state.groupFilter, 'restored', '復元済みあり')}
               ${renderFilterButton(args.state.groupFilter, 'archived', '保管済み')}
-              <div class="result-meta">${args.filteredGroups.length} groups / ${args.summary.totalTabs} tabs</div>
+              ${renderChip({
+                active: args.state.favoriteOnly,
+                action: 'toggle-favorite-only',
+                label: 'お気に入りのみ'
+              })}
+              <div class="result-meta">${args.filteredGroups.length} groups / ${args.favoriteGroupCount} favorites</div>
             </div>
 
             ${renderBulkActionBar({
@@ -229,6 +260,7 @@ function renderDefaultLayout(args: DefaultLayoutArgs) {
               collapsible: true,
               busy: args.state.actionBusy,
               selectedGroupIds: args.state.selectedGroupIds,
+              favoriteGroupIds: args.state.favoriteGroupIds,
               editableGroupId: args.state.editingGroupId,
               editableGroupTitle: args.state.editingGroupTitle
             })}
@@ -294,6 +326,7 @@ function renderLightweightLayout(args: LightweightLayoutArgs) {
           ${renderMiniMetric('Groups', args.summary.groupCount)}
           ${renderMiniMetric('Tabs', args.summary.totalTabs)}
           ${renderMiniMetric('Devices', args.summary.deviceCount)}
+          ${renderMiniMetric('Favorites', args.favoriteGroupCount)}
         </div>
       </section>
 
@@ -333,6 +366,11 @@ function renderLightweightLayout(args: LightweightLayoutArgs) {
           ${renderFilterButton(args.state.groupFilter, 'saved', '未復元あり')}
           ${renderFilterButton(args.state.groupFilter, 'restored', '復元済みあり')}
           ${renderFilterButton(args.state.groupFilter, 'archived', '保管済み')}
+          ${renderChip({
+            active: args.state.favoriteOnly,
+            action: 'toggle-favorite-only',
+            label: 'お気に入りのみ'
+          })}
           <div class="result-meta">${args.visibleGroups.length} / ${args.filteredGroups.length} groups</div>
         </div>
 
@@ -352,6 +390,7 @@ function renderLightweightLayout(args: LightweightLayoutArgs) {
           collapsible: true,
           busy: args.state.actionBusy,
           selectedGroupIds: args.state.selectedGroupIds,
+          favoriteGroupIds: args.state.favoriteGroupIds,
           editableGroupId: args.state.editingGroupId,
           editableGroupTitle: args.state.editingGroupTitle
         })}

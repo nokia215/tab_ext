@@ -1,6 +1,7 @@
 import type { GroupCollectionSummary } from '../shared/group-summary';
 import { groupHasStatus } from '../shared/group-helpers';
 import { summarizeGroupCollection } from '../shared/group-summary';
+import { filterGroups } from '../shared/search';
 import type { AppConfig, SaveStatus, TabGroup } from '../shared/types';
 
 export const LIGHTWEIGHT_GROUP_BATCH_SIZE = 12;
@@ -19,9 +20,11 @@ export interface NewtabState {
   saveStatus: string;
   pageStatus: string;
   searchQuery: string;
+  favoriteOnly: boolean;
   groupFilter: GroupFilter;
   sortMode: SortMode;
   allGroups: TabGroup[];
+  favoriteGroupIds: string[];
   selectedGroupIds: string[];
   expandedGroupIds: string[];
   editingGroupId: string | null;
@@ -74,9 +77,11 @@ export function createInitialState(runtimeProfile: RuntimeProfile): NewtabState 
     saveStatus: '',
     pageStatus: '',
     searchQuery: '',
+    favoriteOnly: false,
     groupFilter: 'all',
     sortMode: 'newest',
     allGroups: [],
+    favoriteGroupIds: [],
     selectedGroupIds: [],
     expandedGroupIds: [],
     editingGroupId: null,
@@ -114,18 +119,44 @@ export function matchesGroupFilter(group: TabGroup, filter: GroupFilter) {
   return groupHasStatus(group, filter);
 }
 
-export function sortGroups(mode: SortMode) {
+function compareFavoriteOrder(a: TabGroup, b: TabGroup, favoriteGroupIds: Set<string>) {
+  return Number(favoriteGroupIds.has(b.id)) - Number(favoriteGroupIds.has(a.id));
+}
+
+function compareByDate(a: TabGroup, b: TabGroup, direction: 'asc' | 'desc') {
+  const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  return direction === 'asc' ? diff : -diff;
+}
+
+export function sortGroups(mode: SortMode, favoriteGroupIds = new Set<string>()) {
   return (a: TabGroup, b: TabGroup) => {
+    const favoriteOrder = compareFavoriteOrder(a, b, favoriteGroupIds);
+    if (favoriteOrder !== 0) {
+      return favoriteOrder;
+    }
+
     if (mode === 'oldest') {
-      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      return compareByDate(a, b, 'asc');
     }
 
     if (mode === 'tabCount') {
-      return b.tabs.length - a.tabs.length || new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return b.tabs.length - a.tabs.length || compareByDate(a, b, 'desc');
     }
 
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    return compareByDate(a, b, 'desc');
   };
+}
+
+export function queryGroups(
+  groups: TabGroup[],
+  options: Pick<NewtabState, 'searchQuery' | 'favoriteOnly' | 'groupFilter' | 'sortMode' | 'favoriteGroupIds'>
+) {
+  const favoriteGroupIds = new Set(options.favoriteGroupIds);
+
+  return filterGroups(groups, options.searchQuery)
+    .filter((group) => matchesGroupFilter(group, options.groupFilter))
+    .filter((group) => !options.favoriteOnly || favoriteGroupIds.has(group.id))
+    .sort(sortGroups(options.sortMode, favoriteGroupIds));
 }
 
 export type GroupSummary = GroupCollectionSummary;

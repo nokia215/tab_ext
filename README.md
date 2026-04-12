@@ -13,9 +13,9 @@
 - 保存されたタブグループの一覧表示
 - 保存後のグループ名編集
 - ダッシュボード検索はグループ名 / タブ名 / URL / 端末名に対応
+- ダッシュボードでお気に入り固定し、常に先頭表示 + お気に入りのみ絞り込み
 - 折りたたみ時も先頭タブをプレビュー表示する高密度一覧
-- Android 版 Firefox では新しいタブを自動で軽量 UI に切り替え
-- Android 版 Firefox のダッシュボードは GitHub Pages 側のタブレット UI に移譲可能
+- Android 版 Firefox では GitHub Pages 上のタブレット向け軽量ダッシュボードへ自動で切り替え
 - タブの復元
 - 保存済みタブを開くと 自動でリストから削除
 - Supabase による デバイス間同期
@@ -23,7 +23,7 @@
 
 ## 今後追加すると良い機能
 
-- タグ / お気に入り / ピン留めで、あとで見返すグループを埋もれにくくする
+- タグやメモを付けて、あとで見返すグループの文脈も残せるようにする
 - 複数選択による一括復元 / 一括削除で、保存済みグループの整理を速くする
 - 自動アーカイブや保存期限ルールで、古いグループを自然に掃除できるようにする
 - 端末別 / ブラウザ別 / 日付別のクイックフィルタで、必要な保存をすぐ見つけられるようにする
@@ -90,13 +90,24 @@ dist/chrome ディレクトリを 「パッケージ化されていない拡張�
 
 ## GitHub Pages 版タブレット UI
 
-タブレット向けの軽量ダッシュボードは `tablet.html` エントリとして別ビルドできます。
+Android 版 Firefox 向けには、拡張内の `newtab.html` ではなく GitHub Pages 上の軽量ダッシュボードを使います。
+
+このダッシュボードは `index.html` と `tablet.html` の 2 つのエントリで配信され、ルートURLへアクセスした場合は `tablet.html` へ遷移します。
+
+ダッシュボードのお気に入り固定はローカル保存です。拡張内ダッシュボードと GitHub Pages 版ダッシュボードでは保存先が別になるため、それぞれの環境で独立して保持されます。
 
 ```bash
 npm run build:pages
 ```
 
 出力先は `dist/pages/` です。`main` への push 時は `.github/workflows/deploy-pages.yml` から GitHub Pages へデプロイされます。
+
+公開URLは以下です。
+
+- `https://nokia215.github.io/tab_ext/`
+- `https://nokia215.github.io/tab_ext/tablet.html`
+
+ルートURLには `index.html` を置き、`tablet.html` へリダイレクトしています。
 
 初回のみ、GitHub のリポジトリ設定で Pages を有効にしてください。
 
@@ -105,6 +116,12 @@ npm run build:pages
 3. `Build and deployment` の `Source` を `GitHub Actions` にする
 
 これが未設定だと `actions/deploy-pages` は `404 Not Found` で失敗します。
+
+### GitHub Actions メモ
+
+- Pages workflow は Node 24 前提で実行するため `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` を設定しています。
+- `checkout` / `setup-node` / `configure-pages` は Node 24 対応版を使っています。
+- `deploy-pages` 側は GitHub 提供 action の更新状況により一時的に非推奨警告が残る場合がありますが、Node 24 での実行を強制しているため現時点ではそのまま運用できます。
 
 ## プロジェクト構造
 ```

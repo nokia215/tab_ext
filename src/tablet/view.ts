@@ -14,6 +14,7 @@ export interface TabletViewArgs {
   };
   selectedSummary: SelectedGroupSummary;
   bulkSelectableCount: number;
+  favoriteGroupCount: number;
   archiveActionLabel: string;
   archiveActionName: string;
   filteredGroups: TabGroup[];
@@ -22,9 +23,29 @@ export interface TabletViewArgs {
   pageStatusIsError: boolean;
 }
 
+function renderChip(args: {
+  active: boolean;
+  action: string;
+  label: string;
+  value?: string;
+}) {
+  const activeClass = args.active ? ' active-chip' : '';
+  const valueAttr = args.value ? ` data-value="${escapeHtml(args.value)}"` : '';
+
+  return `
+    <button class="chip${activeClass}" type="button" data-action="${escapeHtml(args.action)}"${valueAttr}>
+      ${escapeHtml(args.label)}
+    </button>
+  `;
+}
+
 function renderFilterButton(activeFilter: GroupFilter, value: GroupFilter, label: string) {
-  const activeClass = activeFilter === value ? ' active-chip' : '';
-  return `<button class="chip${activeClass}" type="button" data-action="set-group-filter" data-value="${value}">${label}</button>`;
+  return renderChip({
+    active: activeFilter === value,
+    action: 'set-group-filter',
+    label,
+    value
+  });
 }
 
 function renderSortOption(current: SortMode, value: SortMode, label: string) {
@@ -175,6 +196,10 @@ export function renderTabletView(args: TabletViewArgs) {
             <span class="mini-metric-label">Devices</span>
             <strong class="mini-metric-value">${args.summary.deviceCount}</strong>
           </article>
+          <article class="mini-metric">
+            <span class="mini-metric-label">Favorites</span>
+            <strong class="mini-metric-value">${args.favoriteGroupCount}</strong>
+          </article>
         </div>
       </section>
 
@@ -214,6 +239,11 @@ export function renderTabletView(args: TabletViewArgs) {
           ${renderFilterButton(args.state.groupFilter, 'saved', '未復元あり')}
           ${renderFilterButton(args.state.groupFilter, 'restored', '復元済みあり')}
           ${renderFilterButton(args.state.groupFilter, 'archived', '保管済み')}
+          ${renderChip({
+            active: args.state.favoriteOnly,
+            action: 'toggle-favorite-only',
+            label: 'お気に入りのみ'
+          })}
           <div class="result-meta">${args.visibleGroups.length} / ${args.filteredGroups.length} groups</div>
         </div>
 
@@ -232,6 +262,7 @@ export function renderTabletView(args: TabletViewArgs) {
           collapsible: true,
           busy: args.state.actionBusy,
           selectedGroupIds: args.state.selectedGroupIds,
+          favoriteGroupIds: args.state.favoriteGroupIds,
           editableGroupId: args.state.editingGroupId,
           editableGroupTitle: args.state.editingGroupTitle
         })}

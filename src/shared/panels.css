@@ -84,6 +84,11 @@
   background: linear-gradient(180deg, rgba(131, 224, 255, 0.08), rgba(255, 255, 255, 0.04));
 }
 
+.group-card-favorite {
+  border-color: rgba(255, 218, 117, 0.26);
+  background: linear-gradient(180deg, rgba(255, 218, 117, 0.08), rgba(255, 255, 255, 0.04));
+}
+
 .group-select {
   min-width: 0;
   padding: 6px 10px;
@@ -172,6 +177,12 @@
   font-size: 0.7rem;
 }
 
+.favorite-pill {
+  border-color: rgba(255, 218, 117, 0.28);
+  background: rgba(255, 218, 117, 0.12);
+  color: #ffe29c;
+}
+
 .indicator {
   width: 20px;
   height: 20px;
@@ -241,6 +252,12 @@
   padding: 6px 9px;
   border-radius: 10px;
   font-size: 0.74rem;
+}
+
+.group-card .actions .favorite-toggle-active {
+  border-color: rgba(255, 218, 117, 0.3);
+  background: rgba(255, 218, 117, 0.12);
+  color: #ffe29c;
 }
 
 .tab-list-preview .tab-row .tab-status {

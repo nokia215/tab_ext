@@ -34,6 +34,7 @@ export interface GroupListView {
   collapsible: boolean;
   busy: boolean;
   selectedGroupIds?: string[];
+  favoriteGroupIds?: string[];
   extraActionLabel?: string;
   editableGroupId?: string | null;
   editableGroupTitle?: string;
@@ -237,6 +238,7 @@ export function renderGroupList(view: GroupListView): string {
         .map((group) => {
           const expanded = isExpanded(group, view.expandedGroupIds, view.collapsible);
           const selected = Boolean(view.selectedGroupIds?.includes(group.id));
+          const favorite = Boolean(view.favoriteGroupIds?.includes(group.id));
           const archived = isArchivedGroup(group);
           const isEditing = Boolean(view.editableGroupId && view.editableGroupId === group.id);
           const editingTitle = isEditing ? (view.editableGroupTitle ?? '') : (group.title ?? '');
@@ -292,6 +294,7 @@ export function renderGroupList(view: GroupListView): string {
                   <div class="group-meta">
                     <span class="meta-pill">${group.tabs.length} tabs</span>
                     <span class="meta-pill">${escapeHtml(group.device_id)}</span>
+                    ${favorite ? '<span class="meta-pill favorite-pill">お気に入り</span>' : ''}
                   </div>
                 </div>
                 <span class="indicator">${expanded ? '−' : '+'}</span>
@@ -304,13 +307,14 @@ export function renderGroupList(view: GroupListView): string {
                   <div class="group-meta">
                     <span class="meta-pill">${group.tabs.length} tabs</span>
                     <span class="meta-pill">${escapeHtml(group.device_id)}</span>
+                    ${favorite ? '<span class="meta-pill favorite-pill">お気に入り</span>' : ''}
                   </div>
                 </div>
               </div>
             `;
 
           return `
-            <article class="group-card panel${selected ? ' group-card-selected' : ''}">
+            <article class="group-card panel${selected ? ' group-card-selected' : ''}${favorite ? ' group-card-favorite' : ''}">
               <div class="group-header">
                 <div class="group-header-main">
                   <button
@@ -329,6 +333,15 @@ export function renderGroupList(view: GroupListView): string {
 
                 <div class="actions">
                   ${extraAction}
+                  <button
+                    class="ghost${favorite ? ' favorite-toggle-active' : ''}"
+                    type="button"
+                    data-action="toggle-favorite-group"
+                    data-group-id="${escapeHtml(group.id)}"
+                    ${renderDisabled(view.busy)}
+                  >
+                    ${favorite ? 'お気に入り解除' : 'お気に入り'}
+                  </button>
                   ${
                     isEditing
                       ? `
