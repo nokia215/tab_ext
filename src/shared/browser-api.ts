@@ -7,6 +7,10 @@ function getExtensionApi() {
   return g.browser ?? g.chrome;
 }
 
+function isPromiseLike<T>(value: unknown): value is Promise<T> {
+  return Boolean(value && typeof (value as Promise<T>).then === 'function');
+}
+
 function getLocalStorage() {
   if (typeof window === 'undefined') {
     return null;
@@ -41,6 +45,10 @@ function readLocalStorage(keys: string | string[]) {
 }
 
 export const ext = getExtensionApi() as typeof chrome;
+
+export function isBrowserPromiseApi() {
+  return Boolean(g.browser && ext === g.browser);
+}
 
 export function storageLocalGet<T extends string | string[]>(keys: T) {
   if (ext?.storage?.local) {
@@ -145,6 +153,11 @@ export function getRuntimeUrl(path: string) {
 export function runtimeSendMessage<TMessage, TResponse>(message: TMessage): Promise<TResponse> {
   if (!ext?.runtime?.sendMessage) {
     return Promise.reject(new Error('runtime messaging is not available in this environment.'));
+  }
+
+  if (g.browser && ext === g.browser) {
+    const response = ext.runtime.sendMessage(message);
+    return isPromiseLike<TResponse>(response) ? response : Promise.resolve(response as TResponse);
   }
 
   return new Promise<TResponse>((resolve, reject) => {

@@ -1,4 +1,4 @@
-import { createTab, ext, getLastFocusedWindow, getRuntimeUrl, queryTabs } from '../shared/browser-api';
+import { createTab, ext, getLastFocusedWindow, getRuntimeUrl, isBrowserPromiseApi, queryTabs } from '../shared/browser-api';
 import { resolveDashboardUrl } from '../shared/dashboard-url';
 import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
 import { markGroupRestored, markTabRestored } from '../shared/supabase';
@@ -100,14 +100,17 @@ ext.runtime.onMessage.addListener((message: PopupActionMessage, sender, sendResp
     return undefined;
   }
 
-  void handlePopupAction(message, sender)
-    .then((response) => sendResponse(response))
-    .catch((error) =>
-      sendResponse({
-        ok: false,
-        error: error instanceof Error ? error.message : String(error)
-      })
-    );
+  const response = handlePopupAction(message, sender)
+    .catch((error) => ({
+      ok: false as const,
+      error: error instanceof Error ? error.message : String(error)
+    }));
+
+  if (isBrowserPromiseApi()) {
+    return response;
+  }
+
+  void response.then((value) => sendResponse(value));
 
   return true;
 });
