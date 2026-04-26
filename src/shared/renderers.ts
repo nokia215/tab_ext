@@ -56,8 +56,7 @@ function formatHostname(url: string): string {
 function renderTabStatus(status: SavedTab['status']): string {
   const labels = {
     saved: '未復元',
-    restored: '復元済み',
-    archived: '保管済み'
+    restored: '復元済み'
   } as const;
 
   return `<span class="tab-status tab-status-${status}">${labels[status]}</span>`;
@@ -298,6 +297,7 @@ export function renderGroupList(view: GroupListView): string {
                     <span class="meta-pill meta-pill-${age.tone}">${escapeHtml(age.label)}</span>
                     <span class="meta-pill">${escapeHtml(group.device_id)}</span>
                     ${favorite ? '<span class="meta-pill favorite-pill">お気に入り</span>' : ''}
+                    ${archived ? '<span class="meta-pill archived-pill">保管済み</span>' : ''}
                   </div>
                 </div>
                 <span class="indicator">${expanded ? '−' : '+'}</span>
@@ -312,6 +312,7 @@ export function renderGroupList(view: GroupListView): string {
                     <span class="meta-pill meta-pill-${age.tone}">${escapeHtml(age.label)}</span>
                     <span class="meta-pill">${escapeHtml(group.device_id)}</span>
                     ${favorite ? '<span class="meta-pill favorite-pill">お気に入り</span>' : ''}
+                    ${archived ? '<span class="meta-pill archived-pill">保管済み</span>' : ''}
                   </div>
                 </div>
               </div>

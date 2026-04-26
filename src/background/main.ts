@@ -1,7 +1,7 @@
 import { createTab, ext, getLastFocusedWindow, getRuntimeUrl, queryTabs } from '../shared/browser-api';
 import { resolveDashboardUrl } from '../shared/dashboard-url';
 import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
-import { deleteSavedTab, markGroupRestored } from '../shared/supabase';
+import { markGroupRestored, markTabRestored } from '../shared/supabase';
 import { isSavableTabUrl, openSavedTab, restoreTabs } from '../shared/tabs';
 
 if (ext.action?.onClicked) {
@@ -73,7 +73,7 @@ async function handlePopupAction(
 
   if (message.type === 'open-saved-tab') {
     await openSavedTab(message.url);
-    await deleteSavedTab(message.tabId);
+    await markTabRestored(message.tabId);
     return { ok: true };
   }
 

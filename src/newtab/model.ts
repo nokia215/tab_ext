@@ -7,7 +7,7 @@ import type { AppConfig, SaveStatus, TabGroup } from '../shared/types';
 
 export const LIGHTWEIGHT_GROUP_BATCH_SIZE = 12;
 
-export type GroupFilter = 'all' | SaveStatus;
+export type GroupFilter = 'all' | SaveStatus | 'archived';
 export type SortMode = 'newest' | 'oldest' | 'tabCount';
 export type UiMode = 'default' | 'lightweight';
 export type { DateRangeFilter };
@@ -128,6 +128,7 @@ export function createInitialState(runtimeProfile: RuntimeProfile): NewtabState 
 
 export function matchesGroupFilter(group: TabGroup, filter: GroupFilter) {
   if (filter === 'all') return true;
+  if (filter === 'archived') return Boolean(group.archived_at);
   return groupHasStatus(group, filter);
 }
 

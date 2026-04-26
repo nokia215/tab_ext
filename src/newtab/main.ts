@@ -3,6 +3,7 @@ import '../shared/panels.css';
 import './newtab.css';
 import { runtimeSendMessage } from '../shared/browser-api';
 import { EXTERNAL_TABLET_DASHBOARD_URL, shouldDelegateDashboardToWeb } from '../shared/dashboard-url';
+import { copyTextToClipboard, formatGroupForExport, formatGroupsForExport } from '../shared/export';
 import { countFavoriteGroups, getFavoriteGroupIds, removeFavoriteGroupIds, saveFavoriteGroupIds, toggleFavoriteGroupId } from '../shared/favorites';
 import { lineListToText, textToLineList } from '../shared/format';
 import { isStaleGroupByAge } from '../shared/group-age';
@@ -561,22 +562,31 @@ class NewtabApp {
   private async handleRestore(groupId: string) {
     const group = this.findGroup(groupId);
     if (!group) return;
+    const savedTabs = group.tabs.filter((tab) => tab.status === 'saved');
+    if (savedTabs.length === 0) {
+      this.state.pageStatus = '復元できる未復元タブがありません。';
+      this.render();
+      return;
+    }
 
     await this.runGroupAction(
       {
         type: 'restore-group',
         groupId: group.id,
-        urls: group.tabs.map((tab) => tab.url)
+        urls: savedTabs.map((tab) => tab.url)
       },
       `「${group.title ?? '(untitled)'}」を復元しました。`
     );
   }
 
   private async restoreGroupInBackground(group: TabGroup) {
+    const savedTabs = group.tabs.filter((tab) => tab.status === 'saved');
+    if (savedTabs.length === 0) return;
+
     const result = await runtimeSendMessage<PopupActionMessage, PopupActionResponse>({
       type: 'restore-group',
       groupId: group.id,
-      urls: group.tabs.map((tab) => tab.url)
+      urls: savedTabs.map((tab) => tab.url)
     });
 
     if (!result?.ok) {
@@ -648,6 +658,11 @@ class NewtabApp {
   private async handleOpenTab(tabId: string) {
     const resolved = this.findTab(tabId);
     if (!resolved) return;
+    if (resolved.tab.status !== 'saved') {
+      this.state.pageStatus = 'このタブはすでに復元済みです。';
+      this.render();
+      return;
+    }
 
     await this.runGroupAction(
       {
@@ -657,6 +672,22 @@ class NewtabApp {
       },
       'タブを開きました。'
     );
+  }
+
+  private async handleCopyGroup(groupId: string) {
+    if (this.state.actionBusy) return;
+
+    const group = this.findGroup(groupId);
+    if (!group) return;
+
+    try {
+      await copyTextToClipboard(formatGroupForExport(group));
+      this.state.pageStatus = `「${group.title ?? '(untitled)'}」のURLをコピーしました。`;
+    } catch (error) {
+      this.state.pageStatus = `コピー失敗: ${getErrorMessage(error)}`;
+    } finally {
+      this.render();
+    }
   }
 
   private toggleGroup(groupId: string) {
@@ -866,6 +897,23 @@ class NewtabApp {
     }
   }
 
+  private async handleCopySelectedGroups() {
+    if (this.state.actionBusy) return;
+
+    const groups = this.getSelectedGroups();
+    if (groups.length === 0) return;
+
+    try {
+      await copyTextToClipboard(formatGroupsForExport(groups));
+      const tabCount = groups.reduce((total, group) => total + group.tabs.length, 0);
+      this.state.pageStatus = `${groups.length} グループ / ${tabCount} タブのURLをコピーしました。`;
+    } catch (error) {
+      this.state.pageStatus = `コピー失敗: ${getErrorMessage(error)}`;
+    } finally {
+      this.render();
+    }
+  }
+
   private handleSearchInput(target: HTMLInputElement | HTMLTextAreaElement) {
     this.state.searchQuery = target.value;
     this.resetVisibleGroupCount();
@@ -1024,6 +1072,13 @@ class NewtabApp {
         }
         break;
       }
+      case 'copy-group': {
+        const groupId = actionTarget.dataset.groupId;
+        if (groupId) {
+          await this.handleCopyGroup(groupId);
+        }
+        break;
+      }
       case 'archive-group': {
         const groupId = actionTarget.dataset.groupId;
         if (groupId) {
@@ -1053,6 +1108,9 @@ class NewtabApp {
         break;
       case 'restore-selected-groups':
         await this.handleRestoreSelectedGroups();
+        break;
+      case 'copy-selected-groups':
+        await this.handleCopySelectedGroups();
         break;
       case 'archive-selected-groups':
         await this.handleArchiveSelectedGroups();

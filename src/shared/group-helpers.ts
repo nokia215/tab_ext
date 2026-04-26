@@ -5,7 +5,7 @@ export function groupHasStatus(group: TabGroup, status: SaveStatus): boolean {
 }
 
 export function isArchivedGroup(group: TabGroup): boolean {
-  return group.tabs.length > 0 && group.tabs.every((tab) => tab.status === 'archived');
+  return Boolean(group.archived_at);
 }
 
 export function reconcileGroupIds(groupIds: string[], groups: TabGroup[]): string[] {

@@ -23,6 +23,13 @@ create table if not exists public.tabs (
   updated_at timestamptz not null default now()
 );
 
+alter table public.tab_groups
+  add column if not exists updated_at timestamptz not null default now(),
+  add column if not exists archived_at timestamptz;
+
+alter table public.tabs
+  add column if not exists restored_at timestamptz;
+
 create index if not exists idx_tab_groups_user_created_at
   on public.tab_groups(user_id, created_at desc);
 

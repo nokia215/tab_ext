@@ -6,10 +6,10 @@ export interface GroupCollectionSummary {
   totalTabs: number;
   restoredTabs: number;
   savedTabs: number;
-  archivedTabs: number;
   deviceCount: number;
   restorableGroupCount: number;
   restoredGroupCount: number;
+  archivedGroupCount: number;
   staleGroupCount: number;
   staleTabCount: number;
 }
@@ -18,15 +18,18 @@ export function summarizeGroupCollection(groups: TabGroup[]): GroupCollectionSum
   let totalTabs = 0;
   let restoredTabs = 0;
   let savedTabs = 0;
-  let archivedTabs = 0;
   let restorableGroupCount = 0;
   let restoredGroupCount = 0;
+  let archivedGroupCount = 0;
   let staleGroupCount = 0;
   let staleTabCount = 0;
   const devices = new Set<string>();
 
   for (const group of groups) {
     devices.add(group.device_id);
+    if (group.archived_at) {
+      archivedGroupCount += 1;
+    }
 
     if (isStaleGroupByAge(group)) {
       staleGroupCount += 1;
@@ -45,8 +48,6 @@ export function summarizeGroupCollection(groups: TabGroup[]): GroupCollectionSum
       } else if (tab.status === 'restored') {
         restoredTabs += 1;
         hasRestoredTab = true;
-      } else if (tab.status === 'archived') {
-        archivedTabs += 1;
       }
     }
 
@@ -64,10 +65,10 @@ export function summarizeGroupCollection(groups: TabGroup[]): GroupCollectionSum
     totalTabs,
     restoredTabs,
     savedTabs,
-    archivedTabs,
     deviceCount: devices.size,
     restorableGroupCount,
     restoredGroupCount,
+    archivedGroupCount,
     staleGroupCount,
     staleTabCount
   };

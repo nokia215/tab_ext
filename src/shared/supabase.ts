@@ -250,7 +250,7 @@ async function persistTabGroup(input: {
       device_id: input.deviceId,
       title
     })
-    .select('id, title, created_at, device_id')
+    .select('id, title, created_at, archived_at, device_id')
     .single();
 
   if (groupError) throw groupError;
@@ -275,73 +275,86 @@ export async function listGroups(includeArchived = false, userId?: string): Prom
   const resolvedUserId = userId ?? (await getCurrentSessionUser())?.id;
   if (!resolvedUserId) throw new Error('ログインしてください。');
 
-  const { data, error } = await supabase
+  const query = supabase
     .from('tab_groups')
     .select(`
       id,
       title,
       created_at,
+      archived_at,
       device_id,
       tabs (
         id,
         url,
         title,
         position,
-        status
+        status,
+        restored_at
       )
     `)
-    .eq('user_id', resolvedUserId)
-    .order('created_at', { ascending: false });
+    .eq('user_id', resolvedUserId);
 
+  const scopedQuery = includeArchived ? query : query.is('archived_at', null);
+  const { data, error } = await scopedQuery.order('created_at', { ascending: false });
   if (error) throw error;
 
   return (data ?? [])
     .map((group) => ({
       ...group,
       tabs: [...(group.tabs ?? [])]
-        .filter((tab) => includeArchived || tab.status !== 'archived')
         .sort((a, b) => a.position - b.position)
     }))
     .filter((group) => group.tabs.length > 0) as TabGroup[];
 }
 
-async function updateGroupTabStatus(
-  groupId: string,
-  status: SaveStatus,
-  options?: { excludeArchived?: boolean }
-) {
+async function updateSavedTabsStatus(groupId: string, status: SaveStatus) {
   const supabase = await getSupabase();
-  let query = supabase
+  const now = new Date().toISOString();
+  const payload = status === 'restored'
+    ? { status, restored_at: now, updated_at: now }
+    : { status, restored_at: null, updated_at: now };
+
+  const { error } = await supabase
     .from('tabs')
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq('group_id', groupId);
-
-  if (options?.excludeArchived) {
-    query = query.neq('status', 'archived');
-  }
-
-  const { error } = await query;
+    .update(payload)
+    .eq('group_id', groupId)
+    .eq('status', 'saved');
 
   if (error) throw error;
 }
 
 export async function markGroupRestored(groupId: string) {
-  await updateGroupTabStatus(groupId, 'restored', { excludeArchived: true });
+  await updateSavedTabsStatus(groupId, 'restored');
 }
 
 export async function markGroupArchived(groupId: string) {
-  await updateGroupTabStatus(groupId, 'archived');
+  const supabase = await getSupabase();
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from('tab_groups')
+    .update({ archived_at: now, updated_at: now })
+    .eq('id', groupId);
+
+  if (error) throw error;
 }
 
 export async function markGroupSaved(groupId: string) {
-  await updateGroupTabStatus(groupId, 'saved');
+  const supabase = await getSupabase();
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from('tab_groups')
+    .update({ archived_at: null, updated_at: now })
+    .eq('id', groupId);
+
+  if (error) throw error;
 }
 
-export async function deleteSavedTab(tabId: string) {
+export async function markTabRestored(tabId: string) {
   const supabase = await getSupabase();
+  const now = new Date().toISOString();
   const { error } = await supabase
     .from('tabs')
-    .delete()
+    .update({ status: 'restored', restored_at: now, updated_at: now })
     .eq('id', tabId);
 
   if (error) throw error;

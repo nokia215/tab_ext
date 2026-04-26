@@ -2,6 +2,7 @@ import '../shared/ui.css';
 import '../shared/panels.css';
 import '../newtab/newtab.css';
 import './tablet.css';
+import { copyTextToClipboard, formatGroupForExport, formatGroupsForExport } from '../shared/export';
 import { countFavoriteGroups, getFavoriteGroupIds, removeFavoriteGroupIds, saveFavoriteGroupIds, toggleFavoriteGroupId } from '../shared/favorites';
 import { lineListToText, textToLineList } from '../shared/format';
 import { isStaleGroupByAge } from '../shared/group-age';
@@ -20,12 +21,12 @@ import { getConfig, saveConfig } from '../shared/storage';
 import {
   buildDefaultGroupTitle,
   deleteGroup,
-  deleteSavedTab,
   getCurrentSessionUser,
   listGroups,
   markGroupArchived,
   markGroupSaved,
   markGroupRestored,
+  markTabRestored,
   signIn,
   signOut,
   signUp,
@@ -449,14 +450,19 @@ class TabletApp {
   private async handleRestore(groupId: string) {
     const group = this.findGroup(groupId);
     if (!group || this.state.actionBusy) return;
+    const savedTabs = group.tabs.filter((tab) => tab.status === 'saved');
+    if (savedTabs.length === 0) {
+      this.state.pageStatus = '復元できる未復元タブがありません。';
+      this.render();
+      return;
+    }
 
     this.state.actionBusy = true;
     this.render();
 
     try {
-      await restoreTabs(group.tabs.map((tab) => tab.url));
+      await restoreTabs(savedTabs.map((tab) => tab.url));
       await markGroupRestored(group.id);
-      this.removeGroupsFromState([group.id]);
       this.state.pageStatus = `「${group.title ?? '(untitled)'}」を復元しました。`;
       this.render();
       await this.refreshAll();
@@ -538,14 +544,18 @@ class TabletApp {
   private async handleOpenTab(tabId: string) {
     const resolved = this.findTab(tabId);
     if (!resolved || this.state.actionBusy) return;
+    if (resolved.tab.status !== 'saved') {
+      this.state.pageStatus = 'このタブはすでに復元済みです。';
+      this.render();
+      return;
+    }
 
     this.state.actionBusy = true;
     this.render();
 
     try {
       await openSavedTab(resolved.tab.url);
-      await deleteSavedTab(resolved.tab.id);
-      this.removeTabsFromState([resolved.tab.id]);
+      await markTabRestored(resolved.tab.id);
       this.state.pageStatus = `「${resolved.tab.title || '(no title)'}」を開きました。`;
       this.render();
       await this.refreshAll();
@@ -553,6 +563,22 @@ class TabletApp {
       this.state.pageStatus = `タブを開けませんでした: ${getErrorMessage(error)}`;
     } finally {
       this.state.actionBusy = false;
+      this.render();
+    }
+  }
+
+  private async handleCopyGroup(groupId: string) {
+    if (this.state.actionBusy) return;
+
+    const group = this.findGroup(groupId);
+    if (!group) return;
+
+    try {
+      await copyTextToClipboard(formatGroupForExport(group));
+      this.state.pageStatus = `「${group.title ?? '(untitled)'}」のURLをコピーしました。`;
+    } catch (error) {
+      this.state.pageStatus = `コピー失敗: ${getErrorMessage(error)}`;
+    } finally {
       this.render();
     }
   }
@@ -667,12 +693,15 @@ class TabletApp {
 
     try {
       for (const group of groups) {
-        await restoreTabs(group.tabs.map((tab) => tab.url));
+        const savedTabs = group.tabs.filter((tab) => tab.status === 'saved');
+        if (savedTabs.length === 0) {
+          continue;
+        }
+        await restoreTabs(savedTabs.map((tab) => tab.url));
         await markGroupRestored(group.id);
         restoredCount += 1;
       }
 
-      this.removeGroupsFromState(groups.map((group) => group.id));
       this.state.selectedGroupIds = [];
       this.state.pageStatus = `${restoredCount} グループを復元しました。`;
       this.render();
@@ -804,6 +833,23 @@ class TabletApp {
     }
   }
 
+  private async handleCopySelectedGroups() {
+    if (this.state.actionBusy) return;
+
+    const groups = this.getSelectedGroups();
+    if (groups.length === 0) return;
+
+    try {
+      await copyTextToClipboard(formatGroupsForExport(groups));
+      const tabCount = groups.reduce((total, group) => total + group.tabs.length, 0);
+      this.state.pageStatus = `${groups.length} グループ / ${tabCount} タブのURLをコピーしました。`;
+    } catch (error) {
+      this.state.pageStatus = `コピー失敗: ${getErrorMessage(error)}`;
+    } finally {
+      this.render();
+    }
+  }
+
   private handleChange(event: Event) {
     const target = event.target;
     if (!(target instanceof HTMLSelectElement)) {
@@ -886,6 +932,10 @@ class TabletApp {
         if (!groupId) break;
         await this.handleRestore(groupId);
         break;
+      case 'copy-group':
+        if (!groupId) break;
+        await this.handleCopyGroup(groupId);
+        break;
       case 'archive-group':
         if (!groupId) break;
         await this.handleArchiveGroup(groupId);
@@ -909,6 +959,9 @@ class TabletApp {
         break;
       case 'restore-selected-groups':
         await this.handleRestoreSelectedGroups();
+        break;
+      case 'copy-selected-groups':
+        await this.handleCopySelectedGroups();
         break;
       case 'archive-selected-groups':
         await this.handleArchiveSelectedGroups();

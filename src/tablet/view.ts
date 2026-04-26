@@ -191,6 +191,14 @@ function renderBulkActionBar(args: {
         <button
           class="secondary"
           type="button"
+          data-action="copy-selected-groups"
+          ${renderDisabled(args.busy || !hasSelection)}
+        >
+          URLコピー
+        </button>
+        <button
+          class="secondary"
+          type="button"
           data-action="${escapeHtml(args.archiveActionName)}"
           ${renderDisabled(args.busy || !hasSelection)}
         >
@@ -330,6 +338,7 @@ export function renderTabletView(args: TabletViewArgs) {
           busy: args.state.actionBusy,
           selectedGroupIds: args.state.selectedGroupIds,
           favoriteGroupIds: args.state.favoriteGroupIds,
+          extraActionLabel: 'URLコピー',
           editableGroupId: args.state.editingGroupId,
           editableGroupTitle: args.state.editingGroupTitle
         })}

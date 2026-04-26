@@ -1,4 +1,4 @@
-export type SaveStatus = 'saved' | 'restored' | 'archived';
+export type SaveStatus = 'saved' | 'restored';
 
 export interface AppConfig {
   supabaseUrl: string;
@@ -13,12 +13,14 @@ export interface SavedTab {
   title: string;
   position: number;
   status: SaveStatus;
+  restored_at: string | null;
 }
 
 export interface TabGroup {
   id: string;
   title: string | null;
   created_at: string;
+  archived_at: string | null;
   device_id: string;
   tabs: SavedTab[];
 }
