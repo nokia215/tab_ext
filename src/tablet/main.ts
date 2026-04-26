@@ -6,6 +6,14 @@ import { countFavoriteGroups, getFavoriteGroupIds, removeFavoriteGroupIds, saveF
 import { lineListToText, textToLineList } from '../shared/format';
 import { isStaleGroupByAge } from '../shared/group-age';
 import { mergeGroupIds, reconcileGroupIds, resolveGroupsByIds, toggleGroupId } from '../shared/group-helpers';
+import {
+  reconcileExpandedGroupIds,
+  removeGroupsFromCollection,
+  removeTabsFromCollection,
+  resetVisibleGroupCount,
+  visibleExpandedGroupIds,
+  visibleGroups
+} from '../shared/group-state';
 import { importTabGroups } from '../shared/import';
 import { formatImportStatus, getErrorMessage, isErrorStatus } from '../shared/status';
 import { getConfig, saveConfig } from '../shared/storage';
@@ -103,13 +111,11 @@ class TabletApp {
   }
 
   private getVisibleGroups(groups: TabGroup[]) {
-    return groups.slice(0, this.state.visibleGroupCount);
+    return visibleGroups(groups, this.state.visibleGroupCount);
   }
 
   private getVisibleExpandedGroupIds(groups: TabGroup[]) {
-    return this.state.expandedGroupIds.filter((groupId) =>
-      groups.some((group) => group.id === groupId)
-    );
+    return visibleExpandedGroupIds(this.state.expandedGroupIds, groups);
   }
 
   private get bulkSelectableGroups() {
@@ -153,6 +159,18 @@ class TabletApp {
     return resolveGroupsByIds(this.state.allGroups, this.state.selectedGroupIds);
   }
 
+  private removeGroupsFromState(groupIds: string[]) {
+    this.state.allGroups = removeGroupsFromCollection(this.state.allGroups, groupIds);
+    this.state.selectedGroupIds = reconcileGroupIds(this.state.selectedGroupIds, this.state.allGroups);
+    this.reconcileExpandedGroupIds(this.state.allGroups);
+  }
+
+  private removeTabsFromState(tabIds: string[]) {
+    this.state.allGroups = removeTabsFromCollection(this.state.allGroups, tabIds);
+    this.state.selectedGroupIds = reconcileGroupIds(this.state.selectedGroupIds, this.state.allGroups);
+    this.reconcileExpandedGroupIds(this.state.allGroups);
+  }
+
   private findTab(tabId: string) {
     for (const group of this.state.allGroups) {
       const tab = group.tabs.find((item) => item.id === tabId);
@@ -180,14 +198,11 @@ class TabletApp {
   }
 
   private resetVisibleGroupCount() {
-    this.state.visibleGroupCount = LIGHTWEIGHT_GROUP_BATCH_SIZE;
+    resetVisibleGroupCount(this.state, LIGHTWEIGHT_GROUP_BATCH_SIZE);
   }
 
   private reconcileExpandedGroupIds(groups: TabGroup[]) {
-    const groupIds = new Set(groups.map((group) => group.id));
-    this.state.expandedGroupIds = this.state.expandedGroupIds
-      .filter((groupId) => groupIds.has(groupId))
-      .slice(0, 1);
+    this.state.expandedGroupIds = reconcileExpandedGroupIds(this.state.expandedGroupIds, groups, 1);
   }
 
   private reconcileSelectedGroupIds(groups: TabGroup[]) {
@@ -441,7 +456,9 @@ class TabletApp {
     try {
       await restoreTabs(group.tabs.map((tab) => tab.url));
       await markGroupRestored(group.id);
+      this.removeGroupsFromState([group.id]);
       this.state.pageStatus = `「${group.title ?? '(untitled)'}」を復元しました。`;
+      this.render();
       await this.refreshAll();
     } catch (error) {
       this.state.pageStatus = `復元失敗: ${getErrorMessage(error)}`;
@@ -460,7 +477,9 @@ class TabletApp {
     try {
       await deleteGroup(groupId);
       await this.removeDeletedFavoriteGroups([groupId]);
+      this.removeGroupsFromState([groupId]);
       this.state.pageStatus = 'グループを削除しました。';
+      this.render();
       await this.refreshAll();
     } catch (error) {
       this.state.pageStatus = `削除失敗: ${getErrorMessage(error)}`;
@@ -481,7 +500,9 @@ class TabletApp {
 
     try {
       await markGroupArchived(groupId);
+      this.removeGroupsFromState([groupId]);
       this.state.pageStatus = `「${group.title ?? '(untitled)'}」を一覧から外しました。`;
+      this.render();
       await this.refreshAll();
     } catch (error) {
       this.state.pageStatus = `整理失敗: ${getErrorMessage(error)}`;
@@ -502,7 +523,9 @@ class TabletApp {
 
     try {
       await markGroupSaved(groupId);
+      this.removeGroupsFromState([groupId]);
       this.state.pageStatus = `「${group.title ?? '(untitled)'}」を一覧に戻しました。`;
+      this.render();
       await this.refreshAll();
     } catch (error) {
       this.state.pageStatus = `復帰失敗: ${getErrorMessage(error)}`;
@@ -522,7 +545,9 @@ class TabletApp {
     try {
       await openSavedTab(resolved.tab.url);
       await deleteSavedTab(resolved.tab.id);
+      this.removeTabsFromState([resolved.tab.id]);
       this.state.pageStatus = `「${resolved.tab.title || '(no title)'}」を開きました。`;
+      this.render();
       await this.refreshAll();
     } catch (error) {
       this.state.pageStatus = `タブを開けませんでした: ${getErrorMessage(error)}`;
@@ -647,8 +672,10 @@ class TabletApp {
         restoredCount += 1;
       }
 
+      this.removeGroupsFromState(groups.map((group) => group.id));
       this.state.selectedGroupIds = [];
       this.state.pageStatus = `${restoredCount} グループを復元しました。`;
+      this.render();
       await this.refreshAll();
     } catch (error) {
       this.state.pageStatus = restoredCount > 0
@@ -677,8 +704,10 @@ class TabletApp {
         archivedCount += 1;
       }
 
+      this.removeGroupsFromState(groups.map((group) => group.id));
       this.state.selectedGroupIds = [];
       this.state.pageStatus = `${archivedCount} グループを一覧から外しました。`;
+      this.render();
       await this.refreshAll();
     } catch (error) {
       this.state.pageStatus = archivedCount > 0
@@ -707,8 +736,10 @@ class TabletApp {
         restoredToListCount += 1;
       }
 
+      this.removeGroupsFromState(groups.map((group) => group.id));
       this.state.selectedGroupIds = [];
       this.state.pageStatus = `${restoredToListCount} グループを一覧に戻しました。`;
+      this.render();
       await this.refreshAll();
     } catch (error) {
       this.state.pageStatus = restoredToListCount > 0
@@ -755,8 +786,10 @@ class TabletApp {
       }
 
       await this.removeDeletedFavoriteGroups(deletedGroupIds);
+      this.removeGroupsFromState(deletedGroupIds);
       this.state.selectedGroupIds = [];
       this.state.pageStatus = `${deletedCount} グループを削除しました。`;
+      this.render();
       await this.refreshAll();
     } catch (error) {
       if (deletedGroupIds.length > 0) {

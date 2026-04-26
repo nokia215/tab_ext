@@ -1,6 +1,6 @@
 {
   "name": "tab_ext",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "ブラウザをまたいだタブ共有を行う拡張機能",
   "private": true,
   "homepage": "https://github.com/nokia215/tab_ext#readme",

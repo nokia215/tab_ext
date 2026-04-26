@@ -4,9 +4,16 @@
 
 .tablet-hero {
   background:
-    radial-gradient(circle at top right, rgba(131, 224, 255, 0.18), transparent 30%),
-    radial-gradient(circle at left center, rgba(20, 255, 194, 0.1), transparent 24%),
-    rgba(10, 18, 32, 0.96);
+    linear-gradient(135deg, rgba(101, 214, 196, 0.14), transparent 46%),
+    rgba(18, 24, 32, 0.98);
+}
+
+.tablet-hero .lightweight-hero-top {
+  align-items: start;
+}
+
+.tablet-explorer {
+  gap: 16px;
 }
 
 .tablet-import-panel code {
@@ -21,5 +28,25 @@
 
   .tablet-shell .config-panel {
     grid-column: 1 / -1;
+  }
+
+  .tablet-hero .lightweight-hero-top {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .tablet-shell {
+    padding-inline: 10px;
+  }
+
+  .tablet-shell .lightweight-actions {
+    width: 100%;
+  }
+
+  .tablet-shell .lightweight-actions .badge,
+  .tablet-shell .lightweight-actions button {
+    width: 100%;
+    justify-content: center;
   }
 }

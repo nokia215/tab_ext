@@ -7,6 +7,12 @@ import { countFavoriteGroups, getFavoriteGroupIds, removeFavoriteGroupIds, saveF
 import { lineListToText, textToLineList } from '../shared/format';
 import { isStaleGroupByAge } from '../shared/group-age';
 import { mergeGroupIds, reconcileGroupIds, resolveGroupsByIds, toggleGroupId } from '../shared/group-helpers';
+import {
+  reconcileExpandedGroupIds,
+  resetVisibleGroupCount,
+  visibleExpandedGroupIds,
+  visibleGroups
+} from '../shared/group-state';
 import { importTabGroups } from '../shared/import';
 import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
 import { formatImportStatus, getErrorMessage, isErrorStatus } from '../shared/status';
@@ -113,15 +119,11 @@ class NewtabApp {
   }
 
   private getVisibleGroups(groups: TabGroup[]) {
-    return this.isLightweightMode
-      ? groups.slice(0, this.state.visibleGroupCount)
-      : groups;
+    return this.isLightweightMode ? visibleGroups(groups, this.state.visibleGroupCount) : groups;
   }
 
   private getVisibleExpandedGroupIds(groups: TabGroup[]) {
-    return this.state.expandedGroupIds.filter((groupId) =>
-      groups.some((group) => group.id === groupId)
-    );
+    return visibleExpandedGroupIds(this.state.expandedGroupIds, groups);
   }
 
   private get bulkSelectableGroups() {
@@ -193,18 +195,15 @@ class NewtabApp {
   }
 
   private resetVisibleGroupCount() {
-    this.state.visibleGroupCount = this.isLightweightMode
-      ? LIGHTWEIGHT_GROUP_BATCH_SIZE
-      : Number.MAX_SAFE_INTEGER;
+    resetVisibleGroupCount(this.state, this.isLightweightMode ? LIGHTWEIGHT_GROUP_BATCH_SIZE : null);
   }
 
   private reconcileExpandedGroupIds(groups: TabGroup[]) {
-    const groupIds = new Set(groups.map((group) => group.id));
-    const expandedGroupIds = this.state.expandedGroupIds.filter((groupId) => groupIds.has(groupId));
-
-    this.state.expandedGroupIds = this.isLightweightMode
-      ? expandedGroupIds.slice(0, 1)
-      : expandedGroupIds;
+    this.state.expandedGroupIds = reconcileExpandedGroupIds(
+      this.state.expandedGroupIds,
+      groups,
+      this.isLightweightMode ? 1 : null
+    );
   }
 
   private reconcileSelectedGroupIds(groups: TabGroup[]) {

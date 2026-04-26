@@ -8,12 +8,11 @@
 
 .masthead {
   padding: 14px 16px;
-  border-radius: 18px;
+  border-radius: 8px;
   display: grid;
   gap: 10px;
   background:
-    radial-gradient(circle at top right, rgba(131, 224, 255, 0.24), transparent 24%),
-    radial-gradient(circle at left center, rgba(20, 255, 194, 0.12), transparent 28%),
+    linear-gradient(135deg, rgba(101, 214, 196, 0.12), transparent 42%),
     var(--panel-strong);
 }
 
@@ -48,7 +47,7 @@
   margin: 0 0 8px;
   color: var(--accent);
   font-size: 0.68rem;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   font-weight: 800;
 }
@@ -72,7 +71,7 @@
 
 .explorer-panel {
   padding: 14px;
-  border-radius: 16px;
+  border-radius: 8px;
   display: grid;
   gap: 10px;
 }
@@ -124,7 +123,7 @@
   gap: 10px;
   padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
 }
 
@@ -166,8 +165,8 @@
 }
 
 .meta-pill-aging {
-  border-color: rgba(255, 214, 122, 0.28);
-  background: rgba(255, 214, 122, 0.08);
+  border-color: rgba(242, 199, 107, 0.3);
+  background: rgba(242, 199, 107, 0.09);
   color: #ffe7b0;
 }
 
@@ -187,7 +186,7 @@
 .lightweight-explorer,
 .lightweight-utility-panel {
   padding: 18px;
-  border-radius: 22px;
+  border-radius: 8px;
   display: grid;
   gap: 14px;
 }
@@ -199,8 +198,8 @@
 
 .lightweight-hero h1 {
   margin: 0 0 10px;
-  font-size: clamp(1.8rem, 4vw, 2.6rem);
-  line-height: 0.96;
+  font-size: clamp(1.55rem, 3.4vw, 2.25rem);
+  line-height: 1.02;
 }
 
 .lightweight-hero p {
@@ -213,8 +212,8 @@
 
 .accent-badge {
   color: var(--accent);
-  border-color: rgba(131, 224, 255, 0.24);
-  background: rgba(131, 224, 255, 0.08);
+  border-color: rgba(101, 214, 196, 0.28);
+  background: rgba(101, 214, 196, 0.08);
 }
 
 .lightweight-summary {
@@ -226,7 +225,7 @@
 .mini-metric {
   min-width: 0;
   padding: 12px 14px;
-  border-radius: 16px;
+  border-radius: 8px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.04);
   display: grid;
@@ -264,7 +263,7 @@
 .lightweight-panel-stack .save-panel,
 .lightweight-panel-stack .auth-panel,
 .lightweight-panel-stack .config-panel {
-  border-radius: 22px;
+  border-radius: 8px;
 }
 
 .lightweight-settings-grid {
@@ -292,8 +291,14 @@
   }
 
   .lightweight-shell .search-field,
-  .lightweight-shell .compact-field {
+  .lightweight-shell .compact-field,
+  .lightweight-shell .device-field {
     width: 100%;
+  }
+
+  .bulk-toolbar-actions button,
+  .filter-row .chip {
+    flex: 1 1 140px;
   }
 }
 

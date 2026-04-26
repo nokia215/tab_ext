@@ -3,7 +3,7 @@
 .config-panel {
   display: grid;
   padding: 16px;
-  border-radius: 20px;
+  border-radius: 8px;
 }
 
 .save-panel,
@@ -52,17 +52,18 @@
 }
 
 .empty-state {
-  border-radius: 20px;
+  border-radius: 8px;
   padding: 18px;
   text-align: center;
   color: var(--muted);
 }
 
 .group-card {
-  border-radius: 16px;
-  padding: 10px;
+  border-radius: 8px;
+  padding: 12px;
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  border-left: 3px solid transparent;
 }
 
 .group-header {
@@ -80,19 +81,21 @@
 }
 
 .group-card-selected {
-  border-color: rgba(131, 224, 255, 0.38);
-  background: linear-gradient(180deg, rgba(131, 224, 255, 0.08), rgba(255, 255, 255, 0.04));
+  border-color: rgba(101, 214, 196, 0.42);
+  border-left-color: var(--accent);
+  background: linear-gradient(180deg, rgba(101, 214, 196, 0.1), rgba(255, 255, 255, 0.035));
 }
 
 .group-card-favorite {
-  border-color: rgba(255, 218, 117, 0.26);
-  background: linear-gradient(180deg, rgba(255, 218, 117, 0.08), rgba(255, 255, 255, 0.04));
+  border-color: rgba(242, 199, 107, 0.28);
+  border-left-color: var(--warning);
+  background: linear-gradient(180deg, rgba(242, 199, 107, 0.08), rgba(255, 255, 255, 0.035));
 }
 
 .group-select {
   min-width: 0;
   padding: 6px 10px;
-  border-radius: 10px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
   border-color: var(--line);
   color: var(--muted);
@@ -101,8 +104,8 @@
 }
 
 .selected-group-select {
-  background: rgba(131, 224, 255, 0.14);
-  border-color: rgba(131, 224, 255, 0.38);
+  background: rgba(101, 214, 196, 0.14);
+  border-color: rgba(101, 214, 196, 0.38);
   color: var(--text);
 }
 
@@ -154,7 +157,7 @@
 
 .group-title-editor input {
   min-height: 34px;
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 6px 10px;
 }
 
@@ -178,8 +181,8 @@
 }
 
 .favorite-pill {
-  border-color: rgba(255, 218, 117, 0.28);
-  background: rgba(255, 218, 117, 0.12);
+  border-color: rgba(242, 199, 107, 0.32);
+  background: rgba(242, 199, 107, 0.12);
   color: #ffe29c;
 }
 
@@ -208,7 +211,7 @@
   gap: 8px;
   align-items: center;
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
@@ -250,13 +253,14 @@
 
 .group-card .actions button {
   padding: 6px 9px;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 0.74rem;
+  min-height: 32px;
 }
 
 .group-card .actions .favorite-toggle-active {
-  border-color: rgba(255, 218, 117, 0.3);
-  background: rgba(255, 218, 117, 0.12);
+  border-color: rgba(242, 199, 107, 0.34);
+  background: rgba(242, 199, 107, 0.12);
   color: #ffe29c;
 }
 
@@ -267,7 +271,7 @@
 .tab-row-more {
   justify-self: start;
   padding: 4px 8px;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 0.72rem;
 }
 
@@ -288,6 +292,17 @@
 
   .group-select {
     align-self: flex-start;
+  }
+
+  .group-card .actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .group-card .actions button {
+    width: 100%;
+    white-space: normal;
   }
 
   .tab-row {
