@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getConfig } from './storage';
 import { storageLocalGet, storageLocalRemove, storageLocalSet } from './browser-api';
 import { isSavableTabUrl } from './tabs';
-import type { SaveStatus, TabGroup } from './types';
+import type { SavedTab, SaveStatus, TabGroup } from './types';
 
 export interface ImportableTabInput {
   url: string;
@@ -302,9 +302,14 @@ export async function listGroups(includeArchived = false, userId?: string): Prom
     .map((group) => ({
       ...group,
       tabs: [...(group.tabs ?? [])]
-        .sort((a, b) => a.position - b.position)
+        .sort(compareTabsByQueueOrder)
     }))
     .filter((group) => group.tabs.length > 0) as TabGroup[];
+}
+
+function compareTabsByQueueOrder(a: SavedTab, b: SavedTab) {
+  const statusOrder = { saved: 0, restored: 1 } as const;
+  return statusOrder[a.status] - statusOrder[b.status] || a.position - b.position;
 }
 
 async function updateSavedTabsStatus(groupId: string, status: SaveStatus) {

@@ -658,11 +658,6 @@ class NewtabApp {
   private async handleOpenTab(tabId: string) {
     const resolved = this.findTab(tabId);
     if (!resolved) return;
-    if (resolved.tab.status !== 'saved') {
-      this.state.pageStatus = 'このタブはすでに復元済みです。';
-      this.render();
-      return;
-    }
 
     await this.runGroupAction(
       {
