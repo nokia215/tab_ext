@@ -7,6 +7,7 @@ export interface PopupState {
   email: string;
   password: string;
   groupTitle: string;
+  saveGroupId: string;
   importText: string;
   configBusy: boolean;
   authBusy: boolean;
@@ -28,6 +29,7 @@ export function createInitialPopupState(): PopupState {
     email: '',
     password: '',
     groupTitle: '',
+    saveGroupId: '',
     importText: '',
     configBusy: false,
     authBusy: false,

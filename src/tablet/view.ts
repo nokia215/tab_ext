@@ -1,5 +1,5 @@
 import { escapeHtml, renderDisabled, renderStatusBanner } from '../shared/html';
-import { renderAuthPanel, renderConfigPanel, renderGroupList } from '../shared/renderers';
+import { renderAuthPanel, renderConfigPanel, renderGroupList, renderSaveDestination } from '../shared/renderers';
 import type { TabGroup } from '../shared/types';
 import type {
   DateRangeFilter,
@@ -105,9 +105,10 @@ function renderImportPanel(state: DashboardState) {
         <div class="badge">GitHub Pages</div>
       </div>
 
+      ${renderSaveDestination(state.allGroups, state.saveGroupId, state.importBusy)}
       <label class="field">
-        <span class="field-label">グループ名</span>
-        <input name="groupTitle" type="text" value="${escapeHtml(state.groupTitle)}" placeholder="未入力なら自動命名" />
+        <span class="field-label">新規グループ名</span>
+        <input name="groupTitle" type="text" value="${escapeHtml(state.groupTitle)}"${renderDisabled(state.importBusy || Boolean(state.saveGroupId))} placeholder="未入力なら自動命名" />
       </label>
 
       <label class="field">
@@ -125,7 +126,7 @@ function renderImportPanel(state: DashboardState) {
         </button>
       </div>
 
-      <p class="section-copy"><code>URL | タブ名</code> を1行ずつ貼り付け、空行でグループを分けられます。</p>
+      <p class="section-copy"><code>URL | タブ名</code> を1行ずつ貼り付け、新規保存では空行でグループを分け、既存グループにはまとめて追加します。</p>
       ${renderStatusBanner(state.saveStatus, state.saveStatus.includes('失敗'))}
     </section>
   `;

@@ -81,6 +81,8 @@ export function renderPopupView(args: PopupViewArgs): string {
 
       ${renderSavePanel({
         title: args.state.groupTitle,
+        groups: args.state.allGroups,
+        groupId: args.state.saveGroupId,
         status: args.state.saveStatus,
         windowBusy: args.state.saveWindowBusy,
         tabBusy: args.state.saveTabBusy,

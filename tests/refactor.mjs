@@ -26,6 +26,10 @@ try {
       tabs: [{ id: 'c', title: 'Alpha', url: 'https://c.test', status: 'saved', position: 0, restored_at: null }] }
   ];
   const before = structuredClone(groups);
+  assert.deepEqual(groupState.removeTabsFromCollection(groups, ['a', 'b']).map((group) => group.id), ['archive']);
+  const remaining = groupState.removeTabsFromCollection(groups, ['a', 'b'], ['old']);
+  assert.deepEqual(remaining.map((group) => group.id), ['old', 'archive']);
+  assert.deepEqual(remaining[0].tabs, []);
   const state = model.createInitialState({ isAndroidFirefox: false, uiMode: 'default' });
   const ids = (options = {}, input = groups) => model.queryGroups(input, { ...state, ...options }).map((g) => g.id);
   assert.deepEqual(ids(), ['new', 'archive', 'old']);

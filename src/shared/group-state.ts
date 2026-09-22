@@ -29,7 +29,7 @@ export function removeGroupsFromCollection(groups: TabGroup[], groupIds: string[
   return groups.filter((group) => !removedIds.has(group.id));
 }
 
-export function removeTabsFromCollection(groups: TabGroup[], tabIds: string[]) {
+export function removeTabsFromCollection(groups: TabGroup[], tabIds: string[], favoriteGroupIds: string[] = []) {
   if (tabIds.length === 0) return groups;
 
   const removedIds = new Set(tabIds);
@@ -39,5 +39,5 @@ export function removeTabsFromCollection(groups: TabGroup[], tabIds: string[]) {
       ...group,
       tabs: group.tabs.filter((tab) => !removedIds.has(tab.id))
     }))
-    .filter((group) => group.tabs.length > 0);
+    .filter((group) => group.tabs.length > 0 || favoriteGroupIds.includes(group.id));
 }

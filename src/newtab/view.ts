@@ -344,6 +344,8 @@ function renderDefaultLayout(args: DefaultLayoutArgs) {
         <aside class="side-column">
           ${renderSavePanel({
             title: args.state.groupTitle,
+            groups: args.state.allGroups,
+            groupId: args.state.saveGroupId,
             status: args.state.saveStatus,
             windowBusy: args.state.saveWindowBusy,
             tabBusy: args.state.saveTabBusy,
@@ -528,6 +530,8 @@ function renderLightweightLayout(args: LightweightLayoutArgs) {
           args.state.savePanelOpen
             ? renderSavePanel({
                 title: args.state.groupTitle,
+                groups: args.state.allGroups,
+                groupId: args.state.saveGroupId,
                 status: args.state.saveStatus,
                 windowBusy: args.state.saveWindowBusy,
                 tabBusy: args.state.saveTabBusy,

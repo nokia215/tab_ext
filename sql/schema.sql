@@ -7,7 +7,8 @@ create table if not exists public.tab_groups (
   title text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  archived_at timestamptz
+  archived_at timestamptz,
+  is_favorite boolean default false
 );
 
 create table if not exists public.tabs (

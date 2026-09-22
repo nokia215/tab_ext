@@ -33,6 +33,13 @@ class PopupApp {
     this.root.addEventListener('input', (event) => {
       this.handleInput(event);
     });
+    this.root.addEventListener('change', (event) => {
+      const target = event.target;
+      if (target instanceof HTMLSelectElement && target.name === 'saveGroupId') {
+        this.state.saveGroupId = target.value;
+        this.render();
+      }
+    });
     this.root.addEventListener('toggle', (event) => {
       this.handleToggle(event);
     });
@@ -102,6 +109,7 @@ class PopupApp {
     const deviceId = await getOrCreateDeviceId();
     const result = await saveTabGroup({
       title: this.state.groupTitle,
+      groupId: this.state.saveGroupId,
       deviceId,
       tabs
     });
@@ -119,6 +127,7 @@ class PopupApp {
     try {
       const { importedGroupCount, importedTabCount, skippedLineCount } = await importTabGroups({
         groupTitle: this.state.groupTitle,
+        groupId: this.state.saveGroupId,
         importText: this.state.importText
       });
 

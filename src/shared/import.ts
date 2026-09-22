@@ -19,6 +19,7 @@ function buildImportGroupTitle(baseTitle: string, groupIndex: number, groupCount
 
 export async function importTabGroups(input: {
   groupTitle: string;
+  groupId?: string;
   importText: string;
 }): Promise<ImportTabsResult> {
   const { groups, skippedLineCount } = parseImportedTabGroups(input.importText);
@@ -30,9 +31,11 @@ export async function importTabGroups(input: {
   let importedGroupCount = 0;
   let importedTabCount = 0;
 
-  for (const [groupIndex, group] of groups.entries()) {
+  const targetGroups = input.groupId ? [groups.flat()] : groups;
+  for (const [groupIndex, group] of targetGroups.entries()) {
     const result = await saveImportedTabGroup({
       title: buildImportGroupTitle(input.groupTitle, groupIndex, groups.length),
+      groupId: input.groupId,
       deviceId,
       tabs: group
     });

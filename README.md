@@ -107,11 +107,34 @@ https://group-two.example.com | Group Two
 
 Supabase で新しいプロジェクトを作成し、[sql/schema.sql](sql/schema.sql) を実行してください。
 
-既存プロジェクトへの変更は、[supabase/migrations](supabase/migrations) に差分 SQL として追加します。Supabase CLI を使う場合は、次のように migration を作ってから差分を記述します。
+既存プロジェクトへの変更は、[supabase/migrations](supabase/migrations) に差分 SQL として追加します。
+マイグレーション用の npm コマンドは、PATH 上の Supabase CLI を使用します。この開発環境ではインストール済みです。
+別の環境では Supabase CLI をインストールし、初回にログインと接続先の設定を行ってください。
 
 ```bash
-supabase migration new split_group_archive_tab_restore
+supabase login
+supabase link --project-ref YOUR_PROJECT_REF
 ```
+
+接続先の情報は Git 管理外の `supabase/.temp/` に保存されます。CLI の認証情報は拡張に設定する publishable / anon key とは別です。
+
+```bash
+# 差分 SQL ファイルを作成し、そのファイルに変更を記述する
+npm run db:migrate:new -- add_example_column
+
+# 適用履歴と適用予定の SQL を確認する（DB は変更しない）
+npm run db:migrate:status
+npm run db:migrate:check
+
+# 接続済みリモート DB に未適用のマイグレーションを適用する
+npm run db:migrate
+```
+
+`db:migrate` は CLI の確認プロンプトを表示します。確認を省略する場合は `npm run db:migrate -- --yes` を使います。
+
+お気に入り同期を利用する既存プロジェクトにも、上記のコマンドで[お気に入り同期の migration](supabase/migrations/20260922000000_sync_group_favorites.sql)を適用できます。
+更新版を各端末で開くと、その端末に保存されていたお気に入りが同じユーザーのグループへ移行されます。
+同じ Supabase プロジェクト・アカウントの端末で、画面の更新時にお気に入りの追加・解除が反映されます。
 
 このスキーマでは次を用意しています。
 

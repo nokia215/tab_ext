@@ -3,7 +3,7 @@ import '../shared/panels.css';
 import '../newtab/newtab.css';
 import './tablet.css';
 import { copyTextToClipboard, formatGroupForExport, formatGroupsForExport } from '../shared/export';
-import { countFavoriteGroups, getFavoriteGroupIds, removeFavoriteGroupIds, saveFavoriteGroupIds, toggleFavoriteGroupId } from '../shared/favorites';
+import { countFavoriteGroups, removeFavoriteGroupIds } from '../shared/favorites';
 import { configFromFormFields, configToFormFields } from '../shared/config-form';
 import { isStaleGroupByAge } from '../shared/group-age';
 import { mergeGroupIds, reconcileGroupIds, resolveGroupsByIds, toggleGroupId } from '../shared/group-helpers';
@@ -22,11 +22,13 @@ import {
   buildDefaultGroupTitle,
   deleteGroup,
   getCurrentSessionUser,
+  getFavoriteGroupIds,
   listGroups,
   markGroupArchived,
   markGroupSaved,
   markGroupRestored,
   markTabRestored,
+  setGroupFavorite,
   signIn,
   signOut,
   signUp,
@@ -122,18 +124,8 @@ class TabletApp {
     return this.getVisibleGroups(this.filteredGroups);
   }
 
-  private async persistFavoriteGroupIds(groupIds: string[]) {
-    this.state.favoriteGroupIds = groupIds;
-    await saveFavoriteGroupIds(groupIds);
-  }
-
-  private async removeDeletedFavoriteGroups(groupIds: string[]) {
-    const nextFavoriteGroupIds = removeFavoriteGroupIds(this.state.favoriteGroupIds, groupIds);
-    if (nextFavoriteGroupIds.length === this.state.favoriteGroupIds.length) {
-      return;
-    }
-
-    await this.persistFavoriteGroupIds(nextFavoriteGroupIds);
+  private removeDeletedFavoriteGroups(groupIds: string[]) {
+    this.state.favoriteGroupIds = removeFavoriteGroupIds(this.state.favoriteGroupIds, groupIds);
   }
 
   private setConfigFields(next: AppConfig) {
@@ -155,7 +147,7 @@ class TabletApp {
   }
 
   private removeTabsFromState(tabIds: string[]) {
-    this.state.allGroups = removeTabsFromCollection(this.state.allGroups, tabIds);
+    this.state.allGroups = removeTabsFromCollection(this.state.allGroups, tabIds, this.state.favoriteGroupIds);
     this.state.selectedGroupIds = reconcileGroupIds(this.state.selectedGroupIds, this.state.allGroups);
     this.reconcileExpandedGroupIds(this.state.allGroups);
   }
@@ -289,7 +281,7 @@ class TabletApp {
     this.render();
 
     try {
-      this.state.favoriteGroupIds = await getFavoriteGroupIds();
+      this.state.favoriteGroupIds = [];
       const nextConfig = await getConfig();
       this.setConfigFields(nextConfig);
 
@@ -317,6 +309,7 @@ class TabletApp {
         return;
       }
 
+      this.state.favoriteGroupIds = await getFavoriteGroupIds(user.id);
       const expandedGroupIds = [...this.state.expandedGroupIds];
       this.state.allGroups = await listGroups(shouldIncludeArchivedGroups(this.state.groupFilter), user.id);
       this.state.expandedGroupIds = expandedGroupIds;
@@ -327,6 +320,7 @@ class TabletApp {
       }
       this.state.pageStatus = `${this.state.allGroups.length} グループを表示中`;
       this.resetVisibleGroupCount();
+      return true;
     } catch (error) {
       const message = getErrorMessage(error);
       this.state.authStatus = `表示失敗: ${message}`;
@@ -350,6 +344,7 @@ class TabletApp {
     try {
       const { importedGroupCount, importedTabCount, skippedLineCount } = await importTabGroups({
         groupTitle: this.state.groupTitle,
+        groupId: this.state.saveGroupId,
         importText: this.state.importText
       });
 
@@ -470,7 +465,7 @@ class TabletApp {
 
     try {
       await deleteGroup(groupId);
-      await this.removeDeletedFavoriteGroups([groupId]);
+      this.removeDeletedFavoriteGroups([groupId]);
       this.removeGroupsFromState([groupId]);
       this.state.pageStatus = 'グループを削除しました。';
       this.render();
@@ -630,11 +625,22 @@ class TabletApp {
     const group = this.findGroup(groupId);
     if (!group) return;
 
-    this.state.favoriteGroupIds = await toggleFavoriteGroupId(groupId);
-    this.state.pageStatus = this.state.favoriteGroupIds.includes(groupId)
-      ? `「${group.title ?? '(untitled)'}」をお気に入りに追加しました。`
-      : `「${group.title ?? '(untitled)'}」をお気に入りから外しました。`;
+    const favorite = !this.state.favoriteGroupIds.includes(groupId);
+    this.state.actionBusy = true;
     this.render();
+    try {
+      await setGroupFavorite(groupId, favorite);
+      if (await this.refreshAll()) {
+        this.state.pageStatus = favorite
+          ? `「${group.title ?? '(untitled)'}」をお気に入りに追加しました。`
+          : `「${group.title ?? '(untitled)'}」をお気に入りから外しました。`;
+      }
+    } catch (error) {
+      this.state.pageStatus = `お気に入りの更新失敗: ${getErrorMessage(error)}`;
+    } finally {
+      this.state.actionBusy = false;
+      this.render();
+    }
   }
 
   private selectVisibleGroups() {
@@ -797,7 +803,7 @@ class TabletApp {
         deletedGroupIds.push(group.id);
       }
 
-      await this.removeDeletedFavoriteGroups(deletedGroupIds);
+      this.removeDeletedFavoriteGroups(deletedGroupIds);
       this.removeGroupsFromState(deletedGroupIds);
       this.state.selectedGroupIds = [];
       this.state.pageStatus = `${deletedCount} グループを削除しました。`;
@@ -805,7 +811,7 @@ class TabletApp {
       await this.refreshAll();
     } catch (error) {
       if (deletedGroupIds.length > 0) {
-        await this.removeDeletedFavoriteGroups(deletedGroupIds);
+        this.removeDeletedFavoriteGroups(deletedGroupIds);
       }
       this.state.pageStatus = deletedCount > 0
         ? `${deletedCount} グループ削除後に失敗: ${getErrorMessage(error)}`
@@ -836,6 +842,12 @@ class TabletApp {
   private handleChange(event: Event) {
     const target = event.target;
     if (!(target instanceof HTMLSelectElement)) {
+      return;
+    }
+
+    if (target.name === 'saveGroupId') {
+      this.state.saveGroupId = target.value;
+      this.render();
       return;
     }
 

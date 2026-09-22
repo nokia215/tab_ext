@@ -83,6 +83,49 @@ export async function getCurrentSessionUser() {
   return data.session?.user ?? null;
 }
 
+export async function getFavoriteGroupIds(userId?: string): Promise<string[]> {
+  const supabase = await getSupabase();
+  const resolvedUserId = userId ?? (await getCurrentSessionUser())?.id;
+  if (!resolvedUserId) throw new Error('ログインしてください。');
+
+  const key = 'favorite_group_ids';
+  const stored = await storageLocalGet(key);
+  const legacyIds = (stored as Record<string, string[] | undefined>)[key] ?? [];
+  if (legacyIds.length > 0) {
+    // NULL marks legacy groups: never overwrite a favorite already changed on another device.
+    const { error } = await supabase.from('tab_groups')
+      .update({ is_favorite: true })
+      .eq('user_id', resolvedUserId)
+      .in('id', legacyIds)
+      .is('is_favorite', null);
+    if (error) throw error;
+  }
+
+  const { data, error } = await supabase.from('tab_groups')
+    .select('id, is_favorite')
+    .eq('user_id', resolvedUserId);
+  if (error) throw error;
+  const groups = data ?? [];
+  if (legacyIds.length > 0) {
+    const ownedIds = new Set(groups.map((group) => group.id));
+    await storageLocalSet({ [key]: legacyIds.filter((id) => !ownedIds.has(id)) });
+  }
+  return groups.filter((group) => group.is_favorite === true).map((group) => group.id);
+}
+
+export async function setGroupFavorite(groupId: string, favorite: boolean): Promise<void> {
+  const supabase = await getSupabase();
+  const user = await getCurrentSessionUser();
+  if (!user) throw new Error('ログインしてください。');
+  const { error } = await supabase.from('tab_groups')
+    .update({ is_favorite: favorite })
+    .eq('id', groupId)
+    .eq('user_id', user.id)
+    .select('id')
+    .single();
+  if (error) throw error;
+}
+
 function safeHostName(url: string): string {
   try {
     return new URL(url).hostname.toLocaleLowerCase();
@@ -196,11 +239,13 @@ export function buildDefaultGroupTitle(deviceId: string, tabCount: number): stri
 
 export async function saveTabGroup(input: {
   title: string;
+  groupId?: string;
   deviceId: string;
   tabs: chrome.tabs.Tab[];
 }) {
   return persistTabGroup({
     title: input.title,
+    groupId: input.groupId,
     deviceId: input.deviceId,
     tabs: await normalizeTabInputs(input.tabs)
   });
@@ -208,11 +253,13 @@ export async function saveTabGroup(input: {
 
 export async function saveImportedTabGroup(input: {
   title: string;
+  groupId?: string;
   deviceId: string;
   tabs: ImportableTabInput[];
 }) {
   return persistTabGroup({
     title: input.title,
+    groupId: input.groupId,
     deviceId: input.deviceId,
     tabs: await normalizeTabInputs(input.tabs)
   });
@@ -220,6 +267,7 @@ export async function saveImportedTabGroup(input: {
 
 async function persistTabGroup(input: {
   title: string;
+  groupId?: string;
   deviceId: string;
   tabs: Array<chrome.tabs.Tab | ImportableTabInput>;
 }) {
@@ -241,26 +289,38 @@ async function persistTabGroup(input: {
     return true;
   });
 
-  const title = input.title.trim() || buildDefaultGroupTitle(input.deviceId, uniqueTabs.length);
-
-  const { data: group, error: groupError } = await supabase
-    .from('tab_groups')
-    .insert({
-      user_id: user.id,
-      device_id: input.deviceId,
-      title
-    })
-    .select('id, title, created_at, archived_at, device_id')
-    .single();
-
-  if (groupError) throw groupError;
+  let group: Omit<TabGroup, 'tabs'>;
+  let nextPosition = 0;
+  if (input.groupId) {
+    const { data, error } = await supabase
+      .from('tab_groups')
+      .select('id, title, created_at, archived_at, device_id, tabs(position)')
+      .eq('id', input.groupId)
+      .eq('user_id', user.id)
+      .is('archived_at', null)
+      .single();
+    if (error) throw error;
+    if (!data) throw new Error('保存先のグループが見つかりません。');
+    group = data;
+    // ponytail: concurrent saves may share positions; use a DB lock if strict ordering is needed.
+    nextPosition = data.tabs.reduce((next, tab) => Math.max(next, tab.position + 1), 0);
+  } else {
+    const title = input.title.trim() || buildDefaultGroupTitle(input.deviceId, uniqueTabs.length);
+    const { data, error } = await supabase
+      .from('tab_groups')
+      .insert({ user_id: user.id, device_id: input.deviceId, title })
+      .select('id, title, created_at, archived_at, device_id')
+      .single();
+    if (error) throw error;
+    group = data;
+  }
 
   const rows = uniqueTabs.map((tab, index) => ({
     group_id: group.id,
     user_id: user.id,
     url: tab.url!,
     title: tab.title ?? '',
-    position: index,
+    position: nextPosition + index,
     status: 'saved' as const
   }));
 
@@ -297,6 +357,7 @@ export async function listGroups(includeArchived = false, userId?: string): Prom
   const scopedQuery = includeArchived ? query : query.is('archived_at', null);
   const { data, error } = await scopedQuery.order('created_at', { ascending: false });
   if (error) throw error;
+  const favoriteGroupIds = new Set(await getFavoriteGroupIds(resolvedUserId));
 
   return (data ?? [])
     .map((group) => ({
@@ -304,7 +365,7 @@ export async function listGroups(includeArchived = false, userId?: string): Prom
       tabs: [...(group.tabs ?? [])]
         .sort(compareTabsByQueueOrder)
     }))
-    .filter((group) => group.tabs.length > 0) as TabGroup[];
+    .filter((group) => group.tabs.length > 0 || favoriteGroupIds.has(group.id)) as TabGroup[];
 }
 
 function compareTabsByQueueOrder(a: SavedTab, b: SavedTab) {

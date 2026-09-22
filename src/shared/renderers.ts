@@ -5,6 +5,8 @@ import { escapeHtml, renderDisabled, renderStatusBanner } from './html';
 import type { SavedTab, TabGroup } from './types';
 
 export interface SavePanelView {
+  groups: TabGroup[];
+  groupId: string;
   title: string;
   status: string;
   windowBusy: boolean;
@@ -76,6 +78,21 @@ function renderGroupTab(tab: SavedTab, busy: boolean): string {
   `;
 }
 
+export function renderSaveDestination(groups: TabGroup[], groupId: string, busy: boolean): string {
+  const available = groups.filter((group) => !group.archived_at);
+  return `
+    <label class="field">
+      <span class="field-label">保存先</span>
+      <select name="saveGroupId"${renderDisabled(busy)}>
+        <option value=""${groupId ? '' : ' selected'}>新規グループ</option>
+        ${groupId && !available.some((group) => group.id === groupId)
+          ? `<option value="${escapeHtml(groupId)}" selected disabled>選択したグループは利用できません</option>` : ''}
+        ${available.map((group) => `<option value="${escapeHtml(group.id)}"${group.id === groupId ? ' selected' : ''}>${escapeHtml(group.title || '(no title)')} · ${escapeHtml(group.device_id)} · ${formatDate(group.created_at)}</option>`).join('')}
+      </select>
+    </label>
+  `;
+}
+
 export function renderSavePanel(view: SavePanelView): string {
   const busy = view.windowBusy || view.tabBusy || view.importBusy;
 
@@ -89,9 +106,10 @@ export function renderSavePanel(view: SavePanelView): string {
         </div>
       </div>
 
+      ${renderSaveDestination(view.groups, view.groupId, busy)}
       <label class="field">
-        <span class="field-label">グループ名</span>
-        <input name="groupTitle" type="text" value="${escapeHtml(view.title)}" placeholder="未入力なら端末情報つきで自動命名" />
+        <span class="field-label">新規グループ名</span>
+        <input name="groupTitle" type="text" value="${escapeHtml(view.title)}"${renderDisabled(busy || Boolean(view.groupId))} placeholder="未入力なら端末情報つきで自動命名" />
       </label>
 
       <div class="actions">
@@ -118,7 +136,7 @@ export function renderSavePanel(view: SavePanelView): string {
         </button>
       </div>
 
-      <p class="section-copy"><code>URL | タブ名</code> を1行ずつ貼り付け、空行でグループを分けられます。</p>
+      <p class="section-copy"><code>URL | タブ名</code> を1行ずつ貼り付け、新規保存では空行でグループを分け、既存グループにはまとめて追加します。</p>
 
       ${renderStatusBanner(view.status, view.status.includes('失敗'))}
     </section>

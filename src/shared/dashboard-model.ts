@@ -40,6 +40,7 @@ export interface DashboardState {
   email: string;
   password: string;
   groupTitle: string;
+  saveGroupId: string;
   importText: string;
   configBusy: boolean;
   authBusy: boolean;
@@ -99,6 +100,7 @@ export function createInitialState(runtimeProfile: RuntimeProfile): DashboardSta
     email: '',
     password: '',
     groupTitle: '',
+    saveGroupId: '',
     importText: '',
     configBusy: false,
     authBusy: false,
