@@ -1,3 +1,4 @@
+import { reconcileGroupIds } from './group-helpers';
 import type { TabGroup } from './types';
 
 interface VisibleGroupState {
@@ -12,17 +13,12 @@ export function visibleGroups(groups: TabGroup[], visibleGroupCount: number) {
   return groups.slice(0, visibleGroupCount);
 }
 
-export function visibleExpandedGroupIds(expandedGroupIds: string[], groups: TabGroup[]) {
-  const groupIds = new Set(groups.map((group) => group.id));
-  return expandedGroupIds.filter((groupId) => groupIds.has(groupId));
-}
-
 export function reconcileExpandedGroupIds(
   expandedGroupIds: string[],
   groups: TabGroup[],
   maxCount: number | null
 ) {
-  const next = visibleExpandedGroupIds(expandedGroupIds, groups);
+  const next = reconcileGroupIds(expandedGroupIds, groups);
   return maxCount === null ? next : next.slice(0, maxCount);
 }
 

@@ -1,12 +1,12 @@
 import '../shared/ui.css';
 import '../shared/panels.css';
 import './popup.css';
-import { createTab, getRuntimeUrl, runtimeSendMessage } from '../shared/browser-api';
+import { createTab, getRuntimeUrl } from '../shared/browser-api';
 import { resolveDashboardUrl } from '../shared/dashboard-url';
-import { lineListToText, textToLineList } from '../shared/format';
+import { configFromFormFields, configToFormFields } from '../shared/config-form';
 import { summarizeGroupCollection } from '../shared/group-summary';
 import { importTabGroups } from '../shared/import';
-import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
+import { requestActiveTab, requestCurrentWindowTabs } from '../shared/messages';
 import { formatImportStatus, getErrorMessage } from '../shared/status';
 import { getConfig, getOrCreateDeviceId, saveConfig } from '../shared/storage';
 import {
@@ -65,18 +65,7 @@ class PopupApp {
   }
 
   private setConfigFields(next: AppConfig) {
-    this.state.config = next;
-    this.state.ignoreDomainsText = lineListToText(next.ignoreDomains);
-    this.state.ignoreTitlesText = lineListToText(next.ignoreTitles);
-  }
-
-  private configPayload(): AppConfig {
-    return {
-      supabaseUrl: this.state.config.supabaseUrl.trim(),
-      supabaseKey: this.state.config.supabaseKey.trim(),
-      ignoreDomains: textToLineList(this.state.ignoreDomainsText),
-      ignoreTitles: textToLineList(this.state.ignoreTitlesText)
-    };
+    Object.assign(this.state, configToFormFields(next));
   }
 
   private async refreshAuthStatus() {
@@ -144,36 +133,12 @@ class PopupApp {
     }
   }
 
-  private async requestCurrentWindowTabs() {
-    const result = await runtimeSendMessage<PopupActionMessage, PopupActionResponse>({
-      type: 'get-current-window-tabs'
-    });
-
-    if (!result?.ok || !('tabs' in result)) {
-      throw new Error(result?.ok ? 'ウィンドウ内のタブ取得に失敗しました。' : result?.error ?? 'ウィンドウ内のタブ取得に失敗しました。');
-    }
-
-    return result.tabs;
-  }
-
-  private async requestActiveTab() {
-    const result = await runtimeSendMessage<PopupActionMessage, PopupActionResponse>({
-      type: 'get-active-tab'
-    });
-
-    if (!result?.ok || !('tab' in result)) {
-      throw new Error(result?.ok ? '現在タブの取得に失敗しました。' : result?.error ?? '現在タブの取得に失敗しました。');
-    }
-
-    return result.tab;
-  }
-
   private async handleSaveConfig() {
     this.state.configBusy = true;
     this.render();
 
     try {
-      const next = this.configPayload();
+      const next = configFromFormFields(this.state);
       await saveConfig(next);
       this.setConfigFields(next);
       this.state.authStatus = '設定を保存しました。';
@@ -249,7 +214,7 @@ class PopupApp {
     this.render();
 
     try {
-      await this.saveTabs(await this.requestCurrentWindowTabs());
+      await this.saveTabs(await requestCurrentWindowTabs());
     } catch (error) {
       this.state.saveStatus = `保存失敗: ${getErrorMessage(error)}`;
     } finally {
@@ -265,7 +230,7 @@ class PopupApp {
     this.render();
 
     try {
-      const tab = await this.requestActiveTab();
+      const tab = await requestActiveTab();
       if (!tab) throw new Error('現在タブが取得できません。');
       await this.saveTabs([tab]);
     } catch (error) {

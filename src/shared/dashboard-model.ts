@@ -1,9 +1,7 @@
-import type { GroupCollectionSummary } from '../shared/group-summary';
-import { isStaleGroupByAge, matchesDateRangeFilter, type DateRangeFilter } from '../shared/group-age';
-import { groupHasStatus } from '../shared/group-helpers';
-import { summarizeGroupCollection } from '../shared/group-summary';
-import { filterGroups } from '../shared/search';
-import type { AppConfig, SaveStatus, TabGroup } from '../shared/types';
+import { isStaleGroupByAge, matchesDateRangeFilter, type DateRangeFilter } from './group-age';
+import { groupHasStatus } from './group-helpers';
+import { filterGroups } from './search';
+import type { AppConfig, SaveStatus, TabGroup } from './types';
 
 export const LIGHTWEIGHT_GROUP_BATCH_SIZE = 12;
 
@@ -23,7 +21,7 @@ export interface RuntimeProfile {
   uiMode: UiMode;
 }
 
-export interface NewtabState {
+export interface DashboardState {
   authStatus: string;
   saveStatus: string;
   pageStatus: string;
@@ -81,7 +79,7 @@ export function detectRuntimeProfile(): RuntimeProfile {
   };
 }
 
-export function createInitialState(runtimeProfile: RuntimeProfile): NewtabState {
+export function createInitialState(runtimeProfile: RuntimeProfile): DashboardState {
   return {
     authStatus: '状態を確認しています。',
     saveStatus: '',
@@ -167,7 +165,7 @@ export function sortGroups(mode: SortMode, favoriteGroupIds = new Set<string>())
 export function queryGroups(
   groups: TabGroup[],
   options: Pick<
-    NewtabState,
+    DashboardState,
     'searchQuery' | 'favoriteOnly' | 'groupFilter' | 'dateRangeFilter' | 'deviceFilter' | 'sortMode' | 'favoriteGroupIds'
   >
 ) {
@@ -179,12 +177,6 @@ export function queryGroups(
     .filter((group) => matchesDeviceFilter(group, options.deviceFilter))
     .filter((group) => !options.favoriteOnly || favoriteGroupIds.has(group.id))
     .sort(sortGroups(options.sortMode, favoriteGroupIds));
-}
-
-export type GroupSummary = GroupCollectionSummary;
-
-export function summarizeGroups(groups: TabGroup[]): GroupSummary {
-  return summarizeGroupCollection(groups);
 }
 
 export function collectDeviceFilterOptions(groups: TabGroup[]): DeviceFilterOption[] {

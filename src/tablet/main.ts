@@ -4,7 +4,7 @@ import '../newtab/newtab.css';
 import './tablet.css';
 import { copyTextToClipboard, formatGroupForExport, formatGroupsForExport } from '../shared/export';
 import { countFavoriteGroups, getFavoriteGroupIds, removeFavoriteGroupIds, saveFavoriteGroupIds, toggleFavoriteGroupId } from '../shared/favorites';
-import { lineListToText, textToLineList } from '../shared/format';
+import { configFromFormFields, configToFormFields } from '../shared/config-form';
 import { isStaleGroupByAge } from '../shared/group-age';
 import { mergeGroupIds, reconcileGroupIds, resolveGroupsByIds, toggleGroupId } from '../shared/group-helpers';
 import {
@@ -12,9 +12,9 @@ import {
   removeGroupsFromCollection,
   removeTabsFromCollection,
   resetVisibleGroupCount,
-  visibleExpandedGroupIds,
   visibleGroups
 } from '../shared/group-state';
+import { summarizeGroupCollection } from '../shared/group-summary';
 import { importTabGroups } from '../shared/import';
 import { formatImportStatus, getErrorMessage, isErrorStatus } from '../shared/status';
 import { getConfig, saveConfig } from '../shared/storage';
@@ -41,16 +41,15 @@ import {
   createInitialState,
   queryGroups,
   summarizeSelectedGroups,
-  summarizeGroups,
   shouldIncludeArchivedGroups,
   type FocusState,
-  type NewtabState
-} from '../newtab/model';
+  type DashboardState
+} from '../shared/dashboard-model';
 import { renderTabletView } from './view';
 
 class TabletApp {
   private readonly root: HTMLElement;
-  private state: NewtabState;
+  private state: DashboardState;
   private pendingSearchRenderId: number | null = null;
 
   constructor(root: HTMLElement) {
@@ -76,7 +75,7 @@ class TabletApp {
   }
 
   private get summary() {
-    return summarizeGroups(this.state.allGroups);
+    return summarizeGroupCollection(this.state.allGroups);
   }
 
   private get favoriteGroupCount() {
@@ -116,7 +115,7 @@ class TabletApp {
   }
 
   private getVisibleExpandedGroupIds(groups: TabGroup[]) {
-    return visibleExpandedGroupIds(this.state.expandedGroupIds, groups);
+    return reconcileGroupIds(this.state.expandedGroupIds, groups);
   }
 
   private get bulkSelectableGroups() {
@@ -138,18 +137,7 @@ class TabletApp {
   }
 
   private setConfigFields(next: AppConfig) {
-    this.state.config = next;
-    this.state.ignoreDomainsText = lineListToText(next.ignoreDomains);
-    this.state.ignoreTitlesText = lineListToText(next.ignoreTitles);
-  }
-
-  private configPayload(): AppConfig {
-    return {
-      supabaseUrl: this.state.config.supabaseUrl.trim(),
-      supabaseKey: this.state.config.supabaseKey.trim(),
-      ignoreDomains: textToLineList(this.state.ignoreDomainsText),
-      ignoreTitles: textToLineList(this.state.ignoreTitlesText)
-    };
+    Object.assign(this.state, configToFormFields(next));
   }
 
   private findGroup(groupId: string) {
@@ -381,7 +369,7 @@ class TabletApp {
     this.render();
 
     try {
-      const next = this.configPayload();
+      const next = configFromFormFields(this.state);
       await saveConfig(next);
       this.setConfigFields(next);
       this.state.pageStatus = '設定を保存しました。';
@@ -775,7 +763,7 @@ class TabletApp {
     }
   }
 
-  private async setGroupFilter(filter: NewtabState['groupFilter']) {
+  private async setGroupFilter(filter: DashboardState['groupFilter']) {
     const shouldReload = shouldIncludeArchivedGroups(filter) !== shouldIncludeArchivedGroups(this.state.groupFilter);
 
     this.state.groupFilter = filter;
@@ -852,7 +840,7 @@ class TabletApp {
     }
 
     if (target.name === 'sortMode') {
-      this.state.sortMode = target.value as NewtabState['sortMode'];
+      this.state.sortMode = target.value as DashboardState['sortMode'];
       this.resetVisibleGroupCount();
       this.render();
       return;
@@ -900,10 +888,10 @@ class TabletApp {
         await this.handleSignOut();
         break;
       case 'set-group-filter':
-        await this.setGroupFilter((actionTarget.dataset.value as NewtabState['groupFilter']) ?? 'all');
+        await this.setGroupFilter((actionTarget.dataset.value as DashboardState['groupFilter']) ?? 'all');
         break;
       case 'set-date-range-filter':
-        this.state.dateRangeFilter = (actionTarget.dataset.value as NewtabState['dateRangeFilter']) ?? 'all';
+        this.state.dateRangeFilter = (actionTarget.dataset.value as DashboardState['dateRangeFilter']) ?? 'all';
         this.resetVisibleGroupCount();
         this.render();
         break;

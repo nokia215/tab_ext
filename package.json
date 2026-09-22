@@ -20,6 +20,7 @@
     "clean:firefox": "rimraf dist/firefox dist/firefox-artifacts",
     "clean:pages": "rimraf dist/pages",
     "typecheck": "tsc --noEmit",
+    "test": "node tests/refactor.mjs",
     "build": "npm run typecheck && npm run build:chrome && npm run build:firefox",
     "build:pages": "npm run clean:pages && npm run typecheck && vite build --mode pages",
     "build:chrome": "npm run clean:chrome && vite build --mode chrome && node scripts/build-background.mjs chrome && node scripts/build-manifest.mjs chrome",

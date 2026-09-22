@@ -5,17 +5,17 @@ import { runtimeSendMessage } from '../shared/browser-api';
 import { EXTERNAL_TABLET_DASHBOARD_URL, shouldDelegateDashboardToWeb } from '../shared/dashboard-url';
 import { copyTextToClipboard, formatGroupForExport, formatGroupsForExport } from '../shared/export';
 import { countFavoriteGroups, getFavoriteGroupIds, removeFavoriteGroupIds, saveFavoriteGroupIds, toggleFavoriteGroupId } from '../shared/favorites';
-import { lineListToText, textToLineList } from '../shared/format';
+import { configFromFormFields, configToFormFields } from '../shared/config-form';
 import { isStaleGroupByAge } from '../shared/group-age';
 import { mergeGroupIds, reconcileGroupIds, resolveGroupsByIds, toggleGroupId } from '../shared/group-helpers';
 import {
   reconcileExpandedGroupIds,
   resetVisibleGroupCount,
-  visibleExpandedGroupIds,
   visibleGroups
 } from '../shared/group-state';
+import { summarizeGroupCollection } from '../shared/group-summary';
 import { importTabGroups } from '../shared/import';
-import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
+import { requestActiveTab, requestCurrentWindowTabs, type PopupActionMessage, type PopupActionResponse } from '../shared/messages';
 import { formatImportStatus, getErrorMessage, isErrorStatus } from '../shared/status';
 import { getConfig, getOrCreateDeviceId, saveConfig } from '../shared/storage';
 import {
@@ -40,20 +40,19 @@ import {
   detectRuntimeProfile,
   queryGroups,
   summarizeSelectedGroups,
-  summarizeGroups,
   shouldIncludeArchivedGroups,
   type FocusState,
   type GroupFilter,
-  type NewtabState,
+  type DashboardState,
   type RuntimeProfile,
   type SortMode
-} from './model';
+} from '../shared/dashboard-model';
 import { renderNewtabView } from './view';
 
 class NewtabApp {
   private readonly root: HTMLElement;
   private readonly runtimeProfile: RuntimeProfile;
-  private state: NewtabState;
+  private state: DashboardState;
   private pendingSearchRenderId: number | null = null;
 
   constructor(root: HTMLElement, runtimeProfile: RuntimeProfile) {
@@ -84,7 +83,7 @@ class NewtabApp {
   }
 
   private get summary() {
-    return summarizeGroups(this.state.allGroups);
+    return summarizeGroupCollection(this.state.allGroups);
   }
 
   private get favoriteGroupCount() {
@@ -124,7 +123,7 @@ class NewtabApp {
   }
 
   private getVisibleExpandedGroupIds(groups: TabGroup[]) {
-    return visibleExpandedGroupIds(this.state.expandedGroupIds, groups);
+    return reconcileGroupIds(this.state.expandedGroupIds, groups);
   }
 
   private get bulkSelectableGroups() {
@@ -147,18 +146,7 @@ class NewtabApp {
   }
 
   private setConfigFields(next: AppConfig) {
-    this.state.config = next;
-    this.state.ignoreDomainsText = lineListToText(next.ignoreDomains);
-    this.state.ignoreTitlesText = lineListToText(next.ignoreTitles);
-  }
-
-  private configPayload(): AppConfig {
-    return {
-      supabaseUrl: this.state.config.supabaseUrl.trim(),
-      supabaseKey: this.state.config.supabaseKey.trim(),
-      ignoreDomains: textToLineList(this.state.ignoreDomainsText),
-      ignoreTitles: textToLineList(this.state.ignoreTitlesText)
-    };
+    Object.assign(this.state, configToFormFields(next));
   }
 
   private findGroup(groupId: string) {
@@ -430,36 +418,12 @@ class NewtabApp {
     }
   }
 
-  private async requestCurrentWindowTabs() {
-    const result = await runtimeSendMessage<PopupActionMessage, PopupActionResponse>({
-      type: 'get-current-window-tabs'
-    });
-
-    if (!result?.ok || !('tabs' in result)) {
-      throw new Error(result?.ok ? 'ウィンドウ内のタブ取得に失敗しました。' : result?.error ?? 'ウィンドウ内のタブ取得に失敗しました。');
-    }
-
-    return result.tabs;
-  }
-
-  private async requestActiveTab() {
-    const result = await runtimeSendMessage<PopupActionMessage, PopupActionResponse>({
-      type: 'get-active-tab'
-    });
-
-    if (!result?.ok || !('tab' in result)) {
-      throw new Error(result?.ok ? '現在タブの取得に失敗しました。' : result?.error ?? '現在タブの取得に失敗しました。');
-    }
-
-    return result.tab;
-  }
-
   private async handleSaveConfig() {
     this.state.configBusy = true;
     this.render();
 
     try {
-      const next = this.configPayload();
+      const next = configFromFormFields(this.state);
       await saveConfig(next);
       this.setConfigFields(next);
       this.state.pageStatus = '設定を保存しました。';
@@ -532,7 +496,7 @@ class NewtabApp {
     this.render();
 
     try {
-      await this.saveTabs(await this.requestCurrentWindowTabs());
+      await this.saveTabs(await requestCurrentWindowTabs());
     } catch (error) {
       this.state.saveStatus = `保存失敗: ${getErrorMessage(error)}`;
     } finally {
@@ -548,7 +512,7 @@ class NewtabApp {
     this.render();
 
     try {
-      const tab = await this.requestActiveTab();
+      const tab = await requestActiveTab();
       if (!tab) throw new Error('現在タブが取得できません。');
       await this.saveTabs([tab]);
     } catch (error) {
@@ -1131,7 +1095,7 @@ class NewtabApp {
         break;
       }
       case 'set-date-range-filter': {
-        const value = actionTarget.dataset.value as NewtabState['dateRangeFilter'] | undefined;
+        const value = actionTarget.dataset.value as DashboardState['dateRangeFilter'] | undefined;
         if (value) {
           this.state.dateRangeFilter = value;
           this.resetVisibleGroupCount();

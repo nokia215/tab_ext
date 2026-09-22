@@ -248,7 +248,10 @@ npm run build:pages
 
 ## 開発用コマンド
 
+`npm test` は設定変換、タブ取得メッセージ、ダッシュボードモデルの回帰チェックを実行します（Node 24）。
+
 ```bash
+npm test
 npm run typecheck
 npm run build:chrome
 npm run build:firefox

@@ -5,13 +5,13 @@ import type {
   DateRangeFilter,
   DeviceFilterOption,
   GroupFilter,
-  NewtabState,
+  DashboardState,
   SelectedGroupSummary,
   SortMode
-} from '../newtab/model';
+} from '../shared/dashboard-model';
 
 export interface TabletViewArgs {
-  state: NewtabState;
+  state: DashboardState;
   summary: {
     groupCount: number;
     totalTabs: number;
@@ -91,7 +91,7 @@ function renderDeviceFilter(options: DeviceFilterOption[], selectedValue: string
   `;
 }
 
-function renderImportPanel(state: NewtabState) {
+function renderImportPanel(state: DashboardState) {
   return `
     <section class="panel lightweight-utility-panel tablet-import-panel">
       <div class="section-head">

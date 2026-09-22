@@ -1,3 +1,4 @@
+import type { GroupCollectionSummary } from '../shared/group-summary';
 import { escapeHtml, renderDisabled, renderStatusBanner } from '../shared/html';
 import { renderAuthPanel, renderConfigPanel, renderGroupList, renderSavePanel } from '../shared/renderers';
 import type { TabGroup } from '../shared/types';
@@ -6,14 +7,13 @@ import {
   type DateRangeFilter,
   type DeviceFilterOption,
   type GroupFilter,
-  type GroupSummary,
-  type NewtabState,
+  type DashboardState,
   type SelectedGroupSummary
-} from './model';
+} from '../shared/dashboard-model';
 
 interface BaseLayoutArgs {
-  state: NewtabState;
-  summary: GroupSummary;
+  state: DashboardState;
+  summary: GroupCollectionSummary;
   selectedSummary: SelectedGroupSummary;
   bulkSelectableCount: number;
   staleSelectableCount: number;
@@ -38,8 +38,8 @@ interface LightweightLayoutArgs extends BaseLayoutArgs {
 }
 
 export interface NewtabViewArgs {
-  state: NewtabState;
-  summary: GroupSummary;
+  state: DashboardState;
+  summary: GroupCollectionSummary;
   selectedSummary: SelectedGroupSummary;
   bulkSelectableCount: number;
   staleSelectableCount: number;
