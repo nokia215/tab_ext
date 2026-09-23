@@ -3,6 +3,7 @@ import { resolveDashboardUrl } from '../shared/dashboard-url';
 import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
 import { restoreSavedTabs } from '../shared/restoration';
 import { isSavableTabUrl } from '../shared/tabs';
+import { getErrorMessage } from '../shared/status';
 
 if (ext.action?.onClicked) {
   ext.action.onClicked.addListener(async () => {
@@ -99,7 +100,7 @@ ext.runtime.onMessage.addListener((message: PopupActionMessage, sender, sendResp
   const response = handlePopupAction(message, sender)
     .catch((error) => ({
       ok: false as const,
-      error: error instanceof Error ? error.message : String(error)
+      error: getErrorMessage(error)
     }));
 
   if (isBrowserPromiseApi()) {

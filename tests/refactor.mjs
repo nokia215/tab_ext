@@ -15,6 +15,11 @@ const groupState = await loadModule('src/shared/group-state.ts');
 const { reconcileGroupIds } = await loadModule('src/shared/group-helpers.ts');
 const { summarizeGroupCollection } = await loadModule('src/shared/group-summary.ts');
 const { matchesDateRangeFilter } = await loadModule('src/shared/group-age.ts');
+const { getErrorMessage } = await loadModule('src/shared/status.ts');
+assert.equal(getErrorMessage({ code: '23505', message: 'duplicate key', details: null, hint: null }), 'duplicate key');
+assert.equal(getErrorMessage(new Error('Failed')), 'Failed');
+assert.equal(getErrorMessage('Network failure'), 'Network failure');
+assert.equal(getErrorMessage(null), 'null');
 mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-22T12:00:00Z') });
 try {
   const groups = [

@@ -8,6 +8,8 @@ let lookupError = null;
 let insertError = null;
 let listedGroups = [];
 let existingTabRows = [];
+let conflictingKeys = [];
+let deletedGroups = 0;
 globalThis.saveTestClient = {
   auth: { getUser: async () => ({ data: { user: { id: 'owner' } }, error: null }) },
   from(table) {
@@ -21,6 +23,13 @@ globalThis.saveTestClient = {
         writes.push({ table, value });
         return table === 'tabs' ? Promise.resolve({ error: insertError }) : query;
       },
+      upsert(value, options) {
+        assert.equal(table, 'tabs');
+        assert.deepEqual(options, { onConflict: 'user_id,url_key', ignoreDuplicates: true, count: 'exact' });
+        writes.push({ table, value });
+        return Promise.resolve({ error: insertError, count: value.filter((row) => !conflictingKeys.includes(row.url_key)).length });
+      },
+      delete() { assert.equal(table, 'tab_groups'); deletedGroups += 1; return query; },
       single: async () => ({ data: group, error: lookupError })
     };
     return query;
@@ -109,6 +118,25 @@ try {
   assert.equal(writes.length, 1);
   assert.equal(writes[0].value[0].position, 0);
   assert.ok(writes[0].value[0].url_key);
+  // Simulate duplicates missing from the precheck (API truncation or concurrent saves).
+  for (const save of [saveTabGroup, saveImportedTabGroup]) {
+    existingTabRows = [];
+    conflictingKeys = ['https://a.test'];
+    const mixed = await save({ title: 'New', deviceId: 'device', tabs: [
+      { url: 'https://a.test' }, { url: 'https://a.test#duplicate' }, { url: 'https://b.test' }
+    ] });
+    assert.equal(mixed.count, 1);
+    assert.equal(mixed.duplicateCount, 2);
+    const beforeDelete = deletedGroups;
+    const allDuplicates = await save({ title: 'New', deviceId: 'device', tabs: [{ url: 'https://a.test' }] });
+    assert.deepEqual(allDuplicates, { group: null, count: 0, duplicateCount: 1 });
+    assert.equal(deletedGroups, beforeDelete + 1);
+    const existing = await save({ title: '', groupId: 'existing', deviceId: 'device', tabs: [{ url: 'https://a.test' }] });
+    assert.equal(existing.count, 0);
+    assert.equal(existing.duplicateCount, 1);
+    assert.equal(existing.group.id, 'existing');
+    assert.equal(deletedGroups, beforeDelete + 1);
+  }
   console.log('Save destination regression checks passed.');
 } finally {
   delete globalThis.saveTestClient;

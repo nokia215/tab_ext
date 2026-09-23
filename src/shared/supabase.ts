@@ -313,12 +313,27 @@ async function persistTabGroup(input: {
     position: nextPosition + index
   }));
 
+  let savedCount = 0;
   if (rows.length > 0) {
-    const { error: tabsError } = await supabase.from('tabs').insert(rows);
+    // The precheck can miss rows due to API limits or concurrent saves.
+    const { error: tabsError, count } = await supabase.from('tabs').upsert(rows, {
+      onConflict: 'user_id,url_key',
+      ignoreDuplicates: true,
+      count: 'exact'
+    });
     if (tabsError) throw tabsError;
+    if (count === null) throw new Error('保存件数を確認できませんでした。再読み込みして確認してください。');
+    savedCount = count;
+    duplicateCount += rows.length - savedCount;
   }
 
-  return { group, count: rows.length, duplicateCount };
+  if (savedCount === 0 && !input.groupId) {
+    const { error } = await supabase.from('tab_groups').delete().eq('id', group.id).eq('user_id', user.id);
+    if (error) throw error;
+    return { group: null, count: 0, duplicateCount };
+  }
+
+  return { group, count: savedCount, duplicateCount };
 }
 
 const GROUP_COLUMNS = 'id, title, created_at, is_fixed, device_id, tabs(id, url, title, position)';
