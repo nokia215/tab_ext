@@ -1,8 +1,8 @@
 import { createTab, ext, getLastFocusedWindow, getRuntimeUrl, isBrowserPromiseApi, queryTabs } from '../shared/browser-api';
 import { resolveDashboardUrl } from '../shared/dashboard-url';
 import type { PopupActionMessage, PopupActionResponse } from '../shared/messages';
-import { markGroupRestored, markTabRestored } from '../shared/supabase';
-import { isSavableTabUrl, openSavedTab, restoreTabs } from '../shared/tabs';
+import { restoreSavedTabs } from '../shared/restoration';
+import { isSavableTabUrl } from '../shared/tabs';
 
 if (ext.action?.onClicked) {
   ext.action.onClicked.addListener(async () => {
@@ -65,16 +65,12 @@ async function handlePopupAction(
   message: PopupActionMessage,
   sender: chrome.runtime.MessageSender
 ): Promise<PopupActionResponse> {
-  if (message.type === 'restore-group') {
-    await restoreTabs(message.urls);
-    await markGroupRestored(message.groupId);
-    return { ok: true };
-  }
-
-  if (message.type === 'open-saved-tab') {
-    await openSavedTab(message.url);
-    await markTabRestored(message.tabId);
-    return { ok: true };
+  if (message.type === 'restore-saved-tabs') {
+    if (typeof message.groupId !== 'string' || !Array.isArray(message.tabIds)
+      || !message.tabIds.every((id) => typeof id === 'string') || typeof message.inNewWindow !== 'boolean') {
+      return { ok: false, error: '復元対象が不正です。' };
+    }
+    return { ok: true, result: await restoreSavedTabs(message.groupId, message.tabIds, message.inNewWindow) };
   }
 
   if (message.type === 'get-current-window-tabs') {

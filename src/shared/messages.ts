@@ -1,15 +1,12 @@
 import { runtimeSendMessage } from './browser-api';
+import type { RestoreResult } from './restoration';
 
 export type PopupActionMessage =
   | {
-      type: 'restore-group';
+      type: 'restore-saved-tabs';
       groupId: string;
-      urls: string[];
-    }
-  | {
-      type: 'open-saved-tab';
-      tabId: string;
-      url: string;
+      tabIds: string[];
+      inNewWindow: boolean;
     }
   | {
       type: 'get-current-window-tabs';
@@ -19,6 +16,7 @@ export type PopupActionMessage =
     };
 
 export type PopupActionResponse =
+  | { ok: true; result: RestoreResult }
   | {
       ok: true;
     }

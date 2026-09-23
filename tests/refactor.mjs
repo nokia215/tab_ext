@@ -18,18 +18,14 @@ const { matchesDateRangeFilter } = await loadModule('src/shared/group-age.ts');
 mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-22T12:00:00Z') });
 try {
   const groups = [
-    { id: 'old', title: 'Research', device_id: 'PC', created_at: '2026-08-01T12:00:00Z', archived_at: null,
-      tabs: [{ id: 'a', title: 'Alpha', url: 'https://a.test', status: 'saved', position: 0, restored_at: null }] },
-    { id: 'new', title: 'Work', device_id: 'PC', created_at: '2026-09-22T12:00:00Z', archived_at: null,
-      tabs: [{ id: 'b', title: 'Beta', url: 'https://b.test', status: 'restored', position: 0, restored_at: '2026-09-22T12:00:00Z' }] },
-    { id: 'archive', title: 'Research', device_id: 'Tablet', created_at: '2026-09-21T12:00:00Z', archived_at: '2026-09-22T12:00:00Z',
-      tabs: [{ id: 'c', title: 'Alpha', url: 'https://c.test', status: 'saved', position: 0, restored_at: null }] }
+    { id: 'old', title: 'Research', device_id: 'PC', created_at: '2026-08-01T12:00:00Z', is_fixed: false,
+      tabs: [{ id: 'a', title: 'Alpha', url: 'https://a.test', position: 0 }] },
+    { id: 'new', title: 'Work', device_id: 'PC', created_at: '2026-09-22T12:00:00Z', is_fixed: false,
+      tabs: [{ id: 'b', title: 'Beta', url: 'https://b.test', position: 0 }] },
+    { id: 'archive', title: 'Research', device_id: 'Tablet', created_at: '2026-09-21T12:00:00Z', is_fixed: true,
+      tabs: [{ id: 'c', title: 'Alpha', url: 'https://c.test', position: 0 }] }
   ];
   const before = structuredClone(groups);
-  assert.deepEqual(groupState.removeTabsFromCollection(groups, ['a', 'b']).map((group) => group.id), ['archive']);
-  const remaining = groupState.removeTabsFromCollection(groups, ['a', 'b'], ['old']);
-  assert.deepEqual(remaining.map((group) => group.id), ['old', 'archive']);
-  assert.deepEqual(remaining[0].tabs, []);
   const state = model.createInitialState({ isAndroidFirefox: false, uiMode: 'default' });
   const ids = (options = {}, input = groups) => model.queryGroups(input, { ...state, ...options }).map((g) => g.id);
   assert.deepEqual(ids(), ['new', 'archive', 'old']);
@@ -39,26 +35,24 @@ try {
     assert.equal(ids({ sortMode, favoriteGroupIds: ['old'] })[0], 'old');
   }
   assert.deepEqual(ids({ searchQuery: ' ALPHA ', favoriteOnly: true, favoriteGroupIds: ['old', 'archive'],
-    deviceFilter: 'PC', groupFilter: 'saved', dateRangeFilter: 'stale' }), ['old']);
-  assert.deepEqual(ids({ groupFilter: 'archived' }), ['archive']);
-  assert.deepEqual(ids({ groupFilter: 'restored' }), ['new']);
+    deviceFilter: 'PC', groupFilter: 'all', dateRangeFilter: 'stale' }), ['old']);
+  assert.deepEqual(ids({ groupFilter: 'fixed' }), ['archive']);
+  assert.deepEqual(ids({ groupFilter: 'fixed', favoriteOnly: true, favoriteGroupIds: ['old'] }), []);
+  assert.deepEqual(ids({ groupFilter: 'fixed', favoriteOnly: true, favoriteGroupIds: ['archive'] }), ['archive']);
   assert.deepEqual(ids({ dateRangeFilter: 'today' }), ['new']);
   assert.deepEqual(ids({ dateRangeFilter: 'week' }), ['new', 'archive']);
   assert.deepEqual(ids({}, [groups[1], { ...groups[1], id: 'tie' }]), ['new', 'tie']);
   assert.deepEqual(ids({ sortMode: 'tabCount' }, [groups[1], { ...groups[0], tabs: [...groups[0].tabs, ...groups[1].tabs] }]), ['old', 'new']);
   assert.deepEqual(model.summarizeSelectedGroups(groups, ['old', 'new', 'old', 'missing']), {
-    selectedCount: 2, selectedTabCount: 2, restorableGroupCount: 1
+    selectedCount: 2, selectedTabCount: 2, restorableGroupCount: 2
   });
   assert.deepEqual(summarizeGroupCollection(groups), {
-    groupCount: 3, totalTabs: 3, savedTabs: 2, restoredTabs: 1, deviceCount: 2,
-    restorableGroupCount: 2, restoredGroupCount: 1, archivedGroupCount: 1, staleGroupCount: 1, staleTabCount: 1
+    groupCount: 3, totalTabs: 3, deviceCount: 2,
+    restorableGroupCount: 3, staleGroupCount: 1, staleTabCount: 1
   });
   assert.deepEqual(model.collectDeviceFilterOptions(groups), [
     { value: 'PC', label: 'PC (2)', count: 2 }, { value: 'Tablet', label: 'Tablet (1)', count: 1 }
   ]);
-  for (const filter of ['all', 'saved', 'restored', 'archived']) {
-    assert.equal(model.shouldIncludeArchivedGroups(filter), filter === 'archived');
-  }
   for (const days of [0, 6, 7, 29, 30]) {
     const date = new Date();
     date.setDate(date.getDate() - days);

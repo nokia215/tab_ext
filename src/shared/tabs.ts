@@ -1,4 +1,4 @@
-import { queryTabs, createTab, createWindow } from './browser-api';
+import { queryTabs } from './browser-api';
 
 const UNSAVABLE_URL_PREFIXES = [
   'about:',
@@ -11,7 +11,12 @@ const UNSAVABLE_URL_PREFIXES = [
 export function isSavableTabUrl(url: string | undefined | null): url is string {
   if (!url) return false;
 
-  return !UNSAVABLE_URL_PREFIXES.some((prefix) => url.startsWith(prefix));
+  if (UNSAVABLE_URL_PREFIXES.some((prefix) => url.startsWith(prefix))) return false;
+  try {
+    return ['http:', 'https:', 'file:', 'ftp:'].includes(new URL(url).protocol);
+  } catch {
+    return false;
+  }
 }
 
 function hasSavableTab(tabs: chrome.tabs.Tab[]) {
@@ -37,34 +42,4 @@ export async function getActiveTab(): Promise<chrome.tabs.Tab | null> {
 
   const fallbackTabs = await queryTabs({ lastFocusedWindow: true, active: true });
   return fallbackTabs.find((tab) => isSavableTabUrl(tab.url)) ?? tabs[0] ?? fallbackTabs[0] ?? null;
-}
-
-export async function restoreTabs(urls: string[]): Promise<void> {
-  const validUrls = urls.filter((url) => isSavableTabUrl(url));
-
-  if (validUrls.length === 0) return;
-
-  const [first, ...rest] = validUrls;
-  const createdWindow = await createWindow({ url: first });
-
-  if (!createdWindow?.id) {
-    throw new Error('復元用ウィンドウの作成に失敗しました。');
-  }
-
-  for (const url of rest) {
-    await createTab({
-      windowId: createdWindow.id,
-      url,
-      active: false
-    });
-  }
-}
-
-export async function openSavedTab(url: string): Promise<void> {
-  if (!isSavableTabUrl(url)) return;
-
-  await createTab({
-    url,
-    active: false
-  });
 }

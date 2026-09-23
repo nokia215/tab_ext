@@ -1,3 +1,4 @@
+import { isDashboardBusy } from '../shared/dashboard-model';
 import { escapeHtml, renderDisabled, renderStatusBanner } from '../shared/html';
 import { renderAuthPanel, renderConfigPanel, renderGroupList, renderSaveDestination } from '../shared/renderers';
 import type { TabGroup } from '../shared/types';
@@ -15,8 +16,6 @@ export interface TabletViewArgs {
   summary: {
     groupCount: number;
     totalTabs: number;
-    restoredTabs: number;
-    savedTabs: number;
     deviceCount: number;
     staleGroupCount: number;
   };
@@ -27,8 +26,6 @@ export interface TabletViewArgs {
   staleSelectLabel: string;
   favoriteGroupCount: number;
   deviceFilterOptions: DeviceFilterOption[];
-  archiveActionLabel: string;
-  archiveActionName: string;
   filteredGroups: TabGroup[];
   visibleGroups: TabGroup[];
   visibleExpandedGroupIds: string[];
@@ -138,8 +135,6 @@ function renderBulkActionBar(args: {
   bulkSelectableCount: number;
   staleSelectableCount: number;
   staleSelectLabel: string;
-  archiveActionLabel: string;
-  archiveActionName: string;
 }) {
   const hasSelection = args.selectedSummary.selectedCount > 0;
 
@@ -151,7 +146,7 @@ function renderBulkActionBar(args: {
           ${
             hasSelection
               ? `${args.selectedSummary.selectedCount} groups / ${args.selectedSummary.selectedTabCount} tabs を選択中`
-              : '表示中のグループをまとめて復元・整理できます。'
+              : '通常は復元後に削除し、固定は保持します。'
           }
         </p>
       </div>
@@ -187,7 +182,7 @@ function renderBulkActionBar(args: {
           data-action="restore-selected-groups"
           ${renderDisabled(args.busy || args.selectedSummary.restorableGroupCount === 0)}
         >
-          まとめて復元
+          まとめて復元（固定以外は削除）
         </button>
         <button
           class="secondary"
@@ -196,14 +191,6 @@ function renderBulkActionBar(args: {
           ${renderDisabled(args.busy || !hasSelection)}
         >
           URLコピー
-        </button>
-        <button
-          class="secondary"
-          type="button"
-          data-action="${escapeHtml(args.archiveActionName)}"
-          ${renderDisabled(args.busy || !hasSelection)}
-        >
-          ${escapeHtml(args.archiveActionLabel)}
         </button>
         <button
           class="danger"
@@ -235,7 +222,7 @@ export function renderTabletView(args: TabletViewArgs) {
 
           <div class="actions lightweight-actions">
             <div class="badge accent-badge">${escapeHtml(args.state.authStatus)}</div>
-            <button class="ghost" type="button" data-action="refresh-all"${args.state.refreshBusy ? ' disabled' : ''}>
+            <button class="ghost" type="button" data-action="refresh-all"${isDashboardBusy(args.state) ? ' disabled' : ''}>
               更新
             </button>
           </div>
@@ -266,6 +253,7 @@ export function renderTabletView(args: TabletViewArgs) {
       </section>
 
       ${renderStatusBanner(args.state.pageStatus, args.pageStatusIsError)}
+      ${args.state.pageStatus.includes('削除同期に失敗') ? `<button type="button" data-action="refresh-all"${renderDisabled(args.state.actionBusy || args.state.refreshBusy)}>削除の同期を再試行</button>` : ''}
 
       <section class="panel lightweight-explorer tablet-explorer">
         <div class="explorer-head">
@@ -308,9 +296,7 @@ export function renderTabletView(args: TabletViewArgs) {
 
         <div class="filter-row">
           ${renderFilterButton(args.state.groupFilter, 'all', 'すべて')}
-          ${renderFilterButton(args.state.groupFilter, 'saved', '未復元あり')}
-          ${renderFilterButton(args.state.groupFilter, 'restored', '復元済みあり')}
-          ${renderFilterButton(args.state.groupFilter, 'archived', '保管済み')}
+          ${renderFilterButton(args.state.groupFilter, 'fixed', '固定のみ')}
           ${renderChip({
             active: args.state.favoriteOnly,
             action: 'toggle-favorite-only',
@@ -322,13 +308,11 @@ export function renderTabletView(args: TabletViewArgs) {
         </div>
 
         ${renderBulkActionBar({
-          busy: args.state.actionBusy,
+          busy: isDashboardBusy(args.state),
           selectedSummary: args.selectedSummary,
           bulkSelectableCount: args.bulkSelectableCount,
           staleSelectableCount: args.staleSelectableCount,
           staleSelectLabel: args.staleSelectLabel,
-          archiveActionLabel: args.archiveActionLabel,
-          archiveActionName: args.archiveActionName
         })}
 
         ${renderGroupList({
@@ -336,7 +320,7 @@ export function renderTabletView(args: TabletViewArgs) {
           emptyLabel: 'まだ保存済みグループはありません。',
           expandedGroupIds: args.visibleExpandedGroupIds,
           collapsible: true,
-          busy: args.state.actionBusy,
+          busy: isDashboardBusy(args.state),
           selectedGroupIds: args.state.selectedGroupIds,
           favoriteGroupIds: args.state.favoriteGroupIds,
           extraActionLabel: 'URLコピー',

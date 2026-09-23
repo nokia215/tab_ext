@@ -23,9 +23,9 @@ function getLocalStorage() {
   }
 }
 
-function readLocalStorage(keys: string | string[]) {
+function readLocalStorage(keys: string | string[] | null) {
   const storage = getLocalStorage();
-  const keyList = Array.isArray(keys) ? keys : [keys];
+  const keyList = keys === null ? Object.keys(storage ?? {}) : Array.isArray(keys) ? keys : [keys];
 
   return keyList.reduce<Record<string, unknown>>((result, key) => {
     const raw = storage?.getItem(key);
@@ -50,7 +50,7 @@ export function isBrowserPromiseApi() {
   return Boolean(g.browser && ext === g.browser);
 }
 
-export function storageLocalGet<T extends string | string[]>(keys: T) {
+export function storageLocalGet<T extends string | string[] | null>(keys: T) {
   if (ext?.storage?.local) {
     return ext.storage.local.get(keys as any);
   }
@@ -64,6 +64,7 @@ export function storageLocalSet(value: Record<string, unknown>) {
   }
 
   const storage = getLocalStorage();
+  if (!storage) throw new Error('ローカル保存を利用できません。');
   Object.entries(value).forEach(([key, item]) => {
     if (item === undefined) {
       storage?.removeItem(key);

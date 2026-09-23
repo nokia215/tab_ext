@@ -58,7 +58,7 @@ const result = await build({
       : "export const getConfig = async () => ({ supabaseUrl: 'test', supabaseKey: 'test' });" }));
   } }]
 });
-const { getFavoriteGroupIds, setGroupFavorite } = await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}`);
+const { getFavoriteGroupIds, setGroupFavorite, setGroupFixed } = await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}`);
 try {
   failure = 'Migration failed';
   await assert.rejects(getFavoriteGroupIds(), /Migration failed/);
@@ -81,6 +81,15 @@ try {
   assert.deepEqual(devices.b.favorite_group_ids, []);
   assert.equal(rows[1].is_favorite, true, 'Updating one group must not overwrite other favorites');
 
+  await setGroupFixed('other', true);
+  assert.equal(rows[1].is_fixed, true);
+  assert.equal(rows[1].is_favorite, true);
+  await setGroupFavorite('other', false);
+  assert.equal(rows[1].is_fixed, true, 'Favorite changes must not change retention');
+  await setGroupFavorite('other', true);
+  await setGroupFixed('other', false);
+  assert.equal(rows[1].is_favorite, true, 'Retention changes must not change favorites');
+
   failure = 'Network failed';
   await assert.rejects(setGroupFavorite('other', false), /Network failed/);
   await assert.rejects(getFavoriteGroupIds(), /Network failed/);
@@ -88,6 +97,7 @@ try {
   failure = null;
   await assert.rejects(setGroupFavorite('missing', true), /Missing group/);
   await assert.rejects(setGroupFavorite('foreign', true), /Missing group/);
+  await assert.rejects(setGroupFixed('foreign', true), /Missing group/);
 
   userId = 'another';
   device = 'a';

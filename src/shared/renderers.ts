@@ -1,6 +1,5 @@
 import { describeGroupAge } from './group-age';
 import { formatDate } from './format';
-import { isArchivedGroup } from './group-helpers';
 import { escapeHtml, renderDisabled, renderStatusBanner } from './html';
 import type { SavedTab, TabGroup } from './types';
 
@@ -55,31 +54,22 @@ function formatHostname(url: string): string {
   }
 }
 
-function renderTabStatus(status: SavedTab['status']): string {
-  const labels = {
-    saved: '未復元',
-    restored: '復元済み'
-  } as const;
-
-  return `<span class="tab-status tab-status-${status}">${labels[status]}</span>`;
-}
-
-function renderGroupTab(tab: SavedTab, busy: boolean): string {
+function renderGroupTab(tab: SavedTab, busy: boolean, fixed: boolean): string {
   return `
-    <button class="tab-row" type="button" data-action="open-tab" data-tab-id="${escapeHtml(tab.id)}"${renderDisabled(busy)}>
+    <button class="tab-row" type="button" data-action="open-tab" data-tab-id="${escapeHtml(tab.id)}" title="${fixed ? '復元（内容を保持）' : '復元して削除'}"${renderDisabled(busy)}>
       <span class="tab-row-main">
         <span class="tab-row-title">${escapeHtml(tab.title || '(no title)')}</span>
         <span class="tab-row-url">${escapeHtml(formatHostname(tab.url))}</span>
       </span>
       <span class="tab-row-meta">
-        ${renderTabStatus(tab.status)}
+        ${fixed ? '復元' : '復元して削除'}
       </span>
     </button>
   `;
 }
 
 export function renderSaveDestination(groups: TabGroup[], groupId: string, busy: boolean): string {
-  const available = groups.filter((group) => !group.archived_at);
+  const available = groups;
   return `
     <label class="field">
       <span class="field-label">保存先</span>
@@ -257,7 +247,7 @@ export function renderGroupList(view: GroupListView): string {
           const expanded = isExpanded(group, view.expandedGroupIds, view.collapsible);
           const selected = Boolean(view.selectedGroupIds?.includes(group.id));
           const favorite = Boolean(view.favoriteGroupIds?.includes(group.id));
-          const archived = isArchivedGroup(group);
+
           const isEditing = Boolean(view.editableGroupId && view.editableGroupId === group.id);
           const editingTitle = isEditing ? (view.editableGroupTitle ?? '') : (group.title ?? '');
           const age = describeGroupAge(group.created_at);
@@ -315,7 +305,7 @@ export function renderGroupList(view: GroupListView): string {
                     <span class="meta-pill meta-pill-${age.tone}">${escapeHtml(age.label)}</span>
                     <span class="meta-pill">${escapeHtml(group.device_id)}</span>
                     ${favorite ? '<span class="meta-pill favorite-pill">お気に入り</span>' : ''}
-                    ${archived ? '<span class="meta-pill archived-pill">保管済み</span>' : ''}
+                    ${group.is_fixed ? '<span class="meta-pill">固定 · 復元後も保持</span>' : ''}
                   </div>
                 </div>
                 <span class="indicator">${expanded ? '−' : '+'}</span>
@@ -330,7 +320,7 @@ export function renderGroupList(view: GroupListView): string {
                     <span class="meta-pill meta-pill-${age.tone}">${escapeHtml(age.label)}</span>
                     <span class="meta-pill">${escapeHtml(group.device_id)}</span>
                     ${favorite ? '<span class="meta-pill favorite-pill">お気に入り</span>' : ''}
-                    ${archived ? '<span class="meta-pill archived-pill">保管済み</span>' : ''}
+                    ${group.is_fixed ? '<span class="meta-pill">固定 · 復元後も保持</span>' : ''}
                   </div>
                 </div>
               </div>
@@ -405,16 +395,17 @@ export function renderGroupList(view: GroupListView): string {
                     data-group-id="${escapeHtml(group.id)}"
                     ${renderDisabled(view.busy)}
                   >
-                    全部復元
+                    ${group.is_fixed ? '全部復元' : '復元して削除'}
                   </button>
                   <button
                     class="ghost"
                     type="button"
-                    data-action="${archived ? 'unarchive-group' : 'archive-group'}"
+                    data-action="toggle-fixed-group"
+                    aria-pressed="${group.is_fixed}"
                     data-group-id="${escapeHtml(group.id)}"
                     ${renderDisabled(view.busy)}
                   >
-                    ${archived ? '一覧に戻す' : '一覧から外す'}
+                    ${group.is_fixed ? '固定を解除' : '固定（復元後も保持）'}
                   </button>
                   <button
                     class="danger"
@@ -432,7 +423,7 @@ export function renderGroupList(view: GroupListView): string {
                 visibleTabs.length > 0
                   ? `
                     <div class="tab-list${expanded ? '' : ' tab-list-preview'}">
-                      ${visibleTabs.map((tab) => renderGroupTab(tab, view.busy)).join('')}
+                      ${visibleTabs.map((tab) => renderGroupTab(tab, view.busy, group.is_fixed)).join('')}
                       ${
                         !expanded && hiddenTabCount > 0
                           ? `

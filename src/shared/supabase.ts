@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getConfig } from './storage';
 import { storageLocalGet, storageLocalRemove, storageLocalSet } from './browser-api';
 import { isSavableTabUrl } from './tabs';
-import type { SavedTab, SaveStatus, TabGroup } from './types';
+import type { TabGroup } from './types';
 
 export interface ImportableTabInput {
   url: string;
@@ -294,10 +294,9 @@ async function persistTabGroup(input: {
   if (input.groupId) {
     const { data, error } = await supabase
       .from('tab_groups')
-      .select('id, title, created_at, archived_at, device_id, tabs(position)')
+      .select('id, title, created_at, is_fixed, device_id, tabs(position)')
       .eq('id', input.groupId)
       .eq('user_id', user.id)
-      .is('archived_at', null)
       .single();
     if (error) throw error;
     if (!data) throw new Error('保存先のグループが見つかりません。');
@@ -309,7 +308,7 @@ async function persistTabGroup(input: {
     const { data, error } = await supabase
       .from('tab_groups')
       .insert({ user_id: user.id, device_id: input.deviceId, title })
-      .select('id, title, created_at, archived_at, device_id')
+      .select('id, title, created_at, is_fixed, device_id')
       .single();
     if (error) throw error;
     group = data;
@@ -320,8 +319,7 @@ async function persistTabGroup(input: {
     user_id: user.id,
     url: tab.url!,
     title: tab.title ?? '',
-    position: nextPosition + index,
-    status: 'saved' as const
+    position: nextPosition + index
   }));
 
   const { error: tabsError } = await supabase.from('tabs').insert(rows);
@@ -330,99 +328,45 @@ async function persistTabGroup(input: {
   return { group, count: uniqueTabs.length };
 }
 
-export async function listGroups(includeArchived = false, userId?: string): Promise<TabGroup[]> {
+const GROUP_COLUMNS = 'id, title, created_at, is_fixed, device_id, tabs(id, url, title, position)';
+
+function orderedGroup(group: TabGroup): TabGroup {
+  return { ...group, tabs: [...group.tabs].sort((a, b) => a.position - b.position) };
+}
+
+export async function listGroups(userId?: string): Promise<TabGroup[]> {
   const supabase = await getSupabase();
   const resolvedUserId = userId ?? (await getCurrentSessionUser())?.id;
   if (!resolvedUserId) throw new Error('ログインしてください。');
-
-  const query = supabase
-    .from('tab_groups')
-    .select(`
-      id,
-      title,
-      created_at,
-      archived_at,
-      device_id,
-      tabs (
-        id,
-        url,
-        title,
-        position,
-        status,
-        restored_at
-      )
-    `)
-    .eq('user_id', resolvedUserId);
-
-  const scopedQuery = includeArchived ? query : query.is('archived_at', null);
-  const { data, error } = await scopedQuery.order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('tab_groups').select(GROUP_COLUMNS)
+    .eq('user_id', resolvedUserId).order('created_at', { ascending: false });
   if (error) throw error;
-  const favoriteGroupIds = new Set(await getFavoriteGroupIds(resolvedUserId));
-
-  return (data ?? [])
-    .map((group) => ({
-      ...group,
-      tabs: [...(group.tabs ?? [])]
-        .sort(compareTabsByQueueOrder)
-    }))
-    .filter((group) => group.tabs.length > 0 || favoriteGroupIds.has(group.id)) as TabGroup[];
+  return ((data ?? []) as TabGroup[]).map(orderedGroup);
 }
 
-function compareTabsByQueueOrder(a: SavedTab, b: SavedTab) {
-  const statusOrder = { saved: 0, restored: 1 } as const;
-  return statusOrder[a.status] - statusOrder[b.status] || a.position - b.position;
-}
-
-async function updateSavedTabsStatus(groupId: string, status: SaveStatus) {
+export async function getGroup(groupId: string): Promise<TabGroup | null> {
   const supabase = await getSupabase();
-  const now = new Date().toISOString();
-  const payload = status === 'restored'
-    ? { status, restored_at: now, updated_at: now }
-    : { status, restored_at: null, updated_at: now };
+  const user = await getCurrentSessionUser();
+  if (!user) throw new Error('ログインしてください。');
+  const { data, error } = await supabase.from('tab_groups').select(GROUP_COLUMNS)
+    .eq('user_id', user.id).eq('id', groupId).maybeSingle();
+  if (error) throw error;
+  return data ? orderedGroup(data as TabGroup) : null;
+}
 
-  const { error } = await supabase
-    .from('tabs')
-    .update(payload)
-    .eq('group_id', groupId)
-    .eq('status', 'saved');
-
+export async function setGroupFixed(groupId: string, fixed: boolean): Promise<void> {
+  const supabase = await getSupabase();
+  const user = await getCurrentSessionUser();
+  if (!user) throw new Error('ログインしてください。');
+  const { error } = await supabase.from('tab_groups').update({ is_fixed: fixed })
+    .eq('id', groupId).eq('user_id', user.id).select('id').single();
   if (error) throw error;
 }
 
-export async function markGroupRestored(groupId: string) {
-  await updateSavedTabsStatus(groupId, 'restored');
-}
-
-export async function markGroupArchived(groupId: string) {
+export async function consumeRestoredTabs(groupId: string, tabIds: string[]): Promise<void> {
+  if (tabIds.length === 0) return;
   const supabase = await getSupabase();
-  const now = new Date().toISOString();
-  const { error } = await supabase
-    .from('tab_groups')
-    .update({ archived_at: now, updated_at: now })
-    .eq('id', groupId);
-
-  if (error) throw error;
-}
-
-export async function markGroupSaved(groupId: string) {
-  const supabase = await getSupabase();
-  const now = new Date().toISOString();
-  const { error } = await supabase
-    .from('tab_groups')
-    .update({ archived_at: null, updated_at: now })
-    .eq('id', groupId);
-
-  if (error) throw error;
-}
-
-export async function markTabRestored(tabId: string) {
-  const supabase = await getSupabase();
-  const now = new Date().toISOString();
-  const { error } = await supabase
-    .from('tabs')
-    .update({ status: 'restored', restored_at: now, updated_at: now })
-    .eq('id', tabId);
-
+  const { error } = await supabase.rpc('consume_restored_tabs', { p_group_id: groupId, p_tab_ids: tabIds });
   if (error) throw error;
 }
 

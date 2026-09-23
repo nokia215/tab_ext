@@ -44,10 +44,10 @@ try {
       { url: 'https://a.test', pinned: false }, { url: 'https://b.test', pinned: false }, { url: 'https://a.test#duplicate', pinned: false }
     ] });
     assert.equal(saved.count, 2);
-    assert.deepEqual(filters, [['id', 'existing'], ['user_id', 'owner'], ['archived_at', null]]);
+    assert.deepEqual(filters, [['id', 'existing'], ['user_id', 'owner']]);
     assert.equal(writes.length, 1);
     assert.equal(writes[0].table, 'tabs');
-    assert.deepEqual(writes[0].value.map(({ group_id, position, status }) => [group_id, position, status]), [['existing', 5, 'saved'], ['existing', 6, 'saved']]);
+    assert.deepEqual(writes[0].value.map(({ group_id, position }) => [group_id, position]), [['existing', 5], ['existing', 6]]);
   }
   writes = [];
   await saveTabGroup({ title: 'New', deviceId: 'device', tabs: [{ url: 'https://a.test' }] });
@@ -73,12 +73,12 @@ try {
   const html = renderSaveDestination([group, { ...group, id: 'archived', archived_at: '2026-09-22' }], 'existing', true);
   assert.match(html, /name="saveGroupId" disabled/);
   assert.match(html, /value="existing" selected/);
-  assert.doesNotMatch(html, /value="archived"/);
+  assert.match(html, /value="archived"/);
   assert.match(renderSaveDestination([], 'missing', false), /value="missing" selected disabled/);
   listedGroups = [{ ...group, tabs: [] }, { ...group, id: 'empty', tabs: [] },
     { ...group, id: 'populated', tabs: [{ position: 0, status: 'saved' }] }];
-  const visible = await listGroups(false, 'owner');
-  assert.deepEqual(visible.map((group) => group.id), ['existing', 'populated']);
+  const visible = await listGroups('owner');
+  assert.deepEqual(visible.map((group) => group.id), ['existing', 'empty', 'populated']);
   assert.match(renderSaveDestination(visible, 'existing', false), /value="existing" selected/);
   group.tabs = [];
   writes = [];

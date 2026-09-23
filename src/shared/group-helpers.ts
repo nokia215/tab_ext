@@ -1,11 +1,7 @@
-import type { SaveStatus, TabGroup } from './types';
+import type { TabGroup } from './types';
 
-export function groupHasStatus(group: TabGroup, status: SaveStatus): boolean {
-  return group.tabs.some((tab) => tab.status === status);
-}
-
-export function isArchivedGroup(group: TabGroup): boolean {
-  return Boolean(group.archived_at);
+export function updateGroup(groups: TabGroup[], groupId: string, update: (group: TabGroup) => TabGroup): TabGroup[] {
+  return groups.map((group) => group.id === groupId ? update(group) : group);
 }
 
 export function reconcileGroupIds(groupIds: string[], groups: TabGroup[]): string[] {

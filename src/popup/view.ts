@@ -67,7 +67,7 @@ export function renderPopupView(args: PopupViewArgs): string {
             <p class="metric-value">${args.summary.totalTabs}</p>
           </article>
           <article class="metric-card">
-            <p class="metric-label">Needs restore</p>
+            <p class="metric-label">保存中のセット</p>
             <p class="metric-value">${args.summary.restorableGroupCount}</p>
           </article>
         </div>

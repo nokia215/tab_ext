@@ -98,7 +98,7 @@ class PopupApp {
         return;
       }
 
-      this.state.allGroups = await listGroups(false, user.id);
+      this.state.allGroups = await listGroups(user.id);
     } catch (error) {
       console.error('refreshGroups failed', error);
       this.state.allGroups = [];

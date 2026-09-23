@@ -1,11 +1,10 @@
 import { isStaleGroupByAge, matchesDateRangeFilter, type DateRangeFilter } from './group-age';
-import { groupHasStatus } from './group-helpers';
 import { filterGroups } from './search';
-import type { AppConfig, SaveStatus, TabGroup } from './types';
+import type { AppConfig, TabGroup } from './types';
 
 export const LIGHTWEIGHT_GROUP_BATCH_SIZE = 12;
 
-export type GroupFilter = 'all' | SaveStatus | 'archived';
+export type GroupFilter = 'all' | 'fixed';
 export type SortMode = 'newest' | 'oldest' | 'tabCount';
 export type UiMode = 'default' | 'lightweight';
 export type { DateRangeFilter };
@@ -56,6 +55,11 @@ export interface DashboardState {
   savePanelOpen: boolean;
   settingsPanelOpen: boolean;
   visibleGroupCount: number;
+}
+
+export function isDashboardBusy(state: DashboardState) {
+  return state.actionBusy || state.refreshBusy || state.authBusy || state.configBusy
+    || state.saveWindowBusy || state.saveTabBusy || state.importBusy;
 }
 
 export interface FocusState {
@@ -127,9 +131,7 @@ export function createInitialState(runtimeProfile: RuntimeProfile): DashboardSta
 }
 
 export function matchesGroupFilter(group: TabGroup, filter: GroupFilter) {
-  if (filter === 'all') return true;
-  if (filter === 'archived') return Boolean(group.archived_at);
-  return groupHasStatus(group, filter);
+  return filter === 'all' || group.is_fixed;
 }
 
 function matchesDeviceFilter(group: TabGroup, deviceFilter: string) {
@@ -214,7 +216,7 @@ export function summarizeSelectedGroups(groups: TabGroup[], selectedGroupIds: st
 
     selectedCount += 1;
     selectedTabCount += group.tabs.length;
-    if (groupHasStatus(group, 'saved')) {
+    if (group.tabs.length > 0) {
       restorableGroupCount += 1;
     }
   }
@@ -224,8 +226,4 @@ export function summarizeSelectedGroups(groups: TabGroup[], selectedGroupIds: st
     selectedTabCount,
     restorableGroupCount
   };
-}
-
-export function shouldIncludeArchivedGroups(filter: GroupFilter): boolean {
-  return filter === 'archived';
 }
