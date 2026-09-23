@@ -190,37 +190,8 @@ function normalizeTabInputs(tabs: chrome.tabs.Tab[] | ImportableTabInput[]) {
 }
 
 function normalizeUrl(raw: string): string {
-  try {
-    const url = new URL(raw);
-    url.hash = '';
-
-    const removableParams = [
-      'utm_source',
-      'utm_medium',
-      'utm_campaign',
-      'utm_term',
-      'utm_content',
-      'gclid',
-      'fbclid',
-      'ref'
-    ];
-
-    for (const key of removableParams) {
-      url.searchParams.delete(key);
-    }
-
-    const pathname = url.pathname.replace(/\/+$/, '') || '/';
-    url.pathname = pathname;
-
-    const search = [...url.searchParams.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, v]) => `${k}=${v}`)
-      .join('&');
-
-    return `${url.origin}${url.pathname}${search ? `?${search}` : ''}`;
-  } catch {
-    return raw.trim();
-  }
+  return raw.trim().split('#')[0].replace(/^([a-z][a-z\d+.-]*:\/\/)([^/?#]+)/i,
+    (_match, scheme: string, host: string) => `${scheme.toLowerCase()}${host.toLowerCase()}`);
 }
 
 export function buildDefaultGroupTitle(deviceId: string, tabCount: number): string {
@@ -280,14 +251,33 @@ async function persistTabGroup(input: {
   }
 
   const seen = new Set<string>();
-
-  const uniqueTabs = input.tabs.filter((tab) => {
+  let uniqueTabs = input.tabs.filter((tab) => {
     const normalized = normalizeUrl(tab.url ?? '');
     if (!normalized) return false;
     if (seen.has(normalized)) return false;
     seen.add(normalized);
     return true;
   });
+  let duplicateCount = input.tabs.length - uniqueTabs.length;
+
+  const { data: savedTabs, error: savedTabsError } = await supabase.from('tabs')
+    .select('url_key')
+    .eq('user_id', user.id);
+  if (savedTabsError) throw savedTabsError;
+  seen.clear();
+  for (const tab of savedTabs ?? []) seen.add(tab.url_key);
+  uniqueTabs = uniqueTabs.filter((tab) => {
+    const url = normalizeUrl(tab.url ?? '');
+    if (seen.has(url)) {
+      duplicateCount += 1;
+      return false;
+    }
+    seen.add(url);
+    return true;
+  });
+  if (uniqueTabs.length === 0 && !input.groupId) {
+    return { group: null, count: 0, duplicateCount };
+  }
 
   let group: Omit<TabGroup, 'tabs'>;
   let nextPosition = 0;
@@ -318,14 +308,17 @@ async function persistTabGroup(input: {
     group_id: group.id,
     user_id: user.id,
     url: tab.url!,
+    url_key: normalizeUrl(tab.url!),
     title: tab.title ?? '',
     position: nextPosition + index
   }));
 
-  const { error: tabsError } = await supabase.from('tabs').insert(rows);
-  if (tabsError) throw tabsError;
+  if (rows.length > 0) {
+    const { error: tabsError } = await supabase.from('tabs').insert(rows);
+    if (tabsError) throw tabsError;
+  }
 
-  return { group, count: uniqueTabs.length };
+  return { group, count: rows.length, duplicateCount };
 }
 
 const GROUP_COLUMNS = 'id, title, created_at, is_fixed, device_id, tabs(id, url, title, position)';

@@ -368,7 +368,7 @@ class NewtabApp {
       tabs
     });
 
-    this.state.saveStatus = `${result.count} 件保存しました。`;
+    this.state.saveStatus = `${result.count} 件保存しました。${result.duplicateCount ? ` ${result.duplicateCount} 件の重複タブをスキップしました。` : ''}`;
     await this.refreshAll();
   }
 
@@ -379,14 +379,14 @@ class NewtabApp {
     this.render();
 
     try {
-      const { importedGroupCount, importedTabCount, skippedLineCount } = await importTabGroups({
+      const { importedGroupCount, importedTabCount, skippedLineCount, duplicateCount } = await importTabGroups({
         groupTitle: this.state.groupTitle,
         groupId: this.state.saveGroupId,
         importText: this.state.importText
       });
 
       this.state.importText = '';
-      this.state.saveStatus = formatImportStatus(importedGroupCount, importedTabCount, skippedLineCount);
+      this.state.saveStatus = formatImportStatus(importedGroupCount, importedTabCount, skippedLineCount, duplicateCount);
       await this.refreshAll();
     } catch (error) {
       this.state.saveStatus = `インポート失敗: ${getErrorMessage(error)}`;

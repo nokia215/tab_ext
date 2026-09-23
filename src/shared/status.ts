@@ -9,11 +9,13 @@ export function isErrorStatus(status: string): boolean {
 export function formatImportStatus(
   importedGroupCount: number,
   importedTabCount: number,
-  skippedLineCount: number
+  skippedLineCount: number,
+  duplicateCount = 0
 ): string {
+  const duplicateMessage = duplicateCount > 0 ? `${duplicateCount} 件の重複タブをスキップしました。` : '';
   if (skippedLineCount > 0) {
-    return `${importedGroupCount} グループ / ${importedTabCount} 件をインポートしました。${skippedLineCount} 行はスキップしました。`;
+    return `${importedGroupCount} グループ / ${importedTabCount} 件をインポートしました。${skippedLineCount} 行はスキップしました。${duplicateMessage}`;
   }
 
-  return `${importedGroupCount} グループ / ${importedTabCount} 件をインポートしました。`;
+  return `${importedGroupCount} グループ / ${importedTabCount} 件をインポートしました。${duplicateMessage}`;
 }

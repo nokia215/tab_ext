@@ -5,6 +5,7 @@ import { saveImportedTabGroup } from './supabase';
 export interface ImportTabsResult {
   importedGroupCount: number;
   importedTabCount: number;
+  duplicateCount: number;
   skippedLineCount: number;
 }
 
@@ -30,6 +31,7 @@ export async function importTabGroups(input: {
   const deviceId = await getOrCreateDeviceId();
   let importedGroupCount = 0;
   let importedTabCount = 0;
+  let duplicateCount = 0;
 
   const targetGroups = input.groupId ? [groups.flat()] : groups;
   for (const [groupIndex, group] of targetGroups.entries()) {
@@ -39,13 +41,15 @@ export async function importTabGroups(input: {
       deviceId,
       tabs: group
     });
-    importedGroupCount += 1;
+    if (result.group) importedGroupCount += 1;
     importedTabCount += result.count;
+    duplicateCount += result.duplicateCount;
   }
 
   return {
     importedGroupCount,
     importedTabCount,
+    duplicateCount,
     skippedLineCount
   };
 }

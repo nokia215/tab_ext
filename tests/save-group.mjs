@@ -1,21 +1,22 @@
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 
-const group = { id: 'existing', title: 'Original', device_id: 'PC', created_at: '2026-09-22', archived_at: null, tabs: [{ position: 4 }, { position: 1 }] };
+const group = { id: 'existing', title: 'Original', device_id: 'PC', created_at: '2026-09-22', archived_at: null, tabs: [{ url: 'https://old.test', position: 4 }, { url: 'https://older.test', position: 1 }] };
 let writes = [];
 let filters = [];
 let lookupError = null;
 let insertError = null;
 let listedGroups = [];
+let existingTabRows = [];
 globalThis.saveTestClient = {
   auth: { getUser: async () => ({ data: { user: { id: 'owner' } }, error: null }) },
   from(table) {
     const query = {
       select() { return query; },
-      eq(key, value) { filters.push([key, value]); return query; },
+      eq(key, value) { if (table === 'tab_groups') filters.push([key, value]); return query; },
       is(key, value) { filters.push([key, value]); return query; },
       order: async () => ({ data: listedGroups, error: null }),
-      then(resolve) { return Promise.resolve({ data: [{ id: 'existing', is_favorite: true }], error: null }).then(resolve); },
+      then(resolve) { return Promise.resolve({ data: table === 'tabs' ? existingTabRows : [{ id: 'existing', is_favorite: true }], error: null }).then(resolve); },
       insert(value) {
         writes.push({ table, value });
         return table === 'tabs' ? Promise.resolve({ error: insertError }) : query;
@@ -44,11 +45,33 @@ try {
       { url: 'https://a.test', pinned: false }, { url: 'https://b.test', pinned: false }, { url: 'https://a.test#duplicate', pinned: false }
     ] });
     assert.equal(saved.count, 2);
+    assert.equal(saved.duplicateCount, 1);
     assert.deepEqual(filters, [['id', 'existing'], ['user_id', 'owner']]);
     assert.equal(writes.length, 1);
     assert.equal(writes[0].table, 'tabs');
     assert.deepEqual(writes[0].value.map(({ group_id, position }) => [group_id, position]), [['existing', 5], ['existing', 6]]);
   }
+  group.tabs = [{ url: 'https://a.test', position: 0 }];
+  existingTabRows = [{ url_key: 'https://a.test' }];
+  writes = [];
+  const deduped = await saveTabGroup({ title: '', groupId: 'existing', deviceId: 'device', tabs: [
+    { url: 'https://a.test#section', title: 'Different title' },
+    { url: 'https://b.test', title: 'Same title' }
+  ] });
+  assert.equal(deduped.count, 1);
+  assert.equal(deduped.duplicateCount, 1);
+  assert.equal(writes[0].value[0].url, 'https://b.test');
+  existingTabRows = [{ url_key: 'https://same.test/?id=1' }];
+  writes = [];
+  const queryVariants = await saveTabGroup({ title: '', groupId: 'existing', deviceId: 'device', tabs: [
+    { url: 'https://same.test/?id=1' },
+    { url: 'https://same.test/?id=2' }
+  ] });
+  assert.equal(queryVariants.count, 1);
+  assert.equal(queryVariants.duplicateCount, 1);
+  assert.equal(writes[0].value[0].url, 'https://same.test/?id=2');
+  existingTabRows = [];
+  group.tabs = [{ url: 'https://old.test', position: 4 }, { url: 'https://older.test', position: 1 }];
   writes = [];
   await saveTabGroup({ title: 'New', deviceId: 'device', tabs: [{ url: 'https://a.test' }] });
   assert.deepEqual(writes[0], { table: 'tab_groups', value: { user_id: 'owner', device_id: 'device', title: 'New' } });
@@ -85,6 +108,7 @@ try {
   await saveTabGroup({ title: '', groupId: 'existing', deviceId: 'device', tabs: [{ url: 'https://a.test' }] });
   assert.equal(writes.length, 1);
   assert.equal(writes[0].value[0].position, 0);
+  assert.ok(writes[0].value[0].url_key);
   console.log('Save destination regression checks passed.');
 } finally {
   delete globalThis.saveTestClient;
