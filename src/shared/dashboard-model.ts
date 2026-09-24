@@ -48,6 +48,7 @@ export interface DashboardState {
   saveTabBusy: boolean;
   importBusy: boolean;
   actionBusy: boolean;
+  restoreBusy: boolean;
   config: AppConfig;
   ignoreDomainsText: string;
   ignoreTitlesText: string;
@@ -113,6 +114,7 @@ export function createInitialState(runtimeProfile: RuntimeProfile): DashboardSta
     saveTabBusy: false,
     importBusy: false,
     actionBusy: false,
+    restoreBusy: false,
     config: {
       supabaseUrl: '',
       supabaseKey: '',

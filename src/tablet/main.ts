@@ -59,6 +59,17 @@ class TabletApp {
     this.root.addEventListener('input', (event) => {
       this.handleInput(event);
     });
+    this.root.addEventListener('compositionend', (event) => {
+      const target = event.target;
+      if (target instanceof HTMLInputElement && target.name === 'searchQuery') {
+        this.state.searchQuery = target.value;
+        this.scheduleSearchRender({
+          name: 'searchQuery',
+          start: target.selectionStart,
+          end: target.selectionEnd
+        });
+      }
+    });
     this.root.addEventListener('change', (event) => {
       this.handleChange(event);
     });
@@ -263,7 +274,7 @@ class TabletApp {
   }
 
   private async refreshAll() {
-    if (this.state.actionBusy || this.state.refreshBusy) return;
+    if (this.state.actionBusy || this.state.refreshBusy || this.state.restoreBusy) return;
     this.state.refreshBusy = true;
     this.render();
 
@@ -433,13 +444,13 @@ class TabletApp {
   }
 
   private async handleRestoreGroups(groups: TabGroup[], tabId?: string) {
-    if (this.state.actionBusy || this.state.refreshBusy || groups.length === 0) return;
+    if (this.state.actionBusy || this.state.refreshBusy || this.state.restoreBusy || groups.length === 0) return;
     const requests = groups.map((group) => ({ group, ids: group.tabs
       .filter((tab) => !tabId || tab.id === tabId).map((tab) => tab.id) }));
     const selected = [...this.state.selectedGroupIds];
     const expanded = [...this.state.expandedGroupIds];
     const web = prepareWebRestore(requests.reduce((sum, request) => sum + request.ids.length, 0));
-    this.state.actionBusy = true;
+    this.state.restoreBusy = true;
     for (const { group, ids } of requests) {
       if (!group.is_fixed) this.state.allGroups = hidePendingTabs(this.state.allGroups, ids);
     }
@@ -470,7 +481,7 @@ class TabletApp {
       this.state.selectedGroupIds = reconcileGroupIds(this.state.selectedGroupIds, this.state.allGroups);
       this.state.expandedGroupIds = reconcileGroupIds(expanded, this.state.allGroups);
       this.state.favoriteGroupIds = reconcileGroupIds(this.state.favoriteGroupIds, this.state.allGroups);
-      this.state.actionBusy = false;
+      this.state.restoreBusy = false;
       this.render();
     }
   }
@@ -481,7 +492,7 @@ class TabletApp {
   }
 
   private async handleDeleteGroup(groupId: string) {
-    if (this.state.actionBusy) return;
+    if (this.state.actionBusy || this.state.restoreBusy) return;
 
     const previous = this.findGroup(groupId);
     if (!previous) return;
@@ -535,6 +546,7 @@ class TabletApp {
 
     switch (target.name) {
       case 'searchQuery':
+        if (event instanceof InputEvent && event.isComposing) return;
         this.state.searchQuery = target.value;
         this.scheduleSearchRender({
           name: 'searchQuery',
@@ -592,6 +604,7 @@ class TabletApp {
     this.state.actionBusy = true;
     this.updateGroup(groupId, (item) => ({ ...item, is_fixed: !group.is_fixed }));
     this.state.pageStatus = '固定設定を保存しています。';
+    this.state.actionBusy = false;
     this.render();
     try {
       await setGroupFixed(groupId, !group.is_fixed);
@@ -616,6 +629,7 @@ class TabletApp {
     this.state.favoriteGroupIds = favorite
       ? [...this.state.favoriteGroupIds, groupId]
       : this.state.favoriteGroupIds.filter((id) => id !== groupId);
+    this.state.actionBusy = false;
     this.render();
     try {
       await setGroupFavorite(groupId, favorite);
@@ -671,7 +685,7 @@ class TabletApp {
   }
 
   private async handleDeleteSelectedGroups() {
-    if (this.state.actionBusy) return;
+    if (this.state.actionBusy || this.state.restoreBusy) return;
 
     const groups = this.getSelectedGroups();
     if (groups.length === 0) return;
