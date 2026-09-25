@@ -209,7 +209,7 @@ class TabletApp {
 
   private render(focus?: FocusState) {
     this.cancelPendingSearchRender();
-    document.title = 'Tab Saver Tablet';
+    document.title = 'Tab Saver Web';
     document.body.classList.add('lightweight-ui');
 
 

@@ -44,7 +44,7 @@
   {@const remaining = Math.max(args.filteredGroups.length - args.visibleGroups.length, 0)}
   <main class="shell page-shell lightweight-shell tablet-shell">
     <section class="panel lightweight-hero tablet-hero">
-      <div class="lightweight-hero-top"><div><p class="hero-kicker">TAB SAVER / TABLET</p><h1>保存したタブ</h1><p class="muted">別の端末で保存したセッションを検索して再開できます。</p></div>
+      <div class="lightweight-hero-top"><div><p class="hero-kicker">TAB SAVER / WEB</p><h1>保存したタブ</h1><p class="muted">拡張機能を使えないブラウザーから、保存したセッションを閲覧して再開できます。</p></div>
         <div class="actions lightweight-actions"><span class="badge accent-badge">{state.authStatus}</span><button class="ghost" data-action="refresh-all" disabled={busy}>更新</button></div>
       </div>
       <div class="lightweight-summary">{#each [['グループ', args.summary.groupCount], ['タブ', args.summary.totalTabs], ['端末', args.summary.deviceCount], ['お気に入り', args.favoriteGroupCount], ['30日以上', args.summary.staleGroupCount]] as metric (metric[0])}<article class="mini-metric"><span class="mini-metric-label">{metric[0]}</span><strong class="mini-metric-value">{metric[1]}</strong></article>{/each}</div>

@@ -12,6 +12,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: path.resolve('index.html'),
+        dashboard: path.resolve('dashboard.html'),
         tablet: path.resolve('tablet.html')
       },
       output: {

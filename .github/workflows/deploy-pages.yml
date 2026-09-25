@@ -1,4 +1,4 @@
-name: Deploy Tablet Dashboard
+name: Deploy Tab Saver Web
 
 on:
   push:
@@ -33,6 +33,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npx wxt prepare
       - run: npm run build:pages
       - uses: actions/upload-pages-artifact@v4
         with:
