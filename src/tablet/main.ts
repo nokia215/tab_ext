@@ -4,7 +4,7 @@ import '../shared/panels.css';
 import '../newtab/newtab.css';
 import './tablet.css';
 import { copyTextToClipboard, formatGroupForExport, formatGroupsForExport } from '../shared/export';
-import { countFavoriteGroups, removeFavoriteGroupIds } from '../shared/favorites';
+import { removeFavoriteGroupIds } from '../shared/favorites';
 import { configFromFormFields, configToFormFields } from '../shared/config-form';
 import { isStaleGroupByAge } from '../shared/group-age';
 import { mergeGroupIds, reconcileGroupIds, resolveGroupsByIds, toggleGroupId, updateGroup as updateGroupCollection } from '../shared/group-helpers';
@@ -14,9 +14,8 @@ import {
   resetVisibleGroupCount,
   visibleGroups
 } from '../shared/group-state';
-import { summarizeGroupCollection } from '../shared/group-summary';
 import { importTabGroups } from '../shared/import';
-import { formatImportStatus, getErrorMessage, isErrorStatus } from '../shared/status';
+import { formatImportStatus, getErrorMessage } from '../shared/status';
 import { getConfig, saveConfig } from '../shared/storage';
 import {
   buildDefaultGroupTitle,
@@ -33,17 +32,14 @@ import {
 import type { AppConfig, TabGroup } from '../shared/types';
 import {
   LIGHTWEIGHT_GROUP_BATCH_SIZE,
-  collectDeviceFilterOptions,
   countStaleGroups,
   createInitialState,
   isDashboardBusy,
   queryGroups,
-  summarizeSelectedGroups,
   type FocusState,
   type DashboardState
 } from '../shared/dashboard-model';
-import type { TabletViewArgs } from './view';
-import { tabletView } from '../shared/dashboard-views';
+import { dashboards } from '../shared/dashboard-state.svelte';
 import { hasSupabaseConfig } from '../shared/build-config';
 
 class TabletApp {
@@ -53,7 +49,8 @@ class TabletApp {
 
   constructor(root: HTMLElement) {
     this.root = root;
-    this.state = createInitialState({ isAndroidFirefox: false, uiMode: 'lightweight' });
+    dashboards.tablet = createInitialState({ isAndroidFirefox: false, uiMode: 'lightweight' });
+    this.state = dashboards.tablet!;
     this.root.addEventListener('click', (event) => {
       void this.handleClick(event);
     });
@@ -84,40 +81,12 @@ class TabletApp {
     return queryGroups(this.state.allGroups, this.state);
   }
 
-  private get summary() {
-    return summarizeGroupCollection(this.state.allGroups);
-  }
-
-  private get favoriteGroupCount() {
-    return countFavoriteGroups(this.state.allGroups, this.state.favoriteGroupIds);
-  }
-
-  private get selectedSummary() {
-    return summarizeSelectedGroups(this.state.allGroups, this.state.selectedGroupIds);
-  }
-
-  private get deviceFilterOptions() {
-    return collectDeviceFilterOptions(this.state.allGroups);
-  }
-
   private get staleSelectableCount() {
     return countStaleGroups(this.bulkSelectableGroups);
   }
 
-  private get filteredStaleGroupCount() {
-    return countStaleGroups(this.filteredGroups);
-  }
-
-  private get pageStatusIsError() {
-    return isErrorStatus(this.state.pageStatus);
-  }
-
   private getVisibleGroups(groups: TabGroup[]) {
     return visibleGroups(groups, this.state.visibleGroupCount);
-  }
-
-  private getVisibleExpandedGroupIds(groups: TabGroup[]) {
-    return reconcileGroupIds(this.state.expandedGroupIds, groups);
   }
 
   private get bulkSelectableGroups() {
@@ -243,26 +212,6 @@ class TabletApp {
     document.title = 'Tab Saver Tablet';
     document.body.classList.add('lightweight-ui');
 
-    const filteredGroups = this.filteredGroups;
-    const visibleGroups = this.getVisibleGroups(filteredGroups);
-    const visibleExpandedGroupIds = this.getVisibleExpandedGroupIds(visibleGroups);
-
-    const view: TabletViewArgs = {
-      state: this.state,
-      summary: this.summary,
-      selectedSummary: this.selectedSummary,
-      bulkSelectableCount: this.bulkSelectableGroups.length,
-      staleSelectableCount: this.staleSelectableCount,
-      filteredStaleGroupCount: this.filteredStaleGroupCount,
-      staleSelectLabel: '表示中の30日以上を選択',
-      favoriteGroupCount: this.favoriteGroupCount,
-      deviceFilterOptions: this.deviceFilterOptions,
-      filteredGroups,
-      visibleGroups,
-      visibleExpandedGroupIds,
-      pageStatusIsError: this.pageStatusIsError
-    };
-    tabletView.set(view);
 
     if (focus) {
       window.setTimeout(() => {

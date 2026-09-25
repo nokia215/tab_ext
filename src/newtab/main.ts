@@ -4,7 +4,7 @@ import '../shared/panels.css';
 import './newtab.css';
 import { runtimeSendMessage } from '../shared/browser-api';
 import { copyTextToClipboard, formatGroupForExport, formatGroupsForExport } from '../shared/export';
-import { countFavoriteGroups, removeFavoriteGroupIds } from '../shared/favorites';
+import { removeFavoriteGroupIds } from '../shared/favorites';
 import { configFromFormFields, configToFormFields } from '../shared/config-form';
 import { isStaleGroupByAge } from '../shared/group-age';
 import { mergeGroupIds, reconcileGroupIds, resolveGroupsByIds, toggleGroupId, updateGroup as updateGroupCollection } from '../shared/group-helpers';
@@ -14,10 +14,9 @@ import {
   resetVisibleGroupCount,
   visibleGroups
 } from '../shared/group-state';
-import { summarizeGroupCollection } from '../shared/group-summary';
 import { importTabGroups } from '../shared/import';
 import { requestActiveTab, requestCurrentWindowTabs, type PopupActionMessage, type PopupActionResponse } from '../shared/messages';
-import { formatImportStatus, getErrorMessage, isErrorStatus } from '../shared/status';
+import { formatImportStatus, getErrorMessage } from '../shared/status';
 import { getConfig, getOrCreateDeviceId, saveConfig } from '../shared/storage';
 import {
   buildDefaultGroupTitle,
@@ -35,22 +34,19 @@ import {
 import type { AppConfig, TabGroup } from '../shared/types';
 import {
   LIGHTWEIGHT_GROUP_BATCH_SIZE,
-  collectDeviceFilterOptions,
   countStaleGroups,
   createInitialState,
   isDashboardBusy,
   detectRuntimeProfile,
   queryGroups,
-  summarizeSelectedGroups,
   type FocusState,
   type GroupFilter,
   type DashboardState,
   type RuntimeProfile,
   type SortMode
 } from '../shared/dashboard-model';
-import type { NewtabViewArgs } from './view';
 import { hasSupabaseConfig } from '../shared/build-config';
-import { dashboardView } from '../shared/dashboard-views';
+import { dashboards } from '../shared/dashboard-state.svelte';
 
 class NewtabApp {
   private readonly root: HTMLElement;
@@ -61,7 +57,8 @@ class NewtabApp {
   constructor(root: HTMLElement, runtimeProfile: RuntimeProfile) {
     this.root = root;
     this.runtimeProfile = runtimeProfile;
-    this.state = createInitialState(runtimeProfile);
+    dashboards.desktop = createInitialState(runtimeProfile);
+    this.state = dashboards.desktop!;
     this.root.addEventListener('click', (event) => {
       void this.handleClick(event);
     });
@@ -91,40 +88,12 @@ class NewtabApp {
     return queryGroups(this.state.allGroups, this.state);
   }
 
-  private get summary() {
-    return summarizeGroupCollection(this.state.allGroups);
-  }
-
-  private get favoriteGroupCount() {
-    return countFavoriteGroups(this.state.allGroups, this.state.favoriteGroupIds);
-  }
-
-  private get selectedSummary() {
-    return summarizeSelectedGroups(this.state.allGroups, this.state.selectedGroupIds);
-  }
-
-  private get deviceFilterOptions() {
-    return collectDeviceFilterOptions(this.state.allGroups);
-  }
-
   private get staleSelectableCount() {
     return countStaleGroups(this.bulkSelectableGroups);
   }
 
-  private get filteredStaleGroupCount() {
-    return countStaleGroups(this.filteredGroups);
-  }
-
-  private get pageStatusIsError() {
-    return isErrorStatus(this.state.pageStatus);
-  }
-
   private getVisibleGroups(groups: TabGroup[]) {
     return this.isLightweightMode ? visibleGroups(groups, this.state.visibleGroupCount) : groups;
-  }
-
-  private getVisibleExpandedGroupIds(groups: TabGroup[]) {
-    return reconcileGroupIds(this.state.expandedGroupIds, groups);
   }
 
   private get bulkSelectableGroups() {
@@ -274,26 +243,6 @@ class NewtabApp {
     document.body.classList.toggle('lightweight-ui', this.isLightweightMode);
     document.body.classList.toggle('android-firefox-ui', this.runtimeProfile.isAndroidFirefox);
 
-    const filteredGroups = this.filteredGroups;
-    const visibleGroups = this.getVisibleGroups(filteredGroups);
-    const visibleExpandedGroupIds = this.getVisibleExpandedGroupIds(visibleGroups);
-
-    const view: NewtabViewArgs = {
-      state: this.state,
-      summary: this.summary,
-      selectedSummary: this.selectedSummary,
-      bulkSelectableCount: this.bulkSelectableGroups.length,
-      staleSelectableCount: this.staleSelectableCount,
-      filteredStaleGroupCount: this.filteredStaleGroupCount,
-      staleSelectLabel: this.isLightweightMode ? '表示中の30日以上を選択' : '30日以上を選択',
-      favoriteGroupCount: this.favoriteGroupCount,
-      deviceFilterOptions: this.deviceFilterOptions,
-      filteredGroups,
-      visibleGroups,
-      visibleExpandedGroupIds,
-      pageStatusIsError: this.pageStatusIsError
-    };
-    dashboardView.set(view);
 
     if (focus) {
       window.setTimeout(() => {
