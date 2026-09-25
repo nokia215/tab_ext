@@ -3,6 +3,8 @@ import { getConfig } from './storage';
 import { storageLocalGet, storageLocalRemove, storageLocalSet } from './browser-api';
 import { isSavableTabUrl } from './tabs';
 import type { TabGroup } from './types';
+import { SUPABASE_PUBLISHABLE_KEY } from './build-config';
+import { SUPABASE_URL } from './build-config';
 
 export interface ImportableTabInput {
   url: string;
@@ -33,9 +35,10 @@ function createExtensionStorageAdapter() {
 let cached: { cacheKey: string; client: SupabaseClient } | null = null;
 
 export async function getSupabase(): Promise<SupabaseClient> {
-  const { supabaseUrl, supabaseKey } = await getConfig();
+  const supabaseUrl = SUPABASE_URL;
+  const supabaseKey = SUPABASE_PUBLISHABLE_KEY;
   if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Supabase 設定が未入力です。');
+    throw new Error('Supabase のビルド設定がありません。');
   }
 
   const cacheKey = `${supabaseUrl}::${supabaseKey}`;
@@ -52,11 +55,6 @@ export async function getSupabase(): Promise<SupabaseClient> {
 
   cached = { cacheKey, client };
   return client;
-}
-
-export async function signUp(email: string, password: string) {
-  const supabase = await getSupabase();
-  return supabase.auth.signUp({ email, password });
 }
 
 export async function signIn(email: string, password: string) {
@@ -184,13 +182,13 @@ function normalizeTabInputs(tabs: chrome.tabs.Tab[] | ImportableTabInput[]) {
     return Promise.resolve([]);
   }
 
-  return 'pinned' in tabs[0]
+  return 'pinned' in tabs[0]!
     ? filterSavableTabs(tabs as chrome.tabs.Tab[])
     : filterSavableImportedTabs(tabs as ImportableTabInput[]);
 }
 
 function normalizeUrl(raw: string): string {
-  return raw.trim().split('#')[0].replace(/^([a-z][a-z\d+.-]*:\/\/)([^/?#]+)/i,
+  return raw.trim().split('#')[0]!.replace(/^([a-z][a-z\d+.-]*:\/\/)([^/?#]+)/i,
     (_match, scheme: string, host: string) => `${scheme.toLowerCase()}${host.toLowerCase()}`);
 }
 

@@ -1,5 +1,6 @@
 # Dependencies
 /node_modules
+/.wxt
 /.pnp
 .pnp.js
 .pnp.cjs

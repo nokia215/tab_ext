@@ -116,8 +116,6 @@ export function createInitialState(runtimeProfile: RuntimeProfile): DashboardSta
     actionBusy: false,
     restoreBusy: false,
     config: {
-      supabaseUrl: '',
-      supabaseKey: '',
       ignoreDomains: [],
       ignoreTitles: []
     },

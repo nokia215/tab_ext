@@ -28,7 +28,6 @@ import {
   setGroupFixed,
   signIn,
   signOut,
-  signUp,
   updateGroupTitle
 } from '../shared/supabase';
 import type { AppConfig, TabGroup } from '../shared/types';
@@ -43,7 +42,9 @@ import {
   type FocusState,
   type DashboardState
 } from '../shared/dashboard-model';
-import { renderTabletView } from './view';
+import type { TabletViewArgs } from './view';
+import { tabletView } from '../shared/dashboard-views';
+import { hasSupabaseConfig } from '../shared/build-config';
 
 class TabletApp {
   private readonly root: HTMLElement;
@@ -246,7 +247,7 @@ class TabletApp {
     const visibleGroups = this.getVisibleGroups(filteredGroups);
     const visibleExpandedGroupIds = this.getVisibleExpandedGroupIds(visibleGroups);
 
-    this.root.innerHTML = renderTabletView({
+    const view: TabletViewArgs = {
       state: this.state,
       summary: this.summary,
       selectedSummary: this.selectedSummary,
@@ -260,16 +261,19 @@ class TabletApp {
       visibleGroups,
       visibleExpandedGroupIds,
       pageStatusIsError: this.pageStatusIsError
-    });
+    };
+    tabletView.set(view);
 
     if (focus) {
-      const next = this.root.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${focus.name}"]`);
-      if (next) {
-        next.focus();
-        if (focus.start !== null && focus.end !== null && 'setSelectionRange' in next) {
-          next.setSelectionRange(focus.start, focus.end);
+      window.setTimeout(() => {
+        const next = this.root.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${focus.name}"]`);
+        if (next) {
+          next.focus();
+          if (focus.start !== null && focus.end !== null && 'setSelectionRange' in next) {
+            next.setSelectionRange(focus.start, focus.end);
+          }
         }
-      }
+      });
     }
   }
 
@@ -282,8 +286,8 @@ class TabletApp {
       const nextConfig = await getConfig();
       this.setConfigFields(nextConfig);
 
-      if (!nextConfig.supabaseUrl || !nextConfig.supabaseKey) {
-        this.state.authStatus = 'Supabase 設定を入力してください。';
+      if (!hasSupabaseConfig()) {
+        this.state.authStatus = 'アプリのSupabase接続設定を確認できません。';
         this.state.pageStatus = '設定が未完了です。';
         this.state.favoriteGroupIds = [];
         this.state.allGroups = [];
@@ -376,25 +380,6 @@ class TabletApp {
       this.state.pageStatus = `設定保存失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.configBusy = false;
-      this.render();
-    }
-  }
-
-  private async handleSignUp() {
-    this.state.authBusy = true;
-    this.render();
-
-    try {
-      const { data, error } = await signUp(this.state.email.trim(), this.state.password);
-      if (error) throw error;
-      this.state.authStatus = data.user && !data.session
-        ? '登録しました。確認メールが必要なら確認してください。'
-        : '登録しました。';
-      await this.refreshAll();
-    } catch (error) {
-      this.state.authStatus = `登録失敗: ${getErrorMessage(error)}`;
-    } finally {
-      this.state.authBusy = false;
       this.render();
     }
   }
@@ -568,12 +553,6 @@ class TabletApp {
         break;
       case 'password':
         this.state.password = target.value;
-        break;
-      case 'supabaseUrl':
-        this.state.config = { ...this.state.config, supabaseUrl: target.value };
-        break;
-      case 'supabaseKey':
-        this.state.config = { ...this.state.config, supabaseKey: target.value };
         break;
       case 'ignoreDomainsText':
         this.state.ignoreDomainsText = target.value;
@@ -794,9 +773,6 @@ class TabletApp {
         break;
       case 'save-config':
         await this.handleSaveConfig();
-        break;
-      case 'sign-up':
-        await this.handleSignUp();
         break;
       case 'sign-in':
         await this.handleSignIn();

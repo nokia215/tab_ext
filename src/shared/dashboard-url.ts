@@ -7,5 +7,5 @@ export function shouldDelegateDashboardToWeb(userAgent = typeof navigator === 'u
 export function resolveDashboardUrl(getRuntimeUrl: (path: string) => string) {
   return shouldDelegateDashboardToWeb()
     ? EXTERNAL_TABLET_DASHBOARD_URL
-    : getRuntimeUrl('newtab.html');
+    : getRuntimeUrl('dashboard.html');
 }

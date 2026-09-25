@@ -1,6 +1,6 @@
 import { createTab, createWindow, storageLocalGet, storageLocalRemove, storageLocalSet } from './browser-api';
 import { consumeRestoredTabs, getCurrentSessionUser, getGroup } from './supabase';
-import { getConfig } from './storage';
+import { SUPABASE_URL } from './build-config';
 import { getErrorMessage } from './status';
 import { isSavableTabUrl } from './tabs';
 import type { SavedTab, TabGroup } from './types';
@@ -17,8 +17,7 @@ type PendingTab = { groupId: string; tabId: string };
 async function pendingScope() {
   const user = await getCurrentSessionUser();
   if (!user) throw new Error('ログインしてください。');
-  const config = await getConfig();
-  return `pending-consumption:${config.supabaseUrl}:${user.id}:`;
+  return `pending-consumption:${SUPABASE_URL}:${user.id}:`;
 }
 
 async function pendingEntries(scope: string) {

@@ -2,8 +2,6 @@ import { storageLocalGet, storageLocalSet } from './browser-api';
 import type { AppConfig } from './types';
 
 const KEYS = {
-  SUPABASE_URL: 'supabase_url',
-  SUPABASE_KEY: 'supabase_key',
   DEVICE_ID: 'device_id',
   IGNORE_DOMAINS: 'ignore_domains',
   IGNORE_TITLES: 'ignore_titles'
@@ -56,8 +54,6 @@ export async function getConfig(): Promise<AppConfig> {
   }
 
   const result = await storageLocalGet([
-    KEYS.SUPABASE_URL,
-    KEYS.SUPABASE_KEY,
     KEYS.IGNORE_DOMAINS,
     KEYS.IGNORE_TITLES
   ]);
@@ -65,8 +61,6 @@ export async function getConfig(): Promise<AppConfig> {
   const r = result as Record<string, string | string[] | undefined>;
 
   cachedConfig = {
-    supabaseUrl: (r[KEYS.SUPABASE_URL] as string) ?? '',
-    supabaseKey: (r[KEYS.SUPABASE_KEY] as string) ?? '',
     ignoreDomains: normalizeLines(r[KEYS.IGNORE_DOMAINS] as string[] | undefined),
     ignoreTitles: normalizeLines(r[KEYS.IGNORE_TITLES] as string[] | undefined)
   };
@@ -80,8 +74,6 @@ export async function getConfig(): Promise<AppConfig> {
 
 export async function saveConfig(config: AppConfig): Promise<void> {
   await storageLocalSet({
-    [KEYS.SUPABASE_URL]: config.supabaseUrl,
-    [KEYS.SUPABASE_KEY]: config.supabaseKey,
     [KEYS.IGNORE_DOMAINS]: config.ignoreDomains,
     [KEYS.IGNORE_TITLES]: config.ignoreTitles
   });

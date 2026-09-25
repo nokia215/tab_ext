@@ -87,20 +87,18 @@ try {
 console.log('Dashboard regression checks passed.');
 
 const { configToFormFields, configFromFormFields } = await loadModule('src/shared/config-form.ts');
-const config = { supabaseUrl: ' https://example.supabase.co ', supabaseKey: ' key ',
-  ignoreDomains: ['a.test', 'b.test', 'a.test'], ignoreTitles: ['First', 'Second'] };
+const config = { ignoreDomains: ['a.test', 'b.test', 'a.test'], ignoreTitles: ['First', 'Second'] };
 const originalConfig = structuredClone(config);
 const fields = configToFormFields(config);
 assert.equal(fields.config, config);
 assert.equal(fields.ignoreDomainsText, 'a.test\nb.test\na.test');
 assert.equal(fields.ignoreTitlesText, 'First\nSecond');
 assert.deepEqual(configFromFormFields({ ...fields, ignoreDomainsText: ' a.test \r\n\n b.test\na.test ', ignoreTitlesText: ' First \n \n Second ' }), {
-  supabaseUrl: 'https://example.supabase.co', supabaseKey: 'key',
   ignoreDomains: ['a.test', 'b.test', 'a.test'], ignoreTitles: ['First', 'Second']
 });
-const emptyConfig = { supabaseUrl: '', supabaseKey: '', ignoreDomains: [], ignoreTitles: [] };
+const emptyConfig = { ignoreDomains: [], ignoreTitles: [] };
 assert.deepEqual(configFromFormFields(configToFormFields(emptyConfig)), emptyConfig);
-assert.deepEqual(configFromFormFields({ config: { ...emptyConfig, supabaseUrl: ' ', supabaseKey: '\t' }, ignoreDomainsText: '\n ', ignoreTitlesText: '\t\n' }), emptyConfig);
+assert.deepEqual(configFromFormFields({ config: { ...emptyConfig, supabaseUrl: 'old-url', supabaseKey: 'old-key' }, ignoreDomainsText: '\n ', ignoreTitlesText: '\t\n' }), emptyConfig);
 assert.deepEqual(config, originalConfig);
 console.log('Config form regression checks passed.');
 

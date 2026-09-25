@@ -22,8 +22,6 @@ export interface AuthPanelView {
 }
 
 export interface ConfigPanelView {
-  supabaseUrl: string;
-  supabaseKey: string;
   ignoreDomainsText: string;
   ignoreTitlesText: string;
   busy: boolean;
@@ -140,7 +138,7 @@ export function renderAuthPanel(view: AuthPanelView): string {
         <div>
           <p class="eyebrow">Account</p>
           <h2 class="section-title">Supabase 認証</h2>
-          <p class="section-copy">設定保存後にログインすると、保存済みグループを端末間で同期できます。</p>
+          <p class="section-copy">アカウントは管理者から共有されたものを使います。</p>
         </div>
         <div class="badge">Sync ready</div>
       </div>
@@ -158,9 +156,6 @@ export function renderAuthPanel(view: AuthPanelView): string {
       </div>
 
       <div class="actions">
-        <button class="secondary" type="button" data-action="sign-up"${renderDisabled(view.busy)}>
-          新規登録
-        </button>
         <button type="button" data-action="sign-in"${renderDisabled(view.busy)}>
           ログイン
         </button>
@@ -179,27 +174,10 @@ export function renderConfigPanel(view: ConfigPanelView): string {
     <section class="panel config-panel">
       <div>
         <p class="eyebrow">Control</p>
-        <h2 class="section-title">接続設定と除外ルール</h2>
+        <h2 class="section-title">保存対象の除外ルール</h2>
         <p class="section-copy">
           \`service_role\` は使わず、保存対象から除外したいドメインやタイトルを行単位で指定します。
         </p>
-      </div>
-
-      <div class="field-grid">
-        <label class="field">
-          <span class="field-label">Project URL</span>
-          <input
-            name="supabaseUrl"
-            type="url"
-            value="${escapeHtml(view.supabaseUrl)}"
-            placeholder="https://xxxx.supabase.co"
-          />
-        </label>
-
-        <label class="field">
-          <span class="field-label">Publishable / anon key</span>
-          <textarea name="supabaseKey" rows="4" placeholder="eyJ...">${escapeHtml(view.supabaseKey)}</textarea>
-        </label>
       </div>
 
       <div class="field-grid split">

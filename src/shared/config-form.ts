@@ -17,8 +17,6 @@ export function configToFormFields(config: AppConfig): ConfigFormFields {
 
 export function configFromFormFields(fields: ConfigFormFields): AppConfig {
   return {
-    supabaseUrl: fields.config.supabaseUrl.trim(),
-    supabaseKey: fields.config.supabaseKey.trim(),
     ignoreDomains: textToLineList(fields.ignoreDomainsText),
     ignoreTitles: textToLineList(fields.ignoreTitlesText)
   };

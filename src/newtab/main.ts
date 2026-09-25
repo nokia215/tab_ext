@@ -3,7 +3,6 @@ import '../shared/ui.css';
 import '../shared/panels.css';
 import './newtab.css';
 import { runtimeSendMessage } from '../shared/browser-api';
-import { EXTERNAL_TABLET_DASHBOARD_URL, shouldDelegateDashboardToWeb } from '../shared/dashboard-url';
 import { copyTextToClipboard, formatGroupForExport, formatGroupsForExport } from '../shared/export';
 import { countFavoriteGroups, removeFavoriteGroupIds } from '../shared/favorites';
 import { configFromFormFields, configToFormFields } from '../shared/config-form';
@@ -31,7 +30,6 @@ import {
   setGroupFixed,
   signIn,
   signOut,
-  signUp,
   updateGroupTitle
 } from '../shared/supabase';
 import type { AppConfig, TabGroup } from '../shared/types';
@@ -50,7 +48,9 @@ import {
   type RuntimeProfile,
   type SortMode
 } from '../shared/dashboard-model';
-import { renderNewtabView } from './view';
+import type { NewtabViewArgs } from './view';
+import { hasSupabaseConfig } from '../shared/build-config';
+import { dashboardView } from '../shared/dashboard-views';
 
 class NewtabApp {
   private readonly root: HTMLElement;
@@ -278,7 +278,7 @@ class NewtabApp {
     const visibleGroups = this.getVisibleGroups(filteredGroups);
     const visibleExpandedGroupIds = this.getVisibleExpandedGroupIds(visibleGroups);
 
-    this.root.innerHTML = renderNewtabView({
+    const view: NewtabViewArgs = {
       state: this.state,
       summary: this.summary,
       selectedSummary: this.selectedSummary,
@@ -292,16 +292,19 @@ class NewtabApp {
       visibleGroups,
       visibleExpandedGroupIds,
       pageStatusIsError: this.pageStatusIsError
-    });
+    };
+    dashboardView.set(view);
 
     if (focus) {
-      const next = this.root.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${focus.name}"]`);
-      if (next) {
-        next.focus();
-        if (focus.start !== null && focus.end !== null && 'setSelectionRange' in next) {
-          next.setSelectionRange(focus.start, focus.end);
+      window.setTimeout(() => {
+        const next = this.root.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${focus.name}"]`);
+        if (next) {
+          next.focus();
+          if (focus.start !== null && focus.end !== null && 'setSelectionRange' in next) {
+            next.setSelectionRange(focus.start, focus.end);
+          }
         }
-      }
+      });
     }
   }
 
@@ -314,8 +317,8 @@ class NewtabApp {
       const nextConfig = await getConfig();
       this.setConfigFields(nextConfig);
 
-      if (!nextConfig.supabaseUrl || !nextConfig.supabaseKey) {
-        this.state.authStatus = 'Supabase 設定を入力してください。';
+      if (!hasSupabaseConfig()) {
+        this.state.authStatus = 'アプリのSupabase接続設定を確認できません。';
         this.state.pageStatus = '設定が未完了です。';
         this.state.favoriteGroupIds = [];
         this.state.allGroups = [];
@@ -421,25 +424,6 @@ class NewtabApp {
       this.state.pageStatus = `設定保存失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.configBusy = false;
-      this.render();
-    }
-  }
-
-  private async handleSignUp() {
-    this.state.authBusy = true;
-    this.render();
-
-    try {
-      const { data, error } = await signUp(this.state.email.trim(), this.state.password);
-      if (error) throw error;
-      this.state.authStatus = data.user && !data.session
-        ? '登録しました。確認メールが必要なら確認してください。'
-        : '登録しました。';
-      await this.refreshAll();
-    } catch (error) {
-      this.state.authStatus = `登録失敗: ${getErrorMessage(error)}`;
-    } finally {
-      this.state.authBusy = false;
       this.render();
     }
   }
@@ -836,12 +820,6 @@ class NewtabApp {
       case 'password':
         this.state.password = target.value;
         break;
-      case 'supabaseUrl':
-        this.state.config = { ...this.state.config, supabaseUrl: target.value };
-        break;
-      case 'supabaseKey':
-        this.state.config = { ...this.state.config, supabaseKey: target.value };
-        break;
       case 'ignoreDomainsText':
         this.state.ignoreDomainsText = target.value;
         break;
@@ -910,9 +888,6 @@ class NewtabApp {
         break;
       case 'save-config':
         await this.handleSaveConfig();
-        break;
-      case 'sign-up':
-        await this.handleSignUp();
         break;
       case 'sign-in':
         await this.handleSignIn();
@@ -1045,15 +1020,7 @@ class NewtabApp {
 }
 
 const target = document.getElementById('app');
-
-if (!target) {
-  throw new Error('Newtab root element was not found.');
-}
-
-if (shouldDelegateDashboardToWeb()) {
-  window.location.replace(EXTERNAL_TABLET_DASHBOARD_URL);
-} else {
-  const runtimeProfile = detectRuntimeProfile();
-  const app = new NewtabApp(target, runtimeProfile);
-  void app.bootstrap();
-}
+if (!target) throw new Error('Newtab root element was not found.');
+const runtimeProfile = detectRuntimeProfile();
+const app = new NewtabApp(target, runtimeProfile);
+void app.bootstrap();

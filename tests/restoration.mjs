@@ -212,7 +212,7 @@ for (const kind of ['newtab', 'tablet']) {
   app.state.favoriteGroupIds = ['g', 'fixed'];
   app.state.selectedGroupIds = ['g', 'fixed'];
   const running = app.handleRestoreSelectedGroups();
-  assert.equal(app.state.actionBusy, true);
+  assert.equal(app.state.restoreBusy, true);
   assert.deepEqual(app.state.allGroups.map((group) => group.id), ['fixed'], 'Optimism consumes only ordinary groups');
   await app.refreshAll();
   assert.deepEqual(app.state.allGroups.map((group) => group.id), ['fixed'], 'Refresh cannot overwrite an in-flight mutation');
@@ -220,7 +220,7 @@ for (const kind of ['newtab', 'tablet']) {
   await new Promise((resolve) => setImmediate(resolve));
   resolveRestore({ group: original[1], openedTabIds: [], pendingTabIds: [], error: '復元失敗: Blocked' });
   await running;
-  assert.equal(app.state.actionBusy, false);
+  assert.equal(app.state.restoreBusy, false);
   assert.deepEqual(app.state.allGroups.map((group) => group.id), ['fixed']);
   assert.deepEqual(app.state.favoriteGroupIds, ['fixed']);
   assert.match(app.state.pageStatus, /3 タブ復元.*失敗/);

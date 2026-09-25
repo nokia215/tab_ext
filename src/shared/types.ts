@@ -1,6 +1,4 @@
 export interface AppConfig {
-  supabaseUrl: string;
-  supabaseKey: string;
   ignoreDomains: string[];
   ignoreTitles: string[];
 }

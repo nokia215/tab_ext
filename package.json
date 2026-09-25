@@ -1,6 +1,6 @@
 {
   "name": "tab_ext",
-  "version": "0.14.2",
+  "version": "1.0.0",
   "description": "ブラウザをまたいだタブ共有を行う拡張機能",
   "private": true,
   "homepage": "https://github.com/nokia215/tab_ext#readme",
@@ -16,10 +16,10 @@
   "type": "module",
   "scripts": {
     "clean": "rimraf dist",
-    "clean:chrome": "rimraf dist/chrome",
-    "clean:firefox": "rimraf dist/firefox dist/firefox-artifacts",
+    "clean:chrome": "rimraf dist/chrome dist/chrome-mv3",
+    "clean:firefox": "rimraf dist/firefox dist/firefox-mv3 dist/firefox-artifacts",
     "clean:pages": "rimraf dist/pages",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json",
     "test": "node tests/refactor.mjs && node tests/save-group.mjs && node tests/favorites.mjs && node tests/restoration.mjs",
     "db:migrate": "supabase db push --linked",
     "db:migrate:check": "supabase db push --linked --dry-run",
@@ -27,21 +27,26 @@
     "db:migrate:new": "supabase migration new",
     "build": "npm run typecheck && npm run build:chrome && npm run build:firefox",
     "build:pages": "npm run clean:pages && npm run typecheck && vite build --mode pages",
-    "build:chrome": "npm run clean:chrome && vite build --mode chrome && node scripts/build-background.mjs chrome && node scripts/build-manifest.mjs chrome",
-    "build:firefox": "npm run clean:firefox && vite build --mode firefox && node scripts/build-background.mjs firefox && node scripts/build-manifest.mjs firefox",
-    "build:xpi": "web-ext build --source-dir dist/firefox --artifacts-dir dist/firefox-artifacts",
+    "build:chrome": "npm run clean:chrome && wxt build -b chrome",
+    "build:firefox": "npm run clean:firefox && wxt build -b firefox",
+    "build:xpi": "web-ext build --source-dir dist/firefox-mv3 --artifacts-dir dist/firefox-artifacts",
     "release": "npm run build && npm run build:xpi",
-    "dev:chrome": "vite build --watch --mode chrome",
-    "dev:firefox": "vite build --watch --mode firefox",
-    "run:firefox": "web-ext run --source-dir dist/firefox",
-    "lint:firefox": "web-ext lint --source-dir dist/firefox"
+    "dev:chrome": "wxt -b chrome",
+    "dev:firefox": "wxt -b firefox",
+    "run:firefox": "web-ext run --source-dir dist/firefox-mv3",
+    "lint:firefox": "web-ext lint --source-dir dist/firefox-mv3"
   },
   "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^6.2.1",
+    "@wxt-dev/module-svelte": "^2.0.5",
     "rimraf": "^6.1.3",
     "sharp": "^0.34.5",
+    "svelte": "^5.57.1",
+    "svelte-check": "^4.7.6",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
-    "web-ext": "^10.0.0"
+    "web-ext": "^10.0.0",
+    "wxt": "^0.21.4"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",
