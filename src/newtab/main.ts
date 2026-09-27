@@ -17,7 +17,7 @@ import {
 import { importTabGroups } from '../shared/import';
 import { requestActiveTab, requestCurrentWindowTabs, type PopupActionMessage, type PopupActionResponse } from '../shared/messages';
 import { formatImportStatus, getErrorMessage } from '../shared/status';
-import { getConfig, getOrCreateDeviceId, saveConfig } from '../shared/storage';
+import { getCachedGroups, getConfig, getOrCreateDeviceId, saveCachedGroups, saveConfig } from '../shared/storage';
 import {
   buildDefaultGroupTitle,
   deleteGroup,
@@ -53,6 +53,8 @@ class NewtabApp {
   private readonly runtimeProfile: RuntimeProfile;
   private state: DashboardState;
   private pendingSearchRenderId: number | null = null;
+  private cacheUserId: string | null = null;
+  private cacheTimer: number | null = null;
 
   constructor(root: HTMLElement, runtimeProfile: RuntimeProfile) {
     this.root = root;
@@ -238,6 +240,16 @@ class NewtabApp {
   }
 
   private render(focus?: FocusState) {
+    if (this.cacheUserId) {
+      if (this.cacheTimer !== null) window.clearTimeout(this.cacheTimer);
+      const userId = this.cacheUserId;
+      const groups = this.state.allGroups;
+      const favorites = this.state.favoriteGroupIds;
+      this.cacheTimer = window.setTimeout(() => {
+        this.cacheTimer = null;
+        void saveCachedGroups(userId, groups, favorites).catch(() => {});
+      }, 200);
+    }
     this.cancelPendingSearchRender();
     document.title = 'Tab Saver Dashboard';
     document.body.classList.toggle('lightweight-ui', this.isLightweightMode);
@@ -282,6 +294,7 @@ class NewtabApp {
       this.state.authStatus = user ? `ログイン中: ${user.email}` : '未ログイン';
 
       if (!user) {
+        this.cacheUserId = null;
         this.state.favoriteGroupIds = [];
         this.state.allGroups = [];
         this.state.selectedGroupIds = [];
@@ -290,6 +303,17 @@ class NewtabApp {
         this.state.pageStatus = 'ログインすると保存済みグループを表示します。';
         this.resetVisibleGroupCount();
         return;
+      }
+
+      this.cacheUserId = user.id;
+      const cached = await getCachedGroups(user.id);
+      if (cached) {
+        this.state.allGroups = cached.groups;
+        this.state.favoriteGroupIds = cached.favorites;
+        this.reconcileExpandedGroupIds(this.state.allGroups);
+        this.reconcileSelectedGroupIds(this.state.allGroups);
+        this.state.pageStatus = `${cached.groups.length} グループを表示中（同期中）`;
+        this.render();
       }
 
       const pending = await retryPendingConsumption();

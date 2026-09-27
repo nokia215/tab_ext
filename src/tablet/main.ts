@@ -16,7 +16,7 @@ import {
 } from '../shared/group-state';
 import { importTabGroups } from '../shared/import';
 import { formatImportStatus, getErrorMessage } from '../shared/status';
-import { getConfig, saveConfig } from '../shared/storage';
+import { getCachedGroups, getConfig, saveCachedGroups, saveConfig } from '../shared/storage';
 import {
   buildDefaultGroupTitle,
   deleteGroup,
@@ -46,6 +46,8 @@ class TabletApp {
   private readonly root: HTMLElement;
   private state: DashboardState;
   private pendingSearchRenderId: number | null = null;
+  private cacheUserId: string | null = null;
+  private cacheTimer: number | null = null;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -208,6 +210,16 @@ class TabletApp {
   }
 
   private render(focus?: FocusState) {
+    if (this.cacheUserId) {
+      if (this.cacheTimer !== null) window.clearTimeout(this.cacheTimer);
+      const userId = this.cacheUserId;
+      const groups = this.state.allGroups;
+      const favorites = this.state.favoriteGroupIds;
+      this.cacheTimer = window.setTimeout(() => {
+        this.cacheTimer = null;
+        void saveCachedGroups(userId, groups, favorites).catch(() => {});
+      }, 200);
+    }
     this.cancelPendingSearchRender();
     document.title = 'Tab Saver Web';
     document.body.classList.add('lightweight-ui');
@@ -251,6 +263,7 @@ class TabletApp {
       this.state.authStatus = user ? `ログイン中: ${user.email}` : '未ログイン';
 
       if (!user) {
+        this.cacheUserId = null;
         this.state.favoriteGroupIds = [];
         this.state.allGroups = [];
         this.state.selectedGroupIds = [];
@@ -259,6 +272,17 @@ class TabletApp {
         this.state.pageStatus = 'ログインすると保存済みグループを表示します。';
         this.resetVisibleGroupCount();
         return;
+      }
+
+      this.cacheUserId = user.id;
+      const cached = await getCachedGroups(user.id);
+      if (cached) {
+        this.state.allGroups = cached.groups;
+        this.state.favoriteGroupIds = cached.favorites;
+        this.reconcileExpandedGroupIds(this.state.allGroups);
+        this.reconcileSelectedGroupIds(this.state.allGroups);
+        this.state.pageStatus = `${cached.groups.length} グループを表示中（同期中）`;
+        this.render();
       }
 
       const pending = await retryPendingConsumption();

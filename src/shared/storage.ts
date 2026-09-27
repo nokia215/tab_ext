@@ -1,5 +1,22 @@
 import { storageLocalGet, storageLocalSet } from './browser-api';
 import type { AppConfig } from './types';
+import type { TabGroup } from './types';
+
+const GROUP_CACHE_KEY = 'group_cache_by_user';
+
+export async function getCachedGroups(userId: string): Promise<{ groups: TabGroup[]; favorites: string[] } | null> {
+  const stored = await storageLocalGet(GROUP_CACHE_KEY) as Record<string, Record<string, { groups?: TabGroup[]; favorites?: string[] }> | undefined>;
+  const cache = stored[GROUP_CACHE_KEY]?.[userId];
+  return cache?.groups ? { groups: cache.groups, favorites: cache.favorites ?? [] } : null;
+}
+
+export async function saveCachedGroups(userId: string, groups: TabGroup[], favorites: string[]): Promise<void> {
+  const stored = await storageLocalGet(GROUP_CACHE_KEY) as Record<string, Record<string, { groups?: TabGroup[]; favorites?: string[] }> | undefined>;
+  await storageLocalSet({ [GROUP_CACHE_KEY]: {
+    ...stored[GROUP_CACHE_KEY],
+    [userId]: { groups, favorites }
+  } });
+}
 
 const KEYS = {
   DEVICE_ID: 'device_id',
