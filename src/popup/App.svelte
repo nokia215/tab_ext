@@ -61,19 +61,20 @@
 </script>
 
 <main class="shell popup-shell">
-  <header class="panel">
-    <p class="hero-kicker">Tab Saver</p>
-    <h1>タブを保存</h1>
-    {#if userEmail}
-      <p class="muted">{userEmail} でログイン中</p>
-    {:else}
+  <header class="popup-header">
+    <h1>Tab Saver</h1>
+    <button class="secondary" onclick={() => void createTab({ url: getRuntimeUrl('dashboard.html'), active: true })}>ダッシュボードを開く</button>
+  </header>
+
+  {#if !userEmail}
+    <section class="panel">
       <form onsubmit={login}>
         <label>メールアドレス<input type="email" bind:value={email} autocomplete="username" required /></label>
         <label>パスワード<input type="password" bind:value={password} autocomplete="current-password" required /></label>
         <button type="submit" disabled={busy}>ログイン</button>
       </form>
-    {/if}
-  </header>
+    </section>
+  {/if}
 
   {#if userEmail}
     <section class="panel">
@@ -90,10 +91,14 @@
         <button onclick={() => void requestCurrentWindowTabs().then(save)} disabled={busy}>ウィンドウを保存</button>
         <button class="secondary" onclick={() => void requestActiveTab().then((tab) => tab && save([tab]))} disabled={busy}>タブを保存</button>
       </div>
-      <button class="ghost" onclick={() => void run(async () => { const { error } = await signOut(); if (error) throw error; await refresh(); })} disabled={busy}>ログアウト</button>
     </section>
   {/if}
 
   <p role="status" aria-live="polite">{status}</p>
-  <button class="secondary" onclick={() => void createTab({ url: getRuntimeUrl('dashboard.html'), active: true })}>一覧を開く</button>
+  {#if userEmail}
+    <footer class="popup-account">
+      <p class="muted">{userEmail} でログイン中</p>
+      <button class="ghost" onclick={() => void run(async () => { const { error } = await signOut(); if (error) throw error; await refresh(); })} disabled={busy}>ログアウト</button>
+    </footer>
+  {/if}
 </main>
