@@ -88,7 +88,7 @@
       {#if !groupId}<label>グループ名<input bind:value={title} placeholder="空欄で自動設定" /></label>{/if}
       <div class="actions">
         <button onclick={() => void requestCurrentWindowTabs().then(save)} disabled={busy}>ウィンドウを保存</button>
-        <button class="secondary" onclick={() => void requestActiveTab().then((tab) => tab && save([tab]))} disabled={busy}>現在のタブを保存</button>
+        <button class="secondary" onclick={() => void requestActiveTab().then((tab) => tab && save([tab]))} disabled={busy}>タブを保存</button>
       </div>
       <button class="ghost" onclick={() => void run(async () => { const { error } = await signOut(); if (error) throw error; await refresh(); })} disabled={busy}>ログアウト</button>
     </section>

@@ -1,47 +1,32 @@
 body {
-  width: 420px;
-  min-width: 420px;
-  max-width: 420px;
-}
-
-#app {
-  min-height: 100%;
+  width: 480px;
+  max-width: 100vw;
 }
 
 .popup-shell {
-  width: 420px;
-  max-width: 420px;
   min-height: 100%;
-  padding: 18px;
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+}
+
+.popup-shell .panel,
+.popup-shell form {
   display: grid;
   gap: 16px;
 }
 
-.hero {
+.popup-shell .panel {
   padding: 20px;
-  border-radius: 28px;
+  border-radius: 16px;
 }
 
-.hero {
+.popup-shell label {
   display: grid;
-  gap: 18px;
-  background:
-    linear-gradient(135deg, rgba(131, 224, 255, 0.14), transparent 46%),
-    var(--panel-strong);
-}
-
-.hero-layout {
-  display: grid;
-  gap: 16px;
-}
-
-.hero-status {
-  display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .hero-kicker {
-  margin: 0 0 8px;
   color: var(--accent);
   font-size: 0.72rem;
   letter-spacing: 0.18em;
@@ -49,81 +34,42 @@ body {
   font-weight: 800;
 }
 
-.hero h1 {
-  margin: 0 0 10px;
+.popup-shell h1 {
   font-size: 1.5rem;
-  line-height: 1.05;
+  line-height: 1.25;
 }
 
-.hero-copy p {
+.popup-shell h1,
+.popup-shell p {
   margin: 0;
 }
 
-.hero-metrics {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.popup-shell .muted,
+.popup-shell [role='status'] {
+  overflow-wrap: anywhere;
 }
 
-.popup-overview {
+.popup-shell [role='status']:empty {
+  display: none;
+}
+
+.popup-shell .actions {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.insight-card {
-  padding: 14px 16px;
-  border-radius: 20px;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.insight-label {
-  margin: 0 0 8px;
-  color: var(--muted);
-  font-size: 0.76rem;
-}
-
-.insight-value {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-
-.settings-wrap {
-  border: 1px solid var(--line);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.04);
-  padding: 0 18px 18px;
-}
-
-.settings-wrap summary {
-  cursor: pointer;
-  padding: 16px 0;
-  font-weight: 700;
-}
-
-.settings-copy {
-  margin: 0 0 16px;
-}
-
-.settings-grid {
-  display: grid;
-  gap: 16px;
+.popup-shell button {
+  white-space: nowrap;
+  padding: 12px 14px;
 }
 
 @media (max-width: 440px) {
-  body {
-    min-width: 0;
-    max-width: none;
-  }
-
   .popup-shell {
-    width: 100%;
-    max-width: none;
-    padding: 14px;
+    padding: 16px;
   }
 
-  .hero-metrics,
-  .popup-overview {
+  .popup-shell .actions {
     grid-template-columns: 1fr;
   }
 }
