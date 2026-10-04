@@ -1,3 +1,4 @@
+import { startDashboardAutoSync } from '../shared/auto-sync';
 import { hidePendingTabs, retryPendingConsumption, type RestoreResult } from '../shared/restoration';
 import '../shared/ui.css';
 import '../shared/panels.css';
@@ -80,6 +81,7 @@ class NewtabApp {
 
   async bootstrap() {
     await this.refreshAll();
+    startDashboardAutoSync(this.root, this.state, () => this.cacheUserId, () => this.render());
   }
 
   private get isLightweightMode() {
@@ -295,6 +297,7 @@ class NewtabApp {
 
       if (!user) {
         this.cacheUserId = null;
+        this.state.syncStatus = '';
         this.state.favoriteGroupIds = [];
         this.state.allGroups = [];
         this.state.selectedGroupIds = [];
@@ -326,6 +329,7 @@ class NewtabApp {
       if (this.state.editingGroupId && !this.findGroup(this.state.editingGroupId)) {
         this.stopEditingGroupTitle();
       }
+      this.state.syncStatus = `最終同期: ${new Date().toLocaleTimeString('ja-JP')}`;
       this.state.pageStatus = pending.error ?? `${this.state.allGroups.length} グループを表示中`;
       this.resetVisibleGroupCount();
       return true;
@@ -621,6 +625,7 @@ class NewtabApp {
     this.state.pageStatus = '固定設定を保存しています。';
     this.state.actionBusy = false;
     this.render();
+    this.state.pendingUpdates += 1;
     try {
       await setGroupFixed(groupId, !group.is_fixed);
       this.state.pageStatus = group.is_fixed ? '固定を解除しました。次の復元から削除します。' : '固定しました。復元後も内容を保持します。';
@@ -628,6 +633,7 @@ class NewtabApp {
       this.updateGroup(groupId, () => group);
       this.state.pageStatus = `固定設定の保存失敗: ${getErrorMessage(error)}`;
     } finally {
+      this.state.pendingUpdates -= 1;
       this.state.actionBusy = false;
       this.render();
     }
@@ -646,6 +652,7 @@ class NewtabApp {
       : this.state.favoriteGroupIds.filter((id) => id !== groupId);
     this.state.actionBusy = false;
     this.render();
+    this.state.pendingUpdates += 1;
     try {
       await setGroupFavorite(groupId, favorite);
       this.state.pageStatus = favorite
@@ -657,6 +664,7 @@ class NewtabApp {
         : [...this.state.favoriteGroupIds, groupId];
       this.state.pageStatus = `お気に入りの更新失敗: ${getErrorMessage(error)}`;
     } finally {
+      this.state.pendingUpdates -= 1;
       this.state.actionBusy = false;
       this.render();
     }

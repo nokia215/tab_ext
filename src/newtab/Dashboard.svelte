@@ -72,6 +72,7 @@
     {/if}
 
     <StatusBanner status={state.pageStatus} error={args.pageStatusIsError} />
+    <StatusBanner status={state.syncStatus} error={isErrorStatus(state.syncStatus)} />
     {#if state.pageStatus.includes('削除同期に失敗')}<button class="secondary" data-action="refresh-all" disabled={state.actionBusy || state.refreshBusy}>削除の同期を再試行</button>{/if}
 
     <section class={`panel explorer-panel${lightweight ? ' lightweight-explorer' : ''}`}>

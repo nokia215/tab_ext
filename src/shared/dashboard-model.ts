@@ -24,6 +24,8 @@ export interface DashboardState {
   authStatus: string;
   saveStatus: string;
   pageStatus: string;
+  syncStatus: string;
+  pendingUpdates: number;
   searchQuery: string;
   favoriteOnly: boolean;
   groupFilter: GroupFilter;
@@ -90,6 +92,8 @@ export function createInitialState(runtimeProfile: RuntimeProfile): DashboardSta
     authStatus: '状態を確認しています。',
     saveStatus: '',
     pageStatus: '',
+    syncStatus: '',
+    pendingUpdates: 0,
     searchQuery: '',
     favoriteOnly: false,
     groupFilter: 'all',
