@@ -117,7 +117,6 @@ npm run db:migrate         # 未適用分を適用
 ```
 
 適用前に内容を確認する場合は`npm run db:migrate:check`を実行します。
-お気に入りの空グループを保持するには、`supabase/migrations/20261004000000_keep_empty_favorite_groups.sql`が適用済みである必要があります。
 
 ## 開発
 
