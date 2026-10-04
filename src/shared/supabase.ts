@@ -334,7 +334,7 @@ async function persistTabGroup(input: {
   return { group, count: savedCount, duplicateCount };
 }
 
-const GROUP_COLUMNS = 'id, title, created_at, is_fixed, device_id, tabs(id, url, title, position)';
+const GROUP_COLUMNS = 'id, title, created_at, is_fixed, is_favorite, device_id, tabs(id, url, title, position)';
 
 function orderedGroup(group: TabGroup): TabGroup {
   return { ...group, tabs: [...group.tabs].sort((a, b) => a.position - b.position) };

@@ -28,7 +28,7 @@ globalThis.restoreTest = {
     const group = groups.find((group) => group.id === id);
     if (!group || group.is_fixed) return;
     group.tabs = group.tabs.filter((tab) => !ids.includes(tab.id));
-    if (!group.tabs.length) groups = groups.filter((group) => group.id !== id);
+    if (!group.tabs.length && !group.is_favorite) groups = groups.filter((group) => group.id !== id);
   }
 };
 function reset(fixed = false) {
@@ -75,6 +75,23 @@ try {
     assert.equal(groups.length, 0);
     assert.equal(opened[2].windowId, 123);
     assert.deepEqual(stored, {});
+
+    for (const failure of ['none', 'consume', 'read']) {
+      reset(); groups[0].is_favorite = true;
+      failConsume = failure === 'consume'; failReadAfterOpen = failure === 'read';
+      result = await service.restoreSavedTabs('g', ['a', 'b', 'c'], true);
+      assert.equal(result.group.id, 'g', 'Empty favorite groups survive restore and sync failures');
+      assert.equal(result.group.title, 'Work');
+      assert.equal(result.group.is_favorite, true);
+      assert.deepEqual(result.group.tabs, []);
+      assert.equal(groups.length, 1);
+      if (failConsume) {
+        failConsume = false;
+        await service.retryPendingConsumption();
+        assert.equal(groups[0].tabs.length, 0);
+        assert.deepEqual(stored, {});
+      }
+    }
 
     reset(true);
     for (let iteration = 0; iteration < 2; iteration++) {
@@ -167,6 +184,8 @@ try {
   unused.closeUnused(); assert.equal(windows[0].closed, true);
   assert.deepEqual(webService.hidePendingTabs([makeGroup()], ['a', 'b', 'c']), []);
   assert.equal(webService.hidePendingTabs([makeGroup(true)], ['a', 'b', 'c'])[0].tabs.length, 3);
+  assert.equal(webService.hidePendingTabs([{ ...makeGroup(), is_favorite: true }], ['a', 'b', 'c'])[0].tabs.length, 0);
+  assert.equal(webService.hidePendingTabs([makeGroup()], ['a', 'b', 'c'], ['g'])[0].tabs.length, 0);
   console.log('Web popup / pending queue checks passed.');
 } finally {
   delete globalThis.chrome; delete globalThis.browser; delete globalThis.window; delete globalThis.restoreTest;
@@ -191,15 +210,16 @@ for (const kind of ['newtab', 'tablet']) {
     bundle: true, platform: 'node', format: 'esm', write: false,
     plugins: [{ name: 'dashboard-test', setup(builder) {
       builder.onResolve({ filter: /\.css$/ }, () => ({ path: 'css', namespace: 'mock-ui' }));
+      builder.onResolve({ filter: /\/dashboard-state\.svelte$/ }, () => ({ path: 'state', namespace: 'mock-ui' }));
       builder.onResolve({ filter: /\/restoration$/ }, () => ({ path: 'restoration', namespace: 'mock-ui' }));
-      builder.onLoad({ filter: /.*/, namespace: 'mock-ui' }, ({ path }) => ({ contents: path === 'css' ? '' : `
+      builder.onLoad({ filter: /.*/, namespace: 'mock-ui' }, ({ path }) => ({ contents: path === 'css' ? '' : path === 'state' ? 'export const dashboards = { desktop: null, tablet: null };' : `
         export const restoreSavedTabs = (...args) => globalThis.dashboardRestore(...args);
         export const prepareWebRestore = () => ({ open() {}, closeUnused() {} });
         export const retryPendingConsumption = async () => ({ pendingTabIds: [] });
-        export const hidePendingTabs = (groups, ids) => groups.flatMap(group => {
+        export const hidePendingTabs = (groups, ids, favorites = []) => groups.flatMap(group => {
           if (group.is_fixed) return [group];
           const tabs = group.tabs.filter(tab => !ids.includes(tab.id));
-          return tabs.length ? [{ ...group, tabs }] : [];
+          return tabs.length || favorites.includes(group.id) ? [{ ...group, tabs }] : [];
         });` }));
     } }]
   });
@@ -207,22 +227,23 @@ for (const kind of ['newtab', 'tablet']) {
   const app = new App({ addEventListener() {} }, { isAndroidFirefox: false, uiMode: 'default' });
   app.render = () => { responses.push(structuredClone(app.state)); };
   if (kind === 'newtab') app.restoreInBackground = restore;
-  const original = [makeGroup(), { ...makeGroup(true), id: 'fixed' }];
+  const original = [{ ...makeGroup(), is_favorite: true }, { ...makeGroup(true), id: 'fixed' }];
   app.state.allGroups = structuredClone(original);
   app.state.favoriteGroupIds = ['g', 'fixed'];
   app.state.selectedGroupIds = ['g', 'fixed'];
   const running = app.handleRestoreSelectedGroups();
   assert.equal(app.state.restoreBusy, true);
-  assert.deepEqual(app.state.allGroups.map((group) => group.id), ['fixed'], 'Optimism consumes only ordinary groups');
+  assert.deepEqual(app.state.allGroups.map((group) => group.id), ['g', 'fixed'], 'Optimism retains empty favorites');
+  assert.equal(app.state.allGroups[0].tabs.length, 0);
   await app.refreshAll();
-  assert.deepEqual(app.state.allGroups.map((group) => group.id), ['fixed'], 'Refresh cannot overwrite an in-flight mutation');
-  resolveRestore({ group: null, openedTabIds: ['a', 'b', 'c'], pendingTabIds: [] });
+  assert.deepEqual(app.state.allGroups.map((group) => group.id), ['g', 'fixed'], 'Refresh cannot overwrite an in-flight mutation');
+  resolveRestore({ group: { ...original[0], tabs: [] }, openedTabIds: ['a', 'b', 'c'], pendingTabIds: [] });
   await new Promise((resolve) => setImmediate(resolve));
   resolveRestore({ group: original[1], openedTabIds: [], pendingTabIds: [], error: '復元失敗: Blocked' });
   await running;
   assert.equal(app.state.restoreBusy, false);
-  assert.deepEqual(app.state.allGroups.map((group) => group.id), ['fixed']);
-  assert.deepEqual(app.state.favoriteGroupIds, ['fixed']);
+  assert.deepEqual(app.state.allGroups.map((group) => group.id), ['g', 'fixed']);
+  assert.deepEqual(app.state.favoriteGroupIds, ['g', 'fixed']);
   assert.match(app.state.pageStatus, /3 タブ復元.*失敗/);
   assert.equal(calls, 2);
   app.state.allGroups = structuredClone(original);

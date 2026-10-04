@@ -502,7 +502,7 @@ class NewtabApp {
 
     this.state.restoreBusy = true;
     for (const { group, ids } of requests) {
-      if (!group.is_fixed) this.state.allGroups = hidePendingTabs(this.state.allGroups, ids);
+      if (!group.is_fixed) this.state.allGroups = hidePendingTabs(this.state.allGroups, ids, this.state.favoriteGroupIds);
     }
     this.state.pageStatus = '復元しています。';
     this.render();

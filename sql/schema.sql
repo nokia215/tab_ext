@@ -118,6 +118,7 @@ begin
       and id = any(p_tab_ids);
   delete from public.tab_groups g
     where g.id = p_group_id and g.user_id = auth.uid() and not g.is_fixed
+      and g.is_favorite is not true
       and not exists (select 1 from public.tabs t where t.group_id = g.id);
 end;
 $$;

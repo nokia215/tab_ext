@@ -15,6 +15,7 @@ export interface TabGroup {
   title: string | null;
   created_at: string;
   is_fixed: boolean;
+  is_favorite?: boolean | null;
   device_id: string;
   tabs: SavedTab[];
 }

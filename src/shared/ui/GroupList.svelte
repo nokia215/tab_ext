@@ -59,7 +59,7 @@
             {:else}
               <button class="ghost" type="button" data-action="edit-group-title" data-group-id={group.id} disabled={view.busy}>名前編集</button>
             {/if}
-            <button class="secondary" type="button" data-action="restore-group" data-group-id={group.id} disabled={view.busy}>{group.is_fixed ? '全部復元' : '復元して削除'}</button>
+            <button class="secondary" type="button" data-action="restore-group" data-group-id={group.id} disabled={view.busy || group.tabs.length === 0}>{group.is_fixed ? '全部復元' : '復元して削除'}</button>
             <button class="ghost" type="button" data-action="toggle-fixed-group" aria-pressed={group.is_fixed} data-group-id={group.id} disabled={view.busy}>{group.is_fixed ? '固定を解除' : '固定（復元後も保持）'}</button>
             <button class="danger" type="button" data-action="delete-group" data-group-id={group.id} disabled={view.busy}>グループ削除</button>
           </div>
@@ -74,6 +74,8 @@
             {/each}
             {#if !expanded && hiddenTabCount > 0}<button class="ghost tab-row-more" type="button" data-action="toggle-group" data-group-id={group.id} disabled={view.busy}>残り {hiddenTabCount} 件を表示</button>{/if}
           </div>
+        {:else}
+          <p>タブはありません。</p>
         {/if}
       </article>
     {/each}

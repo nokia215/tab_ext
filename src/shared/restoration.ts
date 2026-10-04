@@ -44,12 +44,13 @@ export async function retryPendingConsumption() {
   return { pendingTabIds, error };
 }
 
-export function hidePendingTabs(groups: TabGroup[], pendingTabIds: string[]) {
+export function hidePendingTabs(groups: TabGroup[], pendingTabIds: string[], favoriteGroupIds?: string[]) {
   const pending = new Set(pendingTabIds);
   return groups.flatMap((group) => {
     if (group.is_fixed) return [group];
     const tabs = group.tabs.filter((tab) => !pending.has(tab.id));
-    return tabs.length === 0 && group.tabs.length > 0 ? [] : [{ ...group, tabs }];
+    const favorite = favoriteGroupIds ? favoriteGroupIds.includes(group.id) : group.is_favorite;
+    return tabs.length === 0 && group.tabs.length > 0 && !favorite ? [] : [{ ...group, tabs }];
   });
 }
 
@@ -131,7 +132,7 @@ async function performRestore(
   } catch (cause) {
     error ??= `一覧更新失敗: ${getErrorMessage(cause)}`;
   }
-  return { group: group.is_fixed || group.tabs.length ? group : null, openedTabIds, pendingTabIds, error };
+  return { group: group.is_fixed || group.is_favorite || group.tabs.length ? group : null, openedTabIds, pendingTabIds, error };
 }
 
 // Reserve windows during the user gesture, before authentication/database awaits.
