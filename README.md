@@ -109,8 +109,15 @@ Firefoxではビルド後に`npm run run:firefox`で開発用ブラウザを起�
 Windows PowerShellで`npm.ps1`が実行ポリシーによりブロックされる場合は、`npm`の代わりに`npm.cmd`を使ってください。
 
 データベースの初期スキーマは[sql/schema.sql](sql/schema.sql)、追加変更は[増分マイグレーション](supabase/migrations/)にあります。
-既存データベースを更新する場合は、必要なマイグレーションを適用してください。
-お気に入りの空グループを保持するには、`supabase/migrations/20261004000000_keep_empty_favorite_groups.sql`の適用が必要です。
+リンク済みのSupabaseプロジェクトに未適用のマイグレーションを反映するには、Supabase CLIでログインしたうえで次を実行します。
+
+```bash
+npm run db:migrate:status  # 適用状況を確認
+npm run db:migrate         # 未適用分を適用
+```
+
+適用前に内容を確認する場合は`npm run db:migrate:check`を実行します。
+お気に入りの空グループを保持するには、`supabase/migrations/20261004000000_keep_empty_favorite_groups.sql`が適用済みである必要があります。
 
 ## 開発
 
