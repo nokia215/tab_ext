@@ -25,10 +25,6 @@ async function getLastFocusedWindowTabs() {
   return (windowInfo?.tabs ?? []).filter((tab): tab is chrome.tabs.Tab => Boolean(tab));
 }
 
-function countSavableTabs(tabs: chrome.tabs.Tab[]) {
-  return tabs.filter((tab) => isSavableTabUrl(tab.url)).length;
-}
-
 function sortTabs(tabs: chrome.tabs.Tab[]) {
   return [...tabs].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
 }
@@ -39,7 +35,7 @@ async function resolveWindowTabs(sender: chrome.runtime.MessageSender) {
   if (typeof sender.tab?.windowId === 'number') {
     const senderWindowTabs = await queryTabs({ windowId: sender.tab.windowId });
     if (senderWindowTabs.length > 0) {
-      candidates.push(senderWindowTabs);
+      return sortTabs(senderWindowTabs);
     }
   }
 
@@ -53,13 +49,9 @@ async function resolveWindowTabs(sender: chrome.runtime.MessageSender) {
     candidates.push(lastFocusedTabs);
   }
 
-  return candidates
-    .map((tabs) => sortTabs(tabs))
-    .sort((left, right) => {
-      const savableDiff = countSavableTabs(right) - countSavableTabs(left);
-      if (savableDiff !== 0) return savableDiff;
-      return right.length - left.length;
-    })[0] ?? [];
+  const tabs = candidates.find((tabs) => tabs.some((tab) => isSavableTabUrl(tab.url)))
+    ?? candidates[0] ?? [];
+  return sortTabs(tabs);
 }
 
 async function handlePopupAction(

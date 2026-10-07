@@ -1,7 +1,10 @@
+// ponytail: partial browser mocks are injected here; add full API mocks if browser coverage grows.
+const testGlobal = globalThis as unknown as Record<string, unknown>;
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 
-const rows = [
+type Row = { id: string; user_id: string; is_favorite: boolean | null; is_fixed?: boolean };
+const rows: Row[] = [
   { id: 'legacy', user_id: 'owner', is_favorite: null },
   { id: 'other', user_id: 'owner', is_favorite: false },
   { id: 'foreign', user_id: 'another', is_favorite: null }
@@ -10,37 +13,37 @@ const devices = {
   a: { favorite_group_ids: ['legacy', 'foreign'] },
   b: { favorite_group_ids: ['legacy'] }
 };
-let device = 'a';
-let userId = 'owner';
-let failure = null;
+let device: keyof typeof devices = 'a';
+let userId: string | null = 'owner';
+let failure: string | null = null;
 let requests = 0;
-globalThis.chrome = { storage: { local: {
+testGlobal.chrome = { storage: { local: {
   get: async () => structuredClone(devices[device]),
-  set: async (value) => Object.assign(devices[device], value)
+  set: async (value: { favorite_group_ids: string[] }) => Object.assign(devices[device], value)
 } } };
-globalThis.favoriteTestClient = {
+testGlobal.favoriteTestClient = {
   auth: { getSession: async () => ({ data: { session: userId ? { user: { id: userId } } : null }, error: null }) },
-  from(table) {
+  from(table: string) {
     assert.equal(table, 'tab_groups');
     requests++;
-    const filters = [];
-    let payload;
+    const filters: [string, (row: Row) => boolean][] = [];
+    let payload: Partial<Row> | undefined;
     let single = false;
     const query = {
       select() { return query; },
-      update(value) { payload = value; return query; },
-      eq(key, value) { filters.push([key, (row) => row[key] === value]); return query; },
-      is(key, value) { return query.eq(key, value); },
-      in(key, values) { filters.push([key, (row) => values.includes(row[key])]); return query; },
+      update(value: Partial<Row>) { payload = value; return query; },
+      eq(key: keyof Row, value: unknown) { filters.push([key, (row) => row[key] === value]); return query; },
+      is(key: keyof Row, value: unknown) { return query.eq(key, value); },
+      in(key: keyof Row, values: unknown[]) { filters.push([key, (row) => values.includes(row[key])]); return query; },
       single() { single = true; return query; },
-      then(resolve, reject) {
+      then(resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) {
         return Promise.resolve().then(() => {
           assert.ok(filters.some(([key]) => key === 'user_id'), 'Every read/write must be user scoped');
           if (failure) return { data: null, error: new Error(failure) };
           const matched = rows.filter((row) => filters.every(([, matches]) => matches(row)));
           if (single && matched.length !== 1) return { data: null, error: new Error('Missing group') };
           if (payload) matched.forEach((row) => Object.assign(row, payload));
-          return { data: structuredClone(single ? matched[0] : matched), error: null };
+          return { data: structuredClone(single ? matched[0]! : matched), error: null };
         }).then(resolve, reject);
       }
     };
@@ -58,7 +61,7 @@ const result = await build({
       : "export const getConfig = async () => ({ supabaseUrl: 'test', supabaseKey: 'test' });" }));
   } }]
 });
-const { getFavoriteGroupIds, setGroupFavorite, setGroupFixed } = await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}`);
+const { getFavoriteGroupIds, setGroupFavorite, setGroupFixed } = await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0]!.text).toString('base64')}`);
 try {
   failure = 'Migration failed';
   await assert.rejects(getFavoriteGroupIds(), /Migration failed/);
@@ -66,7 +69,7 @@ try {
   failure = null;
   assert.deepEqual(await getFavoriteGroupIds(), ['legacy']);
   assert.deepEqual(devices.a.favorite_group_ids, ['foreign']);
-  assert.equal(rows[2].is_favorite, null, 'Do not migrate another account');
+  assert.equal(rows[2]!.is_favorite, null, 'Do not migrate another account');
 
   // A second device sees additions and removals on each refresh, without a page reload.
   device = 'b';
@@ -79,21 +82,21 @@ try {
   devices.b.favorite_group_ids = ['legacy'];
   assert.deepEqual(await getFavoriteGroupIds(), ['other'], 'Old local data must not undo a remote removal');
   assert.deepEqual(devices.b.favorite_group_ids, []);
-  assert.equal(rows[1].is_favorite, true, 'Updating one group must not overwrite other favorites');
+  assert.equal(rows[1]!.is_favorite, true, 'Updating one group must not overwrite other favorites');
 
   await setGroupFixed('other', true);
-  assert.equal(rows[1].is_fixed, true);
-  assert.equal(rows[1].is_favorite, true);
+  assert.equal(rows[1]!.is_fixed, true);
+  assert.equal(rows[1]!.is_favorite, true);
   await setGroupFavorite('other', false);
-  assert.equal(rows[1].is_fixed, true, 'Favorite changes must not change retention');
+  assert.equal(rows[1]!.is_fixed, true, 'Favorite changes must not change retention');
   await setGroupFavorite('other', true);
   await setGroupFixed('other', false);
-  assert.equal(rows[1].is_favorite, true, 'Retention changes must not change favorites');
+  assert.equal(rows[1]!.is_favorite, true, 'Retention changes must not change favorites');
 
   failure = 'Network failed';
   await assert.rejects(setGroupFavorite('other', false), /Network failed/);
   await assert.rejects(getFavoriteGroupIds(), /Network failed/);
-  assert.equal(rows[1].is_favorite, true);
+  assert.equal(rows[1]!.is_favorite, true);
   failure = null;
   await assert.rejects(setGroupFavorite('missing', true), /Missing group/);
   await assert.rejects(setGroupFavorite('foreign', true), /Missing group/);
@@ -110,6 +113,6 @@ try {
   assert.equal(requests, before);
   console.log('Cross-device favorite sync regression checks passed.');
 } finally {
-  delete globalThis.chrome;
-  delete globalThis.favoriteTestClient;
+  delete testGlobal.chrome;
+  delete testGlobal.favoriteTestClient;
 }

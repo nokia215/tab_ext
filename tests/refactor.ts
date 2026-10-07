@@ -1,13 +1,15 @@
+// ponytail: partial browser mocks are injected here; add full API mocks if browser coverage grows.
+const testGlobal = globalThis as unknown as Record<string, unknown>;
 import assert from 'node:assert/strict';
 import { mock } from 'node:test';
 import { build } from 'esbuild';
 
 let moduleId = 0;
-async function loadModule(entry) {
+async function loadModule(entry: string) {
   const result = await build({
     entryPoints: [entry], bundle: true, platform: 'node', format: 'esm', write: false
   });
-  return import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}#${moduleId++}`);
+  return import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0]!.text).toString('base64')}#${moduleId++}`);
 }
 
 const model = await loadModule('src/shared/dashboard-model.ts');
@@ -32,7 +34,7 @@ try {
   ];
   const before = structuredClone(groups);
   const state = model.createInitialState({ isAndroidFirefox: false, uiMode: 'default' });
-  const ids = (options = {}, input = groups) => model.queryGroups(input, { ...state, ...options }).map((g) => g.id);
+  const ids = (options = {}, input = groups) => model.queryGroups(input, { ...state, ...options }).map((g: { id: string }) => g.id);
   assert.deepEqual(ids(), ['new', 'archive', 'old']);
   assert.deepEqual(ids({ sortMode: 'oldest' }), ['old', 'archive', 'new']);
   assert.deepEqual(ids({ sortMode: 'tabCount' }), ['new', 'archive', 'old']);
@@ -46,8 +48,8 @@ try {
   assert.deepEqual(ids({ groupFilter: 'fixed', favoriteOnly: true, favoriteGroupIds: ['archive'] }), ['archive']);
   assert.deepEqual(ids({ dateRangeFilter: 'today' }), ['new']);
   assert.deepEqual(ids({ dateRangeFilter: 'week' }), ['new', 'archive']);
-  assert.deepEqual(ids({}, [groups[1], { ...groups[1], id: 'tie' }]), ['new', 'tie']);
-  assert.deepEqual(ids({ sortMode: 'tabCount' }, [groups[1], { ...groups[0], tabs: [...groups[0].tabs, ...groups[1].tabs] }]), ['old', 'new']);
+  assert.deepEqual(ids({}, [groups[1]!, { ...groups[1]!, id: 'tie' }]), ['new', 'tie']);
+  assert.deepEqual(ids({ sortMode: 'tabCount' }, [groups[1]!, { ...groups[0]!, tabs: [...groups[0]!.tabs, ...groups[1]!.tabs] }]), ['old', 'new']);
   assert.deepEqual(model.summarizeSelectedGroups(groups, ['old', 'new', 'old', 'missing']), {
     selectedCount: 2, selectedTabCount: 2, restorableGroupCount: 2
   });
@@ -70,7 +72,7 @@ try {
   const light = model.createInitialState({ isAndroidFirefox: true, uiMode: 'lightweight' });
   assert.equal(light.visibleGroupCount, 12);
   assert.equal(model.LIGHTWEIGHT_GROUP_BATCH_SIZE, 12);
-  assert.equal(groupState.visibleGroups(Array(15).fill(groups[0]), light.visibleGroupCount).length, 12);
+  assert.equal(groupState.visibleGroups(Array(15).fill(groups[0]!), light.visibleGroupCount).length, 12);
   groupState.resetVisibleGroupCount(state, 12);
   assert.equal(state.visibleGroupCount, 12);
   groupState.resetVisibleGroupCount(state, null);
@@ -102,11 +104,30 @@ assert.deepEqual(configFromFormFields({ config: { ...emptyConfig, supabaseUrl: '
 assert.deepEqual(config, originalConfig);
 console.log('Config form regression checks passed.');
 
+const settings = { ignore_domains: ['old.test'], ignore_titles: [] };
+testGlobal.chrome = { storage: { local: {
+  get: async () => structuredClone(settings),
+  set: async (values: typeof settings) => Object.assign(settings, structuredClone(values))
+} } };
+try {
+  const { getConfig, saveConfig } = await loadModule('src/shared/storage.ts');
+  assert.deepEqual((await getConfig()).ignoreDomains, ['old.test']);
+  settings.ignore_domains = ['changed-in-another-page.test'];
+  assert.deepEqual((await getConfig()).ignoreDomains, settings.ignore_domains);
+  await saveConfig({ ignoreDomains: ['saved.test'], ignoreTitles: ['Ignored'] });
+  const read = await getConfig();
+  read.ignoreDomains.push('local-only.test');
+  assert.deepEqual(await getConfig(), { ignoreDomains: ['saved.test'], ignoreTitles: ['Ignored'] });
+  console.log('Cross-page settings regression checks passed.');
+} finally {
+  delete testGlobal.chrome;
+}
+
 for (const browser of ['chrome', 'firefox']) {
-  let response;
-  let failure;
-  let sent;
-  const runtime = {
+  let response: any;
+  let failure: string | undefined;
+  let sent: unknown;
+  const runtime: { lastError?: { message: string }; sendMessage: (message: unknown, callback?: (value: unknown) => void) => Promise<unknown> | void } = {
     sendMessage(message, callback) {
       sent = message;
       if (browser === 'firefox') {
@@ -116,12 +137,12 @@ for (const browser of ['chrome', 'firefox']) {
       assert.equal(typeof callback, 'function');
       queueMicrotask(() => {
         runtime.lastError = failure ? { message: failure } : undefined;
-        try { callback(response); } finally { delete runtime.lastError; }
+        try { callback!(response); } finally { delete runtime.lastError; }
       });
     }
   };
-  globalThis.chrome = { runtime };
-  if (browser === 'firefox') globalThis.browser = globalThis.chrome;
+  testGlobal.chrome = { runtime };
+  if (browser === 'firefox') testGlobal.browser = testGlobal.chrome;
   try {
     const { requestCurrentWindowTabs, requestActiveTab } = await loadModule('src/shared/messages.ts');
     for (const [request, type, field, value, fallback] of [
@@ -143,8 +164,8 @@ for (const browser of ['chrome', 'firefox']) {
       failure = undefined;
     }
   } finally {
-    delete globalThis.chrome;
-    delete globalThis.browser;
+    delete testGlobal.chrome;
+    delete testGlobal.browser;
   }
   console.log(`${browser} messaging regression checks passed.`);
 }

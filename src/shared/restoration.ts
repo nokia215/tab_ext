@@ -76,16 +76,14 @@ async function performRestore(
   webOpen?: (tab: SavedTab) => Promise<void>
 ): Promise<RestoreResult> {
   const scope = await pendingScope();
-  const pending = await retryPendingConsumption();
+  // Read the durable local queue without waiting for unrelated remote retries.
+  const pendingTabIds = (await pendingEntries(scope))
+    .filter(([, item]) => item.groupId === groupId).map(([, item]) => item.tabId);
   const current = await getGroup(groupId);
-  if (!current) return { group: null, openedTabIds: [], pendingTabIds: pending.pendingTabIds, error: pending.error };
-  if (pending.error) return {
-    group: hidePendingTabs([current], pending.pendingTabIds)[0] ?? null,
-    openedTabIds: [], pendingTabIds: pending.pendingTabIds, error: pending.error
-  };
+  if (!current) return { group: null, openedTabIds: [], pendingTabIds };
 
   const wanted = new Set(tabIds);
-  const tabs = current.tabs.filter((tab) => wanted.has(tab.id));
+  const tabs = current.tabs.filter((tab) => wanted.has(tab.id) && !pendingTabIds.includes(tab.id));
   const openedTabIds: string[] = [];
   let windowId: number | undefined;
   let error: string | undefined;
@@ -111,19 +109,19 @@ async function performRestore(
     }
   }
 
-  let pendingTabIds: string[] = [];
-  if (!current.is_fixed && openedTabIds.length > 0) {
+  if (!current.is_fixed) pendingTabIds.push(...openedTabIds);
+  if (pendingTabIds.length > 0) {
     try {
-      await consumeRestoredTabs(groupId, openedTabIds);
-      await storageLocalRemove(openedTabIds.map((id) => `${scope}${id}`));
+      await consumeRestoredTabs(groupId, pendingTabIds);
+      await storageLocalRemove(pendingTabIds.map((id) => `${scope}${id}`));
+      pendingTabIds.length = 0;
     } catch (cause) {
-      pendingTabIds = openedTabIds;
       error = `復元後の削除同期に失敗: ${getErrorMessage(cause)}。「削除の同期を再試行」を押してください。`;
     }
   }
   // Keep successful opens out of the local queue even if the following read fails.
   const group = current.is_fixed ? current : {
-    ...current, tabs: current.tabs.filter((tab) => !openedTabIds.includes(tab.id))
+    ...current, tabs: current.tabs.filter((tab) => !openedTabIds.includes(tab.id) && !pendingTabIds.includes(tab.id))
   };
   try {
     const fresh = await getGroup(groupId);

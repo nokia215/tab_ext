@@ -24,8 +24,6 @@ const KEYS = {
   IGNORE_TITLES: 'ignore_titles'
 } as const;
 
-let cachedConfig: AppConfig | null = null;
-
 function detectBrowserName(userAgent: string): string {
   if (userAgent.includes('Firefox/')) return 'Firefox';
   if (userAgent.includes('Edg/')) return 'Edge';
@@ -62,14 +60,6 @@ function normalizeLines(value: string[] | undefined): string[] {
 }
 
 export async function getConfig(): Promise<AppConfig> {
-  if (cachedConfig) {
-    return {
-      ...cachedConfig,
-      ignoreDomains: [...cachedConfig.ignoreDomains],
-      ignoreTitles: [...cachedConfig.ignoreTitles]
-    };
-  }
-
   const result = await storageLocalGet([
     KEYS.IGNORE_DOMAINS,
     KEYS.IGNORE_TITLES
@@ -77,15 +67,9 @@ export async function getConfig(): Promise<AppConfig> {
 
   const r = result as Record<string, string | string[] | undefined>;
 
-  cachedConfig = {
+  return {
     ignoreDomains: normalizeLines(r[KEYS.IGNORE_DOMAINS] as string[] | undefined),
     ignoreTitles: normalizeLines(r[KEYS.IGNORE_TITLES] as string[] | undefined)
-  };
-
-  return {
-    ...cachedConfig,
-    ignoreDomains: [...cachedConfig.ignoreDomains],
-    ignoreTitles: [...cachedConfig.ignoreTitles]
   };
 }
 
@@ -94,12 +78,6 @@ export async function saveConfig(config: AppConfig): Promise<void> {
     [KEYS.IGNORE_DOMAINS]: config.ignoreDomains,
     [KEYS.IGNORE_TITLES]: config.ignoreTitles
   });
-
-  cachedConfig = {
-    ...config,
-    ignoreDomains: [...config.ignoreDomains],
-    ignoreTitles: [...config.ignoreTitles]
-  };
 }
 
 export async function getOrCreateDeviceId(): Promise<string> {

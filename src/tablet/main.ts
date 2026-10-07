@@ -49,6 +49,9 @@ class TabletApp {
   private pendingSearchRenderId: number | null = null;
   private cacheUserId: string | null = null;
   private cacheTimer: number | null = null;
+  private pendingRestoreTabs = new Map<string, string>();
+  // ponytail: serialize restores per dashboard; use per-group queues if throughput matters.
+  private restoreQueue: Promise<void> | null = null;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -406,12 +409,19 @@ class TabletApp {
   }
 
   private async handleRestoreGroups(groups: TabGroup[], tabId?: string) {
-    if (this.state.actionBusy || this.state.refreshBusy || this.state.restoreBusy || groups.length === 0) return;
+    if (this.state.actionBusy || this.state.refreshBusy || groups.length === 0) return;
     const requests = groups.map((group) => ({ group, ids: group.tabs
-      .filter((tab) => !tabId || tab.id === tabId).map((tab) => tab.id) }));
-    const selected = [...this.state.selectedGroupIds];
-    const expanded = [...this.state.expandedGroupIds];
+      .filter((tab) => (!tabId || tab.id === tabId) && !this.pendingRestoreTabs.has(group.id + ':' + tab.id))
+      .map((tab) => tab.id) })).filter(({ ids }) => ids.length > 0);
+    if (requests.length === 0) return;
     const web = prepareWebRestore(requests.reduce((sum, request) => sum + request.ids.length, 0));
+    for (const { group, ids } of requests) {
+      for (const id of ids) this.pendingRestoreTabs.set(group.id + ':' + id, id);
+    }
+    const previous = this.restoreQueue;
+    let finish!: () => void;
+    this.restoreQueue = new Promise<void>((resolve) => { finish = resolve; });
+    const selected = [...this.state.selectedGroupIds];
     this.state.restoreBusy = true;
     for (const { group, ids } of requests) {
       if (!group.is_fixed) this.state.allGroups = hidePendingTabs(this.state.allGroups, ids, this.state.favoriteGroupIds);
@@ -421,10 +431,14 @@ class TabletApp {
     let completed = 0;
     let opened = 0;
     try {
+      if (previous) await previous;
       for (const { group, ids } of requests) {
         const result = await restoreSavedTabs(group.id, ids, !tabId, web.open);
         this.state.allGroups = this.state.allGroups.filter((item) => item.id !== group.id);
         if (result.group) this.state.allGroups.push(result.group);
+        for (const id of ids) this.pendingRestoreTabs.delete(group.id + ':' + id);
+        this.state.allGroups = hidePendingTabs(this.state.allGroups, [...this.pendingRestoreTabs.values()], this.state.favoriteGroupIds);
+        this.render();
         completed += 1;
         opened += result.openedTabIds.length;
         if (result.error) throw new Error(result.error);
@@ -432,18 +446,25 @@ class TabletApp {
       this.state.selectedGroupIds = this.state.selectedGroupIds.filter((id) => !groups.some((group) => group.id === id));
       this.state.pageStatus = `${opened} タブを復元しました。固定グループの内容は保持しました。`;
     } catch (error) {
-      for (const { group } of requests.slice(completed)) {
+      for (const { group, ids } of requests.slice(completed)) {
+        for (const id of ids) this.pendingRestoreTabs.delete(group.id + ':' + id);
+        const current = this.findGroup(group.id);
+        const tabs = [...(current?.tabs ?? []), ...group.tabs.filter((tab) => ids.includes(tab.id)
+          && !current?.tabs.some((item) => item.id === tab.id))].sort((a, b) => a.position - b.position);
         this.state.allGroups = this.state.allGroups.filter((item) => item.id !== group.id);
-        this.state.allGroups.push(group);
+        this.state.allGroups.push({ ...(current ?? group), tabs });
       }
-      this.state.selectedGroupIds = selected;
+      this.state.selectedGroupIds = [...new Set([...this.state.selectedGroupIds, ...selected])];
       this.state.pageStatus = `${opened} タブ復元 / ${getErrorMessage(error)}`;
     } finally {
       web.closeUnused();
+      this.state.allGroups = hidePendingTabs(this.state.allGroups, [...this.pendingRestoreTabs.values()], this.state.favoriteGroupIds);
       this.state.selectedGroupIds = reconcileGroupIds(this.state.selectedGroupIds, this.state.allGroups);
-      this.state.expandedGroupIds = reconcileGroupIds(expanded, this.state.allGroups);
+      this.state.expandedGroupIds = reconcileGroupIds(this.state.expandedGroupIds, this.state.allGroups);
       this.state.favoriteGroupIds = reconcileGroupIds(this.state.favoriteGroupIds, this.state.allGroups);
-      this.state.restoreBusy = false;
+      this.state.restoreBusy = this.pendingRestoreTabs.size > 0;
+      if (!this.state.restoreBusy) this.restoreQueue = null;
+      finish();
       this.render();
     }
   }

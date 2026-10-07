@@ -35,6 +35,8 @@ ChromeとFirefoxのタブをSupabaseに保存し、同じアカウントで別�
 
 復元後の削除同期に失敗した場合は、ダッシュボードの「削除の同期を再試行」から再試行できます。
 自動同期時にも、未完了の削除同期を再試行します。
+タブを連続クリックした場合も、クリックごとに一覧へ即時反映し、復元は受付順に実行します。
+復元に失敗したタブは一覧に戻し、処理中の同じタブへの重複クリックは無視します。
 
 ### 別端末の変更を自動反映
 
@@ -96,7 +98,7 @@ SupabaseのURLとpublishable keyは[ビルド設定](src/shared/build-config.ts)
 
 ### ローカルでのビルド
 
-Node.jsとnpmを用意してください。
+Node.js 24以上とnpmを用意してください。
 GitHub ActionsではNode.js 24を使用しています。
 
 ```bash
@@ -122,7 +124,7 @@ npm run db:migrate         # 未適用分を適用
 
 ```bash
 npm run typecheck
-npm test
+npm test              # TSテストのstrict型チェックと回帰テスト
 npm run dev:chrome     # Chrome向けの開発
 npm run dev:firefox    # Firefox向けの開発
 npm run build          # 型チェックと両ブラウザのビルド
