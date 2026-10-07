@@ -17,12 +17,13 @@ testGlobal.window = window;
 let now = 10_000;
 Date.now = () => now;
 let userId = 'owner';
+let sessionUserId: string | null = 'owner';
 let requests = 0;
 let release: (() => void) | null = null;
 let defer = false;
 let failure = false;
 testGlobal.syncTest = {
-  user: async () => ({ id: userId }),
+  user: async () => sessionUserId ? { id: sessionUserId } : null,
   pending: async () => ({ pendingTabIds: ['consumed'] }),
   favorites: async () => ['remote'],
   groups: async (id: string) => {
@@ -127,4 +128,14 @@ await settle();
 assert.equal(state.allGroups[0]!.id, 'remote', 'Polling retries failed synchronization');
 assert.match(state.syncStatus, /最終同期/);
 await trigger(document, 'visibilitychange');
+state.allGroups = [{ id: 'private', tabs: [] }];
+sessionUserId = null;
+await trigger(window, 'storage');
+assert.deepEqual(state.allGroups, [], 'External logout must immediately clear private data');
+assert.deepEqual(state.favoriteGroupIds, []);
+assert.equal(state.saveGroupId, '');
+state.allGroups = [{ id: 'private', tabs: [] }];
+sessionUserId = 'another';
+await trigger();
+assert.deepEqual(state.allGroups, [], 'Account switches must clear the previous account');
 console.log('Auto-sync checks passed');

@@ -20,11 +20,7 @@ export async function getFavoriteGroupIds(userId?: string): Promise<string[]> {
     if (error) throw error;
   }
 
-  const { data, error } = await supabase.from('tab_groups')
-    .select('id, is_favorite')
-    .eq('user_id', resolvedUserId);
-  if (error) throw error;
-  const groups = data ?? [];
+  const groups = await listGroupRows<{ id: string; is_favorite: boolean | null }>('id, is_favorite', resolvedUserId);
   if (legacyIds.length > 0) {
     const ownedIds = new Set(groups.map((group) => group.id));
     await storageLocalSet({ [key]: legacyIds.filter((id) => !ownedIds.has(id)) });
@@ -47,18 +43,28 @@ export async function setGroupFavorite(groupId: string, favorite: boolean): Prom
 
 const GROUP_COLUMNS = 'id, title, created_at, is_fixed, is_favorite, device_id, tabs(id, url, title, position)';
 
+async function listGroupRows<T>(columns: string, userId: string): Promise<T[]> {
+  const supabase = await getSupabase();
+  const rows: T[] = [];
+  // Small pages also work with API limits below the project's 1,000-row default.
+  for (let offset = 0; ; offset += 100) {
+    const { data, error } = await supabase.from('tab_groups').select(columns)
+      .eq('user_id', userId).order('created_at', { ascending: false })
+      .order('id', { ascending: false }).range(offset, offset + 99);
+    if (error) throw error;
+    rows.push(...((data ?? []) as T[]));
+    if (!data || data.length < 100) return rows;
+  }
+}
+
 function orderedGroup(group: TabGroup): TabGroup {
   return { ...group, tabs: [...group.tabs].sort((a, b) => a.position - b.position) };
 }
 
 export async function listGroups(userId?: string): Promise<TabGroup[]> {
-  const supabase = await getSupabase();
   const resolvedUserId = userId ?? (await getCurrentSessionUser())?.id;
   if (!resolvedUserId) throw new Error('ログインしてください。');
-  const { data, error } = await supabase.from('tab_groups').select(GROUP_COLUMNS)
-    .eq('user_id', resolvedUserId).order('created_at', { ascending: false });
-  if (error) throw error;
-  return ((data ?? []) as TabGroup[]).map(orderedGroup);
+  return (await listGroupRows<TabGroup>(GROUP_COLUMNS, resolvedUserId)).map(orderedGroup);
 }
 
 export async function getGroup(groupId: string): Promise<TabGroup | null> {

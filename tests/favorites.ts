@@ -31,6 +31,8 @@ testGlobal.favoriteTestClient = {
     let single = false;
     const query = {
       select() { return query; },
+      order() { return query; },
+      range() { return query; },
       update(value: Partial<Row>) { payload = value; return query; },
       eq(key: keyof Row, value: unknown) { filters.push([key, (row) => row[key] === value]); return query; },
       is(key: keyof Row, value: unknown) { return query.eq(key, value); },

@@ -22,7 +22,8 @@ testGlobal.saveTestClient = {
       select() { return query; },
       eq(key: string, value: unknown) { if (table === 'tab_groups') filters.push([key, value]); return query; },
       is(key: string, value: unknown) { filters.push([key, value]); return query; },
-      order: async () => ({ data: listedGroups, error: null }),
+      order() { return query; },
+      range: async (from: number, to: number) => ({ data: listedGroups.slice(from, to + 1), error: null }),
       then(resolve: (value: unknown) => unknown) { return Promise.resolve({ data: table === 'tabs' ? existingTabRows : [{ id: 'existing', is_favorite: true }], error: null }).then(resolve); },
       insert(value: unknown) {
         writes.push({ table, value });
@@ -119,6 +120,10 @@ try {
   listedGroups = [{ ...group, tabs: [] }, { ...group, id: 'empty', tabs: [] },
     { ...group, id: 'populated', tabs: [{ position: 0, status: 'saved' }] }];
   const visible = await listGroups('owner');
+  const originalListed = listedGroups;
+  listedGroups = Array.from({ length: 1001 }, (_, index) => ({ ...group, id: `page-${index}`, tabs: [] }));
+  assert.equal((await listGroups('owner')).length, 1001, 'Every group survives API pagination');
+  listedGroups = originalListed;
   assert.deepEqual(visible.map((group: { id: string }) => group.id), ['existing', 'empty', 'populated']);
   assert.match(renderSaveDestination(visible, 'existing', false), /value="existing" selected/);
   group.tabs = [];

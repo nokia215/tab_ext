@@ -13,6 +13,7 @@ import type { AppConfig } from './types';
 export class DashboardSession {
   private cacheUserId: string | null = null;
   private cacheTimer: number | null = null;
+  private refreshRevision = 0;
 
   constructor(
     private readonly state: DashboardState,
@@ -22,7 +23,12 @@ export class DashboardSession {
 
   async bootstrap(root: HTMLElement) {
     await this.refreshAll();
-    startDashboardAutoSync(root, this.state, () => this.cacheUserId, this.render);
+    startDashboardAutoSync(root, this.state, () => this.cacheUserId, this.render, async () => {
+      this.cacheUserId = null;
+      if (this.cacheTimer !== null) window.clearTimeout(this.cacheTimer);
+      this.cacheTimer = null;
+      await this.refreshAll(true);
+    });
   }
 
   scheduleCacheSave() {
@@ -42,13 +48,17 @@ export class DashboardSession {
     Object.assign(this.state, configToFormFields(next));
   }
 
-  async refreshAll() {
-    if (this.state.actionBusy || this.state.refreshBusy || this.state.restoreBusy) return;
+  async refreshAll(force = false) {
+    if (!force && (this.state.actionBusy || this.state.refreshBusy || this.state.restoreBusy)) return;
+    const revision = ++this.refreshRevision;
+    const sessionRevision = this.state.sessionRevision;
+    const current = () => revision === this.refreshRevision && sessionRevision === this.state.sessionRevision;
     this.state.refreshBusy = true;
     this.render();
 
     try {
       const nextConfig = await getConfig();
+      if (!current()) return;
       this.setConfigFields(nextConfig);
 
       if (!hasSupabaseConfig()) {
@@ -64,6 +74,7 @@ export class DashboardSession {
       }
 
       const user = await getCurrentSessionUser();
+      if (!current()) return;
       this.state.authStatus = user ? `ログイン中: ${user.email}` : '未ログイン';
 
       if (!user) {
@@ -81,6 +92,7 @@ export class DashboardSession {
 
       this.cacheUserId = user.id;
       const cached = await getCachedGroups(user.id);
+      if (!current()) return;
       if (cached) {
         this.state.allGroups = cached.groups;
         this.state.favoriteGroupIds = cached.favorites;
@@ -91,9 +103,13 @@ export class DashboardSession {
       }
 
       const pending = await retryPendingConsumption();
-      this.state.favoriteGroupIds = await getFavoriteGroupIds(user.id);
+      const favorites = await getFavoriteGroupIds(user.id);
+      const groups = await listGroups(user.id);
+      if (!current() || (await getCurrentSessionUser())?.id !== user.id) return;
+      if (!current()) return;
+      this.state.favoriteGroupIds = favorites;
       const expandedGroupIds = [...this.state.expandedGroupIds];
-      this.state.allGroups = hidePendingTabs(await listGroups(user.id), pending.pendingTabIds);
+      this.state.allGroups = hidePendingTabs(groups, pending.pendingTabIds);
       this.state.expandedGroupIds = expandedGroupIds;
       this.groups.reconcileExpandedGroupIds(this.state.allGroups);
       this.groups.reconcileSelectedGroupIds(this.state.allGroups);
@@ -105,14 +121,17 @@ export class DashboardSession {
       this.groups.resetVisibleGroupCount();
       return true;
     } catch (error) {
+      if (!current()) return;
       const message = getErrorMessage(error);
       this.state.authStatus = `表示失敗: ${message}`;
       this.state.pageStatus = 'データを読み込めませんでした。';
       this.groups.stopEditingGroupTitle();
       this.groups.resetVisibleGroupCount();
     } finally {
-      this.state.refreshBusy = false;
-      this.render();
+      if (revision === this.refreshRevision) {
+        this.state.refreshBusy = false;
+        this.render();
+      }
     }
   }
 
@@ -146,6 +165,10 @@ export class DashboardSession {
     try {
       const { error } = await signIn(this.state.email.trim(), this.state.password);
       if (error) throw error;
+      this.state.sessionRevision += 1;
+      this.state.password = '';
+      this.state.saveGroupId = '';
+      this.cacheUserId = null;
       this.state.authStatus = 'ログインしました。';
       this.state.allGroups = [];
       this.state.favoriteGroupIds = [];
@@ -168,6 +191,10 @@ export class DashboardSession {
     try {
       const { error } = await signOut();
       if (error) throw error;
+      this.state.sessionRevision += 1;
+      this.state.password = '';
+      this.state.saveGroupId = '';
+      this.cacheUserId = null;
       this.state.authStatus = 'ログアウトしました。';
       this.state.allGroups = [];
       this.state.favoriteGroupIds = [];

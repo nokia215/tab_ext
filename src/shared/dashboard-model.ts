@@ -21,6 +21,7 @@ export interface RuntimeProfile {
 }
 
 export interface DashboardState {
+  sessionRevision: number;
   authStatus: string;
   saveStatus: string;
   pageStatus: string;
@@ -89,6 +90,7 @@ export function detectRuntimeProfile(): RuntimeProfile {
 
 export function createInitialState(runtimeProfile: RuntimeProfile): DashboardState {
   return {
+    sessionRevision: 0,
     authStatus: '状態を確認しています。',
     saveStatus: '',
     pageStatus: '',

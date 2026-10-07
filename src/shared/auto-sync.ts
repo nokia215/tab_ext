@@ -3,9 +3,11 @@ import { reconcileGroupIds } from './group-helpers';
 import { hidePendingTabs, retryPendingConsumption } from './restoration';
 import { getCurrentSessionUser, getFavoriteGroupIds, listGroups } from './supabase';
 import { getErrorMessage } from './status';
+import { ext } from './browser-api';
 
 export function startDashboardAutoSync(
-  root: HTMLElement, state: DashboardState, getUserId: () => string | null, render: () => void
+  root: HTMLElement, state: DashboardState, getUserId: () => string | null, render: () => void,
+  onUserChanged?: () => Promise<unknown>
 ) {
   let inFlight = false;
   let revision = 0;
@@ -17,6 +19,32 @@ export function startDashboardAutoSync(
 
   const sync = async () => {
     const userId = getUserId();
+    try {
+      if ((await getCurrentSessionUser())?.id !== (userId ?? undefined)) {
+        state.sessionRevision = (state.sessionRevision ?? 0) + 1;
+        state.allGroups = [];
+        state.favoriteGroupIds = [];
+        state.selectedGroupIds = [];
+        state.expandedGroupIds = [];
+        state.saveGroupId = '';
+        state.editingGroupId = null;
+        state.editingGroupTitle = '';
+        state.password = '';
+        state.groupTitle = '';
+        state.importText = '';
+        state.pageStatus = '';
+        state.saveStatus = '';
+        state.authStatus = '認証状態が変更されました。';
+        state.syncStatus = '';
+        render();
+        await onUserChanged?.();
+        return;
+      }
+    } catch (error) {
+      state.syncStatus = `認証確認失敗: ${getErrorMessage(error)}`;
+      render();
+      return;
+    }
     if (!userId || inFlight || blocked() || Date.now() - lastAttempt < 1000) return;
     inFlight = true;
     lastAttempt = Date.now();
@@ -56,6 +84,13 @@ export function startDashboardAutoSync(
   document.addEventListener('visibilitychange', requestSync);
   window.addEventListener('focus', requestSync);
   window.addEventListener('online', requestSync);
+  const isAuthKey = (key: string) => key.startsWith('sb-') && key.includes('-auth-token');
+  window.addEventListener('storage', (event) => {
+    if (!event.key || isAuthKey(event.key)) requestSync();
+  });
+  ext?.storage?.onChanged?.addListener((changes, area) => {
+    if (area === 'local' && Object.keys(changes).some(isAuthKey)) requestSync();
+  });
   // ponytail: visible-page polling has up to 30s latency; use Realtime if immediate delivery becomes necessary.
   window.setInterval(requestSync, 30_000);
 }

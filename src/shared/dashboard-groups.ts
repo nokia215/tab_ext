@@ -10,6 +10,19 @@ import type { TabGroup } from './types';
 
 // Group selection, editing and optimistic updates shared by both dashboards.
 export class DashboardGroups {
+  private fixedWrites = new Map<string, { tail: Promise<void>; committed: boolean; error: string | undefined }>();
+
+  async waitForFixedUpdates(groupId: string) {
+    while (this.fixedWrites.has(groupId)) {
+      const queue = this.fixedWrites.get(groupId)!;
+      await queue.tail;
+      if (queue.error) throw new Error(`固定設定の保存失敗: ${queue.error}`);
+    }
+  }
+
+  hasFixedUpdates(groupId: string) {
+    return this.fixedWrites.has(groupId);
+  }
   constructor(
     private readonly state: DashboardState,
     private readonly render: (focus?: FocusState) => void
@@ -99,6 +112,7 @@ export class DashboardGroups {
     if (this.state.actionBusy || this.state.editingGroupId !== groupId) return;
     const group = this.findGroup(groupId);
     if (!group) return;
+    const revision = this.state.sessionRevision;
 
     this.state.actionBusy = true;
 
@@ -111,8 +125,10 @@ export class DashboardGroups {
       this.state.pageStatus = 'グループ名を保存しています。';
       this.render();
       await updateGroupTitle(groupId, resolvedTitle);
+      if (revision !== this.state.sessionRevision) return;
       this.state.pageStatus = 'グループ名を更新しました。';
     } catch (error) {
+      if (revision !== this.state.sessionRevision) return;
       this.updateGroup(groupId, (item) => ({ ...item, title: group.title }));
       this.state.pageStatus = `グループ名更新失敗: ${getErrorMessage(error)}`;
       this.render({
@@ -130,6 +146,7 @@ export class DashboardGroups {
     if (this.state.actionBusy || this.state.restoreBusy) return;
     const group = this.findGroup(groupId);
     if (!group) return;
+    const revision = this.state.sessionRevision;
 
     const wasFavorite = this.state.favoriteGroupIds.includes(groupId);
     if (!window.confirm(`1 グループ / ${group.tabs.length} タブを削除します。固定グループも削除されます。よろしいですか？`)) return;
@@ -142,8 +159,10 @@ export class DashboardGroups {
 
     try {
       await deleteGroup(groupId);
+      if (revision !== this.state.sessionRevision) return;
       this.state.pageStatus = 'グループを削除しました。';
     } catch (error) {
+      if (revision !== this.state.sessionRevision) return;
       this.state.allGroups = [group, ...this.state.allGroups];
       if (wasFavorite) this.state.favoriteGroupIds = [...this.state.favoriteGroupIds, groupId];
       this.state.pageStatus = `削除失敗: ${getErrorMessage(error)}`;
@@ -200,23 +219,37 @@ export class DashboardGroups {
     if (this.state.actionBusy || this.state.refreshBusy) return;
     const group = this.findGroup(groupId);
     if (!group) return;
-    this.state.actionBusy = true;
-    this.updateGroup(groupId, (item) => ({ ...item, is_fixed: !group.is_fixed }));
+    const revision = this.state.sessionRevision;
+    const fixed = !group.is_fixed;
+    const queue = this.fixedWrites.get(groupId) ?? { tail: Promise.resolve(), committed: group.is_fixed, error: undefined };
+    this.updateGroup(groupId, (item) => ({ ...item, is_fixed: fixed }));
     this.state.pageStatus = '固定設定を保存しています。';
-    this.state.actionBusy = false;
-    this.render();
     this.state.pendingUpdates += 1;
-    try {
-      await setGroupFixed(groupId, !group.is_fixed);
-      this.state.pageStatus = group.is_fixed ? '固定を解除しました。次の復元から削除します。' : '固定しました。復元後も内容を保持します。';
-    } catch (error) {
-      this.updateGroup(groupId, () => group);
-      this.state.pageStatus = `固定設定の保存失敗: ${getErrorMessage(error)}`;
-    } finally {
+    const write = queue.tail.then(async () => {
+      if (revision !== this.state.sessionRevision) return;
+      try {
+        await setGroupFixed(groupId, fixed);
+        queue.committed = fixed;
+        queue.error = undefined;
+        if (revision === this.state.sessionRevision && queue.tail === write) {
+          this.state.pageStatus = fixed ? '固定しました。復元後も内容を保持します。' : '固定を解除しました。次の復元から削除します。';
+        }
+      } catch (error) {
+        queue.error = getErrorMessage(error);
+        if (revision === this.state.sessionRevision && queue.tail === write) {
+          this.updateGroup(groupId, (item) => ({ ...item, is_fixed: queue.committed }));
+          this.state.pageStatus = `固定設定の保存失敗: ${getErrorMessage(error)}`;
+        }
+      }
+    }).finally(() => {
+      if (queue.tail === write) this.fixedWrites.delete(groupId);
       this.state.pendingUpdates -= 1;
-      this.state.actionBusy = false;
       this.render();
-    }
+    });
+    queue.tail = write;
+    this.fixedWrites.set(groupId, queue);
+    this.render();
+    await write;
   }
 
   async handleToggleFavoriteGroup(groupId: string) {
@@ -224,6 +257,7 @@ export class DashboardGroups {
 
     const group = this.findGroup(groupId);
     if (!group) return;
+    const revision = this.state.sessionRevision;
 
     const favorite = !this.state.favoriteGroupIds.includes(groupId);
     this.state.actionBusy = true;
@@ -235,10 +269,12 @@ export class DashboardGroups {
     this.state.pendingUpdates += 1;
     try {
       await setGroupFavorite(groupId, favorite);
+      if (revision !== this.state.sessionRevision) return;
       this.state.pageStatus = favorite
         ? `「${group.title ?? '(untitled)'}」をお気に入りに追加しました。`
         : `「${group.title ?? '(untitled)'}」をお気に入りから外しました。`;
     } catch (error) {
+      if (revision !== this.state.sessionRevision) return;
       this.state.favoriteGroupIds = favorite
         ? this.state.favoriteGroupIds.filter((id) => id !== groupId)
         : [...this.state.favoriteGroupIds, groupId];
@@ -288,6 +324,7 @@ export class DashboardGroups {
 
     const groups = this.getSelectedGroups();
     if (groups.length === 0) return;
+    const revision = this.state.sessionRevision;
 
     if (!window.confirm(`${groups.length} グループ / ${groups.reduce((sum, group) => sum + group.tabs.length, 0)} タブを削除します。固定グループも削除されます。よろしいですか？`)) return;
     const previousFavoriteIds = [...this.state.favoriteGroupIds];
@@ -301,12 +338,15 @@ export class DashboardGroups {
 
     try {
       for (const group of groups) {
+        if (revision !== this.state.sessionRevision) return;
         await deleteGroup(group.id);
+        if (revision !== this.state.sessionRevision) return;
         deletedCount += 1;
       }
 
       this.state.pageStatus = `${deletedCount} グループを削除しました。`;
     } catch (error) {
+      if (revision !== this.state.sessionRevision) return;
       const failedAndPending = groups.slice(deletedCount);
       this.state.allGroups = [...failedAndPending, ...this.state.allGroups];
       this.state.favoriteGroupIds = [

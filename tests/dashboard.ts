@@ -63,10 +63,43 @@ try {
     assert.deepEqual(state.favoriteGroupIds, ['g0'], 'Failed write restores the favorite');
     const fixed = groups.handleToggleFixedGroup('g0');
     assert.equal(groups.findGroup('g0')!.is_fixed, true);
+    await new Promise<void>(setImmediate);
     releaseWrite();
     await fixed;
     assert.equal(groups.findGroup('g0')!.is_fixed, false);
+
+    failWrite = true;
+    const failingFixed = groups.handleToggleFixedGroup('g0');
+    const failingWait = groups.waitForFixedUpdates('g0');
+    const failedWaitCheck = assert.rejects(failingWait, /固定設定の保存失敗/);
+    await new Promise<void>(setImmediate);
+    releaseWrite();
+    await failingFixed;
+    await failedWaitCheck;
+    assert.equal(groups.findGroup('g0')!.is_fixed, false);
     assert.equal(state.pendingUpdates, 0);
+
+    failWrite = false;
+    const firstFixed = groups.handleToggleFixedGroup('g0');
+    const secondFixed = groups.handleToggleFixedGroup('g0');
+    assert.equal(groups.findGroup('g0')!.is_fixed, false, 'Rapid toggles remain optimistic');
+    assert.equal(state.pendingUpdates, 2);
+    await new Promise<void>(setImmediate);
+    const firstRelease = releaseWrite;
+    const waiting = groups.waitForFixedUpdates('g0');
+    let settled = false;
+    void waiting.then(() => { settled = true; });
+    assert.equal(releaseWrite, firstRelease, 'Only the first write starts');
+    firstRelease();
+    await firstFixed;
+    await new Promise<void>(setImmediate);
+    assert.notEqual(releaseWrite, firstRelease, 'The second write starts after the first');
+    assert.equal(settled, false, 'Restore must wait for every queued fixed update');
+    releaseWrite();
+    await secondFixed;
+    await waiting;
+    assert.equal(state.pendingUpdates, 0);
+    assert.equal(groups.findGroup('g0')!.is_fixed, false);
 
     state.allGroups = [makeGroup('g0'), makeGroup('g1')];
     state.selectedGroupIds = ['g0', 'g1'];
@@ -81,6 +114,16 @@ try {
     assert.deepEqual(state.favoriteGroupIds, ['g1'], 'Partial failure restores only undeleted favorites');
     assert.equal(state.actionBusy, false);
     assert.match(state.pageStatus, /1 グループ削除後に失敗/);
+
+    failWrite = true;
+    state.allGroups = [makeGroup('private')];
+    const oldFavorite = groups.handleToggleFavoriteGroup('private');
+    state.sessionRevision++;
+    state.allGroups = [];
+    state.favoriteGroupIds = [];
+    releaseWrite();
+    await oldFavorite;
+    assert.deepEqual(state.favoriteGroupIds, [], 'Old failures cannot restore another account\'s favorites');
     assert.ok(renders > 0);
   }
   console.log('Shared dashboard selection / optimistic update / partial deletion checks passed.');

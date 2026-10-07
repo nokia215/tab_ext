@@ -1,10 +1,13 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { storageLocalGet, storageLocalRemove, storageLocalSet } from './browser-api';
+import { ext, storageLocalGet, storageLocalRemove, storageLocalSet } from './browser-api';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './build-config';
 
 function createExtensionStorageAdapter() {
   return {
     getItem: async (key: string): Promise<string | null> => {
+      if (!ext?.storage?.local) {
+        try { return window.localStorage.getItem(key); } catch { return null; }
+      }
       const result = await storageLocalGet(key);
       return (result as Record<string, string | null>)[key] ?? null;
     },

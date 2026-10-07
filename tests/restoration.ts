@@ -307,6 +307,16 @@ for (const kind of ['newtab', 'tablet']) {
   resolveRestore({ group: original[1]!, openedTabIds: ['b'], pendingTabIds: [] });
   await fixedSecond;
   assert.equal(app.state.allGroups[0].tabs.length, 3, 'Fixed tabs remain reusable');
+  app.state.allGroups = structuredClone(original);
+  app.state.favoriteGroupIds = ['g'];
+  const privateRestore = app.restore.handleOpenTab('a');
+  app.state.sessionRevision++;
+  app.state.allGroups = [];
+  app.state.favoriteGroupIds = [];
+  resolveRestore({ group: original[0]!, openedTabIds: ['a'], pendingTabIds: [] });
+  await privateRestore;
+  assert.deepEqual(app.state.allGroups, [], 'Old restore results cannot return private data after logout');
+  assert.equal(app.state.restoreBusy, false);
   delete testGlobal.dashboardRestore;
   console.log(`${kind} optimistic handler / partial rollback checks passed.`);
 }
