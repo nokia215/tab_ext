@@ -1,5 +1,7 @@
 # Tab Saver
 
+現在のバージョン: **1.0.11**
+
 ChromeとFirefoxのタブをSupabaseに保存し、同じアカウントで別の端末から検索して復元できる拡張機能です。
 拡張機能を使えない環境では、[Tab Saver Web](https://nokia215.github.io/tab_ext/dashboard.html)から保存済みセッションを閲覧して再開できます。
 
@@ -121,6 +123,9 @@ npm run db:migrate         # 未適用分を適用
 適用前に内容を確認する場合は`npm run db:migrate:check`を実行します。
 
 ## 開発
+
+ダッシュボードの処理は、認証と同期、保存、復元、グループ操作ごとに共通モジュールへ分割しています。
+画面イベントから処理を追う入口と各ファイルの責務は、[コード構成](docs/code-structure.md)を参照してください。
 
 ```bash
 npm run typecheck
