@@ -6,6 +6,7 @@ import { getCachedGroups, getConfig, saveCachedGroups, saveConfig } from './stor
 import { getCurrentSessionUser, getFavoriteGroupIds, listGroups, signIn, signOut } from './supabase';
 import { getErrorMessage } from './status';
 import type { DashboardState } from './dashboard-model';
+import { isDashboardBusy } from './dashboard-model';
 import type { DashboardGroups } from './dashboard-groups';
 import type { AppConfig } from './types';
 
@@ -22,6 +23,11 @@ export class DashboardSession {
   ) {}
 
   async bootstrap(root: HTMLElement) {
+    root.addEventListener('submit', (event) => {
+      if (!(event.target instanceof HTMLFormElement) || event.target.name !== 'sign-in') return;
+      event.preventDefault();
+      if (!isDashboardBusy(this.state)) void this.handleSignIn();
+    });
     await this.refreshAll();
     startDashboardAutoSync(root, this.state, () => this.cacheUserId, this.render, async () => {
       this.cacheUserId = null;

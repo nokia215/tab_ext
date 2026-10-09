@@ -15,7 +15,7 @@
   }
 
   function tabTitle(tab: SavedTab) {
-    return tab.title || '(no title)';
+    return tab.title || '無題のタブ';
   }
 </script>
 
@@ -38,15 +38,15 @@
             <button class={`group-select${selected ? ' selected-group-select' : ''}`} type="button" data-action="toggle-group-selection" data-group-id={group.id} aria-pressed={selected} aria-label={selected ? 'グループ選択を解除' : 'グループを選択'} disabled={view.busy}>{selected ? '選択中' : '選択'}</button>
             {#if view.collapsible && !editing}
               <button aria-expanded={expanded} class="group-trigger" type="button" data-action="toggle-group" data-group-id={group.id} disabled={view.busy}>
-                <div class="group-text"><div class="group-title-row"><h3>{group.title ?? '(untitled)'}</h3><p>{formatDate(group.created_at)}</p></div>
-                  <div class="group-meta"><span class="meta-pill">{group.tabs.length} tabs</span><span class={`meta-pill meta-pill-${age.tone}`}>{age.label}</span><span class="meta-pill">{group.device_id}</span>{#if favorite}<span class="meta-pill favorite-pill">お気に入り</span>{/if}{#if group.is_fixed}<span class="meta-pill">固定 · 復元後も保持</span>{/if}</div>
+                <div class="group-text"><div class="group-title-row"><h3>{group.title ?? '無題のグループ'}</h3><p>{formatDate(group.created_at)}</p></div>
+                  <div class="group-meta"><span class="meta-pill">{group.tabs.length} タブ</span><span class={`meta-pill meta-pill-${age.tone}`}>{age.label}</span><span class="meta-pill">{group.device_id}</span>{#if favorite}<span class="meta-pill favorite-pill">お気に入り</span>{/if}{#if group.is_fixed}<span class="meta-pill">固定 · 復元後も保持</span>{/if}</div>
                 </div><span class="indicator">{expanded ? '−' : '+'}</span>
               </button>
             {:else}
               <div class="group-trigger static-header"><div class="group-text">
-                {#if editing}<div class="group-title-editor"><input name="groupTitleEdit" type="text" value={view.editableGroupTitle ?? ''} data-group-id={group.id} placeholder="グループ名を入力" disabled={view.busy} /></div>
-                {:else}<div class="group-title-row"><h3>{group.title ?? '(untitled)'}</h3><p>{formatDate(group.created_at)}</p></div>{/if}
-                <div class="group-meta"><span class="meta-pill">{group.tabs.length} tabs</span><span class={`meta-pill meta-pill-${age.tone}`}>{age.label}</span><span class="meta-pill">{group.device_id}</span>{#if favorite}<span class="meta-pill favorite-pill">お気に入り</span>{/if}{#if group.is_fixed}<span class="meta-pill">固定 · 復元後も保持</span>{/if}</div>
+                {#if editing}<div class="group-title-editor"><input name="groupTitleEdit" aria-label="グループ名" type="text" value={view.editableGroupTitle ?? ''} data-group-id={group.id} placeholder="グループ名を入力" disabled={view.busy} /></div>
+                {:else}<div class="group-title-row"><h3>{group.title ?? '無題のグループ'}</h3><p>{formatDate(group.created_at)}</p></div>{/if}
+                <div class="group-meta"><span class="meta-pill">{group.tabs.length} タブ</span><span class={`meta-pill meta-pill-${age.tone}`}>{age.label}</span><span class="meta-pill">{group.device_id}</span>{#if favorite}<span class="meta-pill favorite-pill">お気に入り</span>{/if}{#if group.is_fixed}<span class="meta-pill">固定 · 復元後も保持</span>{/if}</div>
               </div></div>
             {/if}
           </div>

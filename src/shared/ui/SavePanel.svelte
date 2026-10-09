@@ -8,7 +8,7 @@
 </script>
 
 <section class="panel save-panel">
-  <div class="section-head"><div><p class="eyebrow">Capture</p><h2 class="section-title">今の作業をスナップショット化</h2><p class="section-copy">ウィンドウ全体、1タブ単位、テキスト貼り付けの3通りで保存できます。</p></div></div>
+  <div class="section-head"><div><h2 class="section-title">タブを保存</h2><p class="section-copy">ウィンドウ全体、1タブ単位、テキスト貼り付けの3通りで保存できます。</p></div></div>
   <SaveDestination groups={view.groups} groupId={view.groupId} busy={busy} />
   <label class="field"><span class="field-label">新規グループ名</span><input name="groupTitle" type="text" value={view.title} disabled={busy || Boolean(view.groupId)} placeholder="未入力なら端末情報つきで自動命名" /></label>
   <div class="actions"><button type="button" data-action="save-window" disabled={busy}>現在ウィンドウを保存</button><button class="secondary" type="button" data-action="save-tab" disabled={busy}>現在タブのみ保存</button></div>

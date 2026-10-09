@@ -60,7 +60,7 @@
         <label class="field compact-field"><span class="field-label">並び順</span><select name="sortMode" value={state.sortMode}><option value="newest">新しい順</option><option value="oldest">古い順</option><option value="tabCount">タブ数順</option></select></label>
         <label class="field compact-field device-field"><span class="field-label">端末</span><select name="deviceFilter" value={state.deviceFilter}><option value="all">すべての端末</option>{#each args.deviceFilterOptions as device}<option value={device.value}>{device.label}</option>{/each}</select></label>
       </div>
-      <div class="filter-row"><button class={`chip${state.groupFilter === 'all' ? ' active-chip' : ''}`} data-action="set-group-filter" data-value="all">すべて</button><button class={`chip${state.groupFilter === 'fixed' ? ' active-chip' : ''}`} data-action="set-group-filter" data-value="fixed">固定</button><button class={`chip${state.favoriteOnly ? ' active-chip' : ''}`} data-action="toggle-favorite-only">お気に入り</button><span class="result-meta">{args.visibleGroups.length} / {args.filteredGroups.length} 件</span></div>
+      <div class="filter-row"><button class={`chip${state.groupFilter === 'all' ? ' active-chip' : ''}`} aria-pressed={state.groupFilter === 'all'} data-action="set-group-filter" data-value="all">すべて</button><button class={`chip${state.groupFilter === 'fixed' ? ' active-chip' : ''}`} aria-pressed={state.groupFilter === 'fixed'} data-action="set-group-filter" data-value="fixed">固定</button><button class={`chip${state.favoriteOnly ? ' active-chip' : ''}`} aria-pressed={state.favoriteOnly} data-action="toggle-favorite-only">お気に入り</button><span class="result-meta">{args.visibleGroups.length} / {args.filteredGroups.length} 件</span></div>
       {#if args.selectedSummary.selectedCount}
         <section class="bulk-toolbar" aria-label="選択したグループの一括操作">
           <span class="result-meta">{args.selectedSummary.selectedCount} グループ / {args.selectedSummary.selectedTabCount} タブを選択中</span>
@@ -75,13 +75,13 @@
       {:else}
         <button class="ghost bulk-select" data-action="select-visible-groups" disabled={busy || !args.bulkSelectableCount}>表示中を選択</button>
       {/if}
-      <GroupList view={{ groups: args.visibleGroups, emptyLabel: '保存済みグループはありません。', expandedGroupIds: args.visibleExpandedGroupIds, collapsible: true, busy, selectedGroupIds: state.selectedGroupIds, favoriteGroupIds: state.favoriteGroupIds, extraActionLabel: 'URLコピー', editableGroupId: state.editingGroupId, editableGroupTitle: state.editingGroupTitle }} />
+      <GroupList view={{ groups: args.visibleGroups, emptyLabel: state.authStatus === '未ログイン' ? 'ログインすると保存したタブを表示できます。' : state.allGroups.length ? '条件に一致するグループはありません。検索語やフィルタを変更してください。' : '保存済みグループはありません。', expandedGroupIds: args.visibleExpandedGroupIds, collapsible: true, busy, selectedGroupIds: state.selectedGroupIds, favoriteGroupIds: state.favoriteGroupIds, extraActionLabel: 'URLコピー', editableGroupId: state.editingGroupId, editableGroupTitle: state.editingGroupTitle }} />
       {#if remaining > 0}<div class="load-more-row"><button class="secondary" data-action="show-more-groups">さらに表示</button><span class="result-meta">残り {remaining} 件</span></div>{/if}
     </section>
 
     <section class="lightweight-panel-stack">
       <section class="panel lightweight-utility-panel tablet-import-panel">
-        <div class="section-head"><div><p class="eyebrow">CAPTURE</p><h2 class="section-title">URLリストから追加</h2><p class="section-copy">現在のタブを自動取得しないため、保存するURLを貼り付けてください。</p></div><span class="badge">Web</span></div>
+        <div class="section-head"><div><h2 class="section-title">URLリストから追加</h2><p class="section-copy">現在のタブを自動取得しないため、保存するURLを貼り付けてください。</p></div><span class="badge">Web</span></div>
         <SaveDestination groups={state.allGroups} groupId={state.saveGroupId} busy={state.importBusy} />
         <label class="field"><span class="field-label">新規グループ名</span><input name="groupTitle" type="text" value={state.groupTitle} disabled={state.importBusy || Boolean(state.saveGroupId)} placeholder="未入力なら自動命名" /></label>
         <label class="field"><span class="field-label">URLとタイトル</span><textarea name="importText" rows="7" placeholder="https://example.com | Example&#10;https://another.example.com | Another Tab&#10;&#10;空行でグループを分けます">{state.importText}</textarea></label>

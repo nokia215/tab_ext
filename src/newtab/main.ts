@@ -214,9 +214,6 @@ class NewtabApp {
       case 'save-config':
         await this.session.handleSaveConfig();
         break;
-      case 'sign-in':
-        await this.session.handleSignIn();
-        break;
       case 'sign-out':
         await this.session.handleSignOut();
         break;

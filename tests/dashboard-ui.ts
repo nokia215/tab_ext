@@ -50,6 +50,18 @@ for (const [surface, uiMode] of [['desktop', 'default'], ['desktop', 'lightweigh
   assert.ok(initial.includes('example.com'));
   assert.ok(initial.includes('https://www.example.com/path?x=1&amp;y=2'));
   assert.ok(initial.includes('復元して削除'));
+  assert.match(initial, /aria-pressed="true" data-action="set-group-filter" data-value="all"/);
+  assert.match(initial, /aria-pressed="false" data-action="toggle-favorite-only"/);
+  if (surface === 'desktop' && uiMode === 'lightweight') state.settingsPanelOpen = true;
+  assert.match(html(), /<form name="sign-in"/);
+  assert.match(html(), /name="email"[^>]*autocomplete="username"[^>]*required/);
+  assert.match(html(), /name="password"[^>]*autocomplete="current-password"[^>]*required/);
+  assert.ok(!html().includes('Sync ready'));
+  assert.ok(!html().includes('service_role'));
+  state.favoriteOnly = true;
+  assert.match(html(), /aria-pressed="true" data-action="toggle-favorite-only"/);
+  assert.ok(html().includes('条件に一致するグループはありません。'));
+  state.favoriteOnly = false;
 
   state.authStatus = 'ログイン中: user@example.com';
   state.pageStatus = '1 グループを表示中';
@@ -73,6 +85,7 @@ for (const [surface, uiMode] of [['desktop', 'default'], ['desktop', 'lightweigh
   }
   state.searchQuery = 'no match';
   assert.ok(html().includes('1 グループ / 1 タブを選択中'), 'Hidden selected groups remain counted');
+  assert.ok(html().includes('条件に一致するグループはありません。'));
   state.searchQuery = '';
   state.allGroups[0]!.is_fixed = true;
   assert.ok(html().includes('固定 · 復元後も保持'));
@@ -84,6 +97,10 @@ for (const [surface, uiMode] of [['desktop', 'default'], ['desktop', 'lightweigh
   assert.match(html(), /data-action="restore-selected-groups" disabled/);
   state.selectedGroupIds = [];
   assert.ok(!html().includes('class="bulk-toolbar"'));
+  state.allGroups = [];
+  assert.ok(html().includes('保存済みグループはありません。'));
+  state.authStatus = '未ログイン';
+  assert.ok(html().includes('ログインすると保存したタブを表示できます。'));
   dashboards[surface] = null;
 }
 console.log('Dashboard UI rendering checks passed.');

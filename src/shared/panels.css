@@ -31,6 +31,14 @@
   font-weight: 800;
 }
 
+.section-head > div:first-child {
+  min-width: 0;
+}
+
+.section-head > .badge {
+  flex-shrink: 0;
+}
+
 .section-copy {
   margin: 6px 0 0;
   font-size: 0.86rem;
@@ -317,5 +325,14 @@
   .tab-row-meta {
     font-size: 0.69rem;
     white-space: nowrap;
+  }
+}
+
+@media (pointer: coarse) {
+  button.group-select,
+  .group-card .actions button,
+  button.tab-row,
+  button.tab-row-more {
+    min-height: 44px;
   }
 }

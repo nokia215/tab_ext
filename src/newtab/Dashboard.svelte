@@ -63,9 +63,9 @@
         <label class="field compact-field device-field"><span class="field-label">端末</span><select name="deviceFilter" value={state.deviceFilter}><option value="all">すべての端末</option>{#each args.deviceFilterOptions as device}<option value={device.value}>{device.label}</option>{/each}</select></label>
       </div>
       <div class="filter-row">
-        <button class={`chip${state.groupFilter === 'all' ? ' active-chip' : ''}`} data-action="set-group-filter" data-value="all">すべて</button>
-        <button class={`chip${state.groupFilter === 'fixed' ? ' active-chip' : ''}`} data-action="set-group-filter" data-value="fixed">固定のみ</button>
-        <button class={`chip${state.favoriteOnly ? ' active-chip' : ''}`} data-action="toggle-favorite-only">お気に入り</button>
+        <button class={`chip${state.groupFilter === 'all' ? ' active-chip' : ''}`} aria-pressed={state.groupFilter === 'all'} data-action="set-group-filter" data-value="all">すべて</button>
+        <button class={`chip${state.groupFilter === 'fixed' ? ' active-chip' : ''}`} aria-pressed={state.groupFilter === 'fixed'} data-action="set-group-filter" data-value="fixed">固定のみ</button>
+        <button class={`chip${state.favoriteOnly ? ' active-chip' : ''}`} aria-pressed={state.favoriteOnly} data-action="toggle-favorite-only">お気に入り</button>
         <span class="result-meta">{args.visibleGroups.length} / {args.filteredGroups.length} 件</span>
       </div>
       {#if args.selectedSummary.selectedCount}
@@ -82,7 +82,7 @@
       {:else}
         <button class="ghost bulk-select" data-action="select-visible-groups" disabled={busy || !args.bulkSelectableCount}>{lightweight ? '表示中を選択' : '検索結果を選択'}</button>
       {/if}
-      <GroupList view={{ groups: lightweight ? args.visibleGroups : args.filteredGroups, emptyLabel: '保存済みグループはありません。', expandedGroupIds: args.visibleExpandedGroupIds, collapsible: true, busy, selectedGroupIds: state.selectedGroupIds, favoriteGroupIds: state.favoriteGroupIds, extraActionLabel: 'URLコピー', editableGroupId: state.editingGroupId, editableGroupTitle: state.editingGroupTitle }} />
+      <GroupList view={{ groups: lightweight ? args.visibleGroups : args.filteredGroups, emptyLabel: state.authStatus === '未ログイン' ? 'ログインすると保存したタブを表示できます。' : state.allGroups.length ? '条件に一致するグループはありません。検索語やフィルタを変更してください。' : '保存済みグループはありません。', expandedGroupIds: args.visibleExpandedGroupIds, collapsible: true, busy, selectedGroupIds: state.selectedGroupIds, favoriteGroupIds: state.favoriteGroupIds, extraActionLabel: 'URLコピー', editableGroupId: state.editingGroupId, editableGroupTitle: state.editingGroupTitle }} />
       {#if lightweight && remaining > 0}<div class="load-more-row"><button class="secondary" data-action="show-more-groups">さらに{Math.min(remaining, LIGHTWEIGHT_GROUP_BATCH_SIZE)}件表示</button><span class="result-meta">残り {remaining} 件</span></div>{/if}
     </section>
 
