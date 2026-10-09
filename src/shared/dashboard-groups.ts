@@ -1,6 +1,5 @@
 import { copyTextToClipboard, formatGroupForExport, formatGroupsForExport } from './export';
 import { removeFavoriteGroupIds } from './favorites';
-import { isStaleGroupByAge } from './group-age';
 import { mergeGroupIds, reconcileGroupIds, resolveGroupsByIds, toggleGroupId, updateGroup as updateGroupCollection } from './group-helpers';
 import { reconcileExpandedGroupIds, removeGroupsFromCollection, resetVisibleGroupCount, visibleGroups } from './group-state';
 import { LIGHTWEIGHT_GROUP_BATCH_SIZE, queryGroups, type DashboardState, type FocusState } from './dashboard-model';
@@ -288,18 +287,6 @@ export class DashboardGroups {
 
   selectVisibleGroups() {
     this.state.selectedGroupIds = mergeGroupIds(this.state.selectedGroupIds, this.bulkSelectableGroups);
-    this.render();
-  }
-
-  selectStaleGroups() {
-    const staleGroups = this.bulkSelectableGroups.filter((group) => isStaleGroupByAge(group));
-
-    if (staleGroups.length === 0) {
-      return;
-    }
-
-    this.state.selectedGroupIds = mergeGroupIds(this.state.selectedGroupIds, staleGroups);
-    this.state.pageStatus = `30日以上の ${staleGroups.length} グループを選択しました。`;
     this.render();
   }
 

@@ -1,4 +1,3 @@
-import { isStaleGroupByAge, matchesDateRangeFilter, type DateRangeFilter } from './group-age';
 import { filterGroups } from './search';
 import type { AppConfig, TabGroup } from './types';
 
@@ -7,7 +6,6 @@ export const LIGHTWEIGHT_GROUP_BATCH_SIZE = 12;
 export type GroupFilter = 'all' | 'fixed';
 export type SortMode = 'newest' | 'oldest' | 'tabCount';
 export type UiMode = 'default' | 'lightweight';
-export type { DateRangeFilter };
 
 export interface DeviceFilterOption {
   value: string;
@@ -30,7 +28,6 @@ export interface DashboardState {
   searchQuery: string;
   favoriteOnly: boolean;
   groupFilter: GroupFilter;
-  dateRangeFilter: DateRangeFilter;
   deviceFilter: string;
   sortMode: SortMode;
   allGroups: TabGroup[];
@@ -99,7 +96,6 @@ export function createInitialState(runtimeProfile: RuntimeProfile): DashboardSta
     searchQuery: '',
     favoriteOnly: false,
     groupFilter: 'all',
-    dateRangeFilter: 'all',
     deviceFilter: 'all',
     sortMode: 'newest',
     allGroups: [],
@@ -176,14 +172,13 @@ export function queryGroups(
   groups: TabGroup[],
   options: Pick<
     DashboardState,
-    'searchQuery' | 'favoriteOnly' | 'groupFilter' | 'dateRangeFilter' | 'deviceFilter' | 'sortMode' | 'favoriteGroupIds'
+    'searchQuery' | 'favoriteOnly' | 'groupFilter' | 'deviceFilter' | 'sortMode' | 'favoriteGroupIds'
   >
 ) {
   const favoriteGroupIds = new Set(options.favoriteGroupIds);
 
   return filterGroups(groups, options.searchQuery)
     .filter((group) => matchesGroupFilter(group, options.groupFilter))
-    .filter((group) => matchesDateRangeFilter(group.created_at, options.dateRangeFilter))
     .filter((group) => matchesDeviceFilter(group, options.deviceFilter))
     .filter((group) => !options.favoriteOnly || favoriteGroupIds.has(group.id))
     .sort(sortGroups(options.sortMode, favoriteGroupIds));
@@ -203,10 +198,6 @@ export function collectDeviceFilterOptions(groups: TabGroup[]): DeviceFilterOpti
       label: `${value} (${count})`,
       count
     }));
-}
-
-export function countStaleGroups(groups: TabGroup[]) {
-  return groups.filter((group) => isStaleGroupByAge(group)).length;
 }
 
 export function summarizeSelectedGroups(groups: TabGroup[], selectedGroupIds: string[]): SelectedGroupSummary {

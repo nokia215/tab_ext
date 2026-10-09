@@ -23,15 +23,14 @@ body::before { display: none; }
 .page-shell { gap: 10px; padding: 12px clamp(10px, 2vw, 24px) 28px; }
 .page-shell:not(.lightweight-shell) { grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); align-items: start; grid-template-areas: 'masthead masthead' 'status status' 'retry retry' 'explorer side'; }
 .page-shell:not(.lightweight-shell) > .masthead { grid-area: masthead; }
-.page-shell:not(.lightweight-shell) > .status-banner { grid-area: status; }
+.page-shell:not(.lightweight-shell) > .status-stack { grid-area: status; }
 .page-shell:not(.lightweight-shell) > button[data-action='refresh-all'] { grid-area: retry; justify-self: start; }
 .page-shell:not(.lightweight-shell) > .explorer-panel { grid-area: explorer; }
 .page-shell:not(.lightweight-shell) > .side-column { grid-area: side; }
 .panel { border-radius: 12px; background: rgba(26, 41, 46, .96); }
-.masthead, .lightweight-hero, .tablet-hero { border: 1px solid var(--line); }
-.headline h1, .lightweight-hero h1 { letter-spacing: -.035em; }
+.masthead { border: 1px solid var(--line); }
+.headline h1 { letter-spacing: -.035em; }
 .section-title { letter-spacing: -.015em; }
-.metric-card, .mini-metric { border-radius: 9px; }
 .group-card { border-radius: 10px; transition: border-color 120ms ease, background 120ms ease; }
 .group-card:hover { border-color: var(--line-strong); }
 .group-trigger { padding-block: 9px; }
@@ -44,6 +43,8 @@ button { border-radius: 8px; }
 button:hover:not(:disabled) { box-shadow: 0 8px 18px rgba(74, 191, 151, .14); }
 .chip { border-radius: 999px; }
 .bulk-toolbar { border-radius: 10px; }
+.status-stack { display: grid; gap: 6px; }
+.status-stack .status-banner { margin: 0; }
 .status-banner { border-radius: 9px; }
 
 @media (max-width: 900px) {

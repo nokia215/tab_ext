@@ -15,8 +15,6 @@ async function loadModule(entry: string) {
 const model = await loadModule('src/shared/dashboard-model.ts');
 const groupState = await loadModule('src/shared/group-state.ts');
 const { reconcileGroupIds } = await loadModule('src/shared/group-helpers.ts');
-const { summarizeGroupCollection } = await loadModule('src/shared/group-summary.ts');
-const { matchesDateRangeFilter } = await loadModule('src/shared/group-age.ts');
 const { getErrorMessage } = await loadModule('src/shared/status.ts');
 assert.equal(getErrorMessage({ code: '23505', message: 'duplicate key', details: null, hint: null }), 'duplicate key');
 assert.equal(getErrorMessage(new Error('Failed')), 'Failed');
@@ -42,32 +40,18 @@ try {
     assert.equal(ids({ sortMode, favoriteGroupIds: ['old'] })[0], 'old');
   }
   assert.deepEqual(ids({ searchQuery: ' ALPHA ', favoriteOnly: true, favoriteGroupIds: ['old', 'archive'],
-    deviceFilter: 'PC', groupFilter: 'all', dateRangeFilter: 'stale' }), ['old']);
+    deviceFilter: 'PC', groupFilter: 'all' }), ['old']);
   assert.deepEqual(ids({ groupFilter: 'fixed' }), ['archive']);
   assert.deepEqual(ids({ groupFilter: 'fixed', favoriteOnly: true, favoriteGroupIds: ['old'] }), []);
   assert.deepEqual(ids({ groupFilter: 'fixed', favoriteOnly: true, favoriteGroupIds: ['archive'] }), ['archive']);
-  assert.deepEqual(ids({ dateRangeFilter: 'today' }), ['new']);
-  assert.deepEqual(ids({ dateRangeFilter: 'week' }), ['new', 'archive']);
   assert.deepEqual(ids({}, [groups[1]!, { ...groups[1]!, id: 'tie' }]), ['new', 'tie']);
   assert.deepEqual(ids({ sortMode: 'tabCount' }, [groups[1]!, { ...groups[0]!, tabs: [...groups[0]!.tabs, ...groups[1]!.tabs] }]), ['old', 'new']);
   assert.deepEqual(model.summarizeSelectedGroups(groups, ['old', 'new', 'old', 'missing']), {
     selectedCount: 2, selectedTabCount: 2, restorableGroupCount: 2
   });
-  assert.deepEqual(summarizeGroupCollection(groups), {
-    groupCount: 3, totalTabs: 3, deviceCount: 2,
-    restorableGroupCount: 3, staleGroupCount: 1, staleTabCount: 1
-  });
   assert.deepEqual(model.collectDeviceFilterOptions(groups), [
     { value: 'PC', label: 'PC (2)', count: 2 }, { value: 'Tablet', label: 'Tablet (1)', count: 1 }
   ]);
-  for (const days of [0, 6, 7, 29, 30]) {
-    const date = new Date();
-    date.setDate(date.getDate() - days);
-    assert.equal(matchesDateRangeFilter(date.toISOString(), 'today'), days === 0);
-    assert.equal(matchesDateRangeFilter(date.toISOString(), 'week'), days < 7);
-    assert.equal(matchesDateRangeFilter(date.toISOString(), 'month'), days < 30);
-    assert.equal(matchesDateRangeFilter(date.toISOString(), 'stale'), days >= 30);
-  }
   assert.equal(state.visibleGroupCount, Number.MAX_SAFE_INTEGER);
   const light = model.createInitialState({ isAndroidFirefox: true, uiMode: 'lightweight' });
   assert.equal(light.visibleGroupCount, 12);

@@ -170,7 +170,7 @@ class TabletApp {
     const groupId = actionTarget.dataset.groupId;
     const tabId = actionTarget.dataset.tabId;
     const busy = isDashboardBusy(this.state);
-    if (busy && !['set-group-filter', 'set-date-range-filter', 'toggle-favorite-only', 'toggle-group', 'show-more-groups'].includes(action ?? '')) return;
+    if (busy && !['set-group-filter', 'toggle-favorite-only', 'toggle-group', 'show-more-groups'].includes(action ?? '')) return;
 
     switch (action) {
       case 'refresh-all':
@@ -190,11 +190,6 @@ class TabletApp {
         break;
       case 'set-group-filter':
         await this.groups.setGroupFilter((actionTarget.dataset.value as DashboardState['groupFilter']) ?? 'all');
-        break;
-      case 'set-date-range-filter':
-        this.state.dateRangeFilter = (actionTarget.dataset.value as DashboardState['dateRangeFilter']) ?? 'all';
-        this.groups.resetVisibleGroupCount();
-        this.render();
         break;
       case 'toggle-favorite-only':
         this.groups.toggleFavoriteOnly();
@@ -229,9 +224,6 @@ class TabletApp {
         break;
       case 'select-visible-groups':
         this.groups.selectVisibleGroups();
-        break;
-      case 'select-stale-groups':
-        this.groups.selectStaleGroups();
         break;
       case 'clear-group-selection':
         this.groups.clearGroupSelection();

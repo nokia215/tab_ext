@@ -51,6 +51,7 @@
             {/if}
           </div>
           <div class="actions">
+            <button type="button" data-action="restore-group" data-group-id={group.id} disabled={view.busy || group.tabs.length === 0}>{group.is_fixed ? '全部復元' : '復元して削除'}</button>
             {#if view.extraActionLabel}<button class="ghost" type="button" data-action="copy-group" data-group-id={group.id} disabled={view.busy}>{view.extraActionLabel}</button>{/if}
             <button class={`ghost${favorite ? ' favorite-toggle-active' : ''}`} type="button" data-action="toggle-favorite-group" data-group-id={group.id} disabled={view.busy}>{favorite ? 'お気に入り解除' : 'お気に入り'}</button>
             {#if editing}
@@ -59,7 +60,6 @@
             {:else}
               <button class="ghost" type="button" data-action="edit-group-title" data-group-id={group.id} disabled={view.busy}>名前編集</button>
             {/if}
-            <button class="secondary" type="button" data-action="restore-group" data-group-id={group.id} disabled={view.busy || group.tabs.length === 0}>{group.is_fixed ? '全部復元' : '復元して削除'}</button>
             <button class="ghost" type="button" data-action="toggle-fixed-group" aria-pressed={group.is_fixed} data-group-id={group.id} disabled={view.busy}>{group.is_fixed ? '固定を解除' : '固定（復元後も保持）'}</button>
             <button class="danger" type="button" data-action="delete-group" data-group-id={group.id} disabled={view.busy}>グループ削除</button>
           </div>
@@ -67,7 +67,7 @@
         {#if visibleTabs.length > 0}
           <div class={`tab-list${expanded ? '' : ' tab-list-preview'}`}>
             {#each visibleTabs as tab (tab.id)}
-              <button class="tab-row" type="button" data-action="open-tab" data-tab-id={tab.id} title={group.is_fixed ? '復元（内容を保持）' : '復元して削除'} disabled={view.busy}>
+              <button class="tab-row" type="button" data-action="open-tab" data-tab-id={tab.id} title={`${tabTitle(tab)}\n${tab.url}\n${group.is_fixed ? '復元（内容を保持）' : '復元して削除'}`} aria-label={`${tabTitle(tab)} · ${hostname(tab.url)} · ${group.is_fixed ? '復元（内容を保持）' : '復元して削除'}`} disabled={view.busy}>
                 <span class="tab-row-main"><span class="tab-row-title">{tabTitle(tab)}</span><span class="tab-row-url">{hostname(tab.url)}</span></span>
                 <span class="tab-row-meta">{group.is_fixed ? '復元' : '復元して削除'}</span>
               </button>

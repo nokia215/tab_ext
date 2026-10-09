@@ -187,32 +187,6 @@ textarea {
   overflow-wrap: anywhere;
 }
 
-.metric-grid {
-  display: grid;
-  gap: 10px;
-}
-
-.metric-card {
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
-  border: 1px solid rgba(255, 255, 255, 0.09);
-}
-
-.metric-label {
-  margin: 0 0 4px;
-  color: var(--muted);
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.metric-value {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 800;
-}
-
 .status-banner {
   padding: 8px 12px;
   border-radius: 8px;
@@ -260,8 +234,7 @@ body.lightweight-ui .group-card {
 }
 
 body.lightweight-ui .group-card,
-body.lightweight-ui .tab-row,
-body.lightweight-ui .metric-card {
+body.lightweight-ui .tab-row {
   box-shadow: none;
 }
 

@@ -193,7 +193,7 @@ class NewtabApp {
     const action = actionTarget.dataset.action;
     const groupId = actionTarget.dataset.groupId;
     const busy = isDashboardBusy(this.state);
-    if (busy && !['set-group-filter', 'set-date-range-filter', 'toggle-favorite-only', 'toggle-group', 'show-more-groups'].includes(action ?? '')) return;
+    if (busy && !['set-group-filter', 'toggle-favorite-only', 'toggle-group', 'show-more-groups'].includes(action ?? '')) return;
     if (!action) {
       return;
     }
@@ -313,20 +313,8 @@ class NewtabApp {
         }
         break;
       }
-      case 'set-date-range-filter': {
-        const value = actionTarget.dataset.value as DashboardState['dateRangeFilter'] | undefined;
-        if (value) {
-          this.state.dateRangeFilter = value;
-          this.groups.resetVisibleGroupCount();
-          this.render();
-        }
-        break;
-      }
       case 'toggle-favorite-only':
         this.groups.toggleFavoriteOnly();
-        break;
-      case 'select-stale-groups':
-        this.groups.selectStaleGroups();
         break;
       case 'show-more-groups':
         this.state.visibleGroupCount += LIGHTWEIGHT_GROUP_BATCH_SIZE;
