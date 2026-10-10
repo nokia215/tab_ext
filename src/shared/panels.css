@@ -88,16 +88,16 @@
   align-items: center;
 }
 
-.group-card-selected {
-  border-color: rgba(101, 214, 196, 0.42);
-  border-left-color: var(--accent);
-  background: linear-gradient(180deg, rgba(101, 214, 196, 0.1), rgba(255, 255, 255, 0.035));
-}
-
 .group-card-favorite {
   border-color: rgba(242, 199, 107, 0.28);
   border-left-color: var(--warning);
   background: linear-gradient(180deg, rgba(242, 199, 107, 0.08), rgba(255, 255, 255, 0.035));
+}
+
+.group-card-selected {
+  border-color: rgba(101, 214, 196, 0.42);
+  border-left-color: var(--accent);
+  background: linear-gradient(180deg, rgba(101, 214, 196, 0.1), rgba(255, 255, 255, 0.035));
 }
 
 .group-select {
@@ -137,6 +137,12 @@
 
 .group-trigger:hover:not(:disabled) {
   transform: none;
+  box-shadow: none;
+}
+
+.group-trigger:hover:not(:disabled) .indicator {
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 
 .static-header {
@@ -235,6 +241,19 @@
   color: var(--text);
   text-align: left;
   box-shadow: none;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.tab-row:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  background: rgba(255, 255, 255, 0.09);
+  border-color: var(--line-strong);
+}
+
+.tab-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .tab-row-main {
