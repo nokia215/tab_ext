@@ -40,3 +40,9 @@ History primarily uses short imperative subjects, such as `Fix Firefox restore m
 ## Security & Configuration
 
 The Supabase project URL and publishable key are embedded in `src/shared/build-config.ts`; never embed a `service_role` key. Preserve user-scoped Row Level Security. Add incremental schema changes under `supabase/migrations/`.
+
+## Database Changes & Releases
+
+Use the repository skill [.agents/skills/tab-saver-release/SKILL.md](.agents/skills/tab-saver-release/SKILL.md) for database changes and releases. Production DB migrations are deployed through the existing Supabase GitHub Integrations connection to `nokia215/tab_ext`, working directory `.`, production branch `main`, with Deploy to production enabled. Do not apply production migrations directly with `supabase db push` or bypass a failed integration with the CLI.
+
+Add a new migration and update `sql/schema.sql`; keep historical migrations unchanged. Validate the change, update both package versions, commit, tag the same commit as `v<version>`, and push `main` and that tag when release is authorized. The branch push triggers DB deployment; the tag identifies the release. Verify GitHub checks, Pages deployment, Supabase migration history, and the resulting DB schema. Report inaccessible or unverified results explicitly.

@@ -18,8 +18,6 @@ create table if not exists public.tabs (
   url text not null,
   title text not null default '',
   position integer not null,
-  status text not null default 'saved' check (status in ('saved', 'restored')),
-  restored_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -93,8 +91,7 @@ create policy "users_delete_own_tabs"
   for delete
   using (auth.uid() = user_id);
 
--- Existing tabs, favorites and archived groups are preserved. Legacy columns
--- remain for older clients; current clients no longer read their state.
+-- Existing tabs, favorites and archived groups are preserved.
 alter table public.tab_groups
   add column if not exists is_fixed boolean not null default false;
 

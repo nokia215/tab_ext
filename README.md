@@ -108,14 +108,30 @@ Firefoxではビルド後に`npm run run:firefox`で開発用ブラウザを起�
 Windows PowerShellで`npm.ps1`が実行ポリシーによりブロックされる場合は、`npm`の代わりに`npm.cmd`を使ってください。
 
 データベースの初期スキーマは[sql/schema.sql](sql/schema.sql)、追加変更は[増分マイグレーション](supabase/migrations/)にあります。
-リンク済みのSupabaseプロジェクトに未適用のマイグレーションを反映するには、Supabase CLIでログインしたうえで次を実行します。
+本番DBの変更はSupabaseのGitHub Integrations経由で適用します。
+連携リポジトリは`nokia215/tab_ext`、作業ディレクトリは`.`、Production branchは`main`で、Deploy to productionを有効にしています。
+適用の契機は`main`へのプッシュです。タグはリリースの識別に使います。
+
+1. `supabase/migrations/`に増分マイグレーションを追加し、`sql/schema.sql`も更新します。適用済みのマイグレーションは編集しません。
+2. テスト、型チェック、対象のビルドとパッケージ検証を行います。
+3. `package.json`と`package-lock.json`のバージョンを更新し、変更をコミットします。
+4. 同じコミットに`v<version>`タグを付け、`main`とそのタグをプッシュします。
+5. GitHubの検証・PagesデプロイとSupabaseの適用結果を確認し、DBの変更内容を読み取りで確認します。
+
+Supabase DashboardのProject Settings → Integrationsで連携設定を、Database → Migrationsで適用履歴を確認できます。
+プッシュ成功だけではDB適用完了とは判断しません。
+失敗時は連携ログとマイグレーションを調べ、必要な修正をコミットして再度プッシュします。
+本番DBへ`supabase db push`で直接適用したり、Integrationsの失敗をCLIで迂回したりしません。
+
+Supabase CLIでログイン済みの場合、次のコマンドで適用状況と未適用分を確認できます。
 
 ```bash
 npm run db:migrate:status  # 適用状況を確認
-npm run db:migrate         # 未適用分を適用
+npm run db:migrate:check   # 未適用分をdry-runで確認（DBは変更しない）
 ```
 
-適用前に内容を確認する場合は`npm run db:migrate:check`を実行します。
+新規マイグレーションの作成には`npm run db:migrate:new -- <name>`を使います。
+Codex向けのリリース手順は[tab-saver-releaseスキル](.agents/skills/tab-saver-release/SKILL.md)にあります。
 
 ## 開発
 
