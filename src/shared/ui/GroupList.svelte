@@ -46,24 +46,20 @@
             <button class={`group-select icon-button${selected ? ' selected-group-select' : ''}`} type="button" data-action="toggle-group-selection" data-group-id={group.id} aria-pressed={selected} title={selected ? 'グループ選択を解除' : 'グループを選択'} aria-label={selected ? 'グループ選択を解除' : 'グループを選択'} disabled={view.busy}>{@render icon(selected ? 'M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8 M8 10l4 4L21 5' : 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2')}</button>
             {#if view.collapsible && !editing}
               <button aria-expanded={expanded} class="group-trigger" type="button" data-action="toggle-group" data-group-id={group.id} disabled={view.busy}>
-                <div class="group-text"><div class="group-title-row"><h3>{group.title ?? '無題のグループ'}</h3></div>
+                <div class="group-text"><h3 title={group.title ?? '無題のグループ'}>{group.title ?? '無題のグループ'}</h3>
                   <div class="group-meta">
                     <span class="group-meta-item group-tab-count">{group.tabs.length} タブ</span>
                     <time class="group-meta-item" datetime={group.created_at} title={`作成日時: ${formatDate(group.created_at)}`} aria-label={`${age.label}に作成 · ${formatDate(group.created_at)}`}>{age.label}</time>
-                    <span class="group-meta-item group-device" title={`保存元: ${group.device_id}`}><span>{group.device_id}</span></span>
-                    {#if group.is_fixed}<span class="group-meta-item group-fixed">固定 · 復元後も保持</span>{/if}
                   </div>
                 </div><span class="indicator">{expanded ? '−' : '+'}</span>
               </button>
             {:else}
               <div class="group-trigger static-header"><div class="group-text">
                 {#if editing}<div class="group-title-editor"><input name="groupTitleEdit" aria-label="グループ名" type="text" value={view.editableGroupTitle ?? ''} data-group-id={group.id} placeholder="グループ名を入力" disabled={view.busy} /></div>
-                {:else}<div class="group-title-row"><h3>{group.title ?? '無題のグループ'}</h3></div>{/if}
+                {:else}<h3 title={group.title ?? '無題のグループ'}>{group.title ?? '無題のグループ'}</h3>{/if}
                 <div class="group-meta">
                   <span class="group-meta-item group-tab-count">{group.tabs.length} タブ</span>
                   <time class="group-meta-item" datetime={group.created_at} title={`作成日時: ${formatDate(group.created_at)}`} aria-label={`${age.label}に作成 · ${formatDate(group.created_at)}`}>{age.label}</time>
-                  <span class="group-meta-item group-device" title={`保存元: ${group.device_id}`}><span>{group.device_id}</span></span>
-                  {#if group.is_fixed}<span class="group-meta-item group-fixed">固定 · 復元後も保持</span>{/if}
                 </div>
               </div></div>
             {/if}
@@ -78,7 +74,7 @@
             {:else}
               <button class="ghost icon-button" type="button" data-action="edit-group-title" data-group-id={group.id} title="名前編集" aria-label="名前編集" disabled={view.busy}>{@render icon('m16 3 5 5-12 12-6 1 1-6Z M13 6l5 5')}</button>
             {/if}
-            <button class="ghost icon-button" type="button" data-action="toggle-fixed-group" aria-pressed={group.is_fixed} data-group-id={group.id} title={group.is_fixed ? '固定を解除' : '固定（復元後も保持）'} aria-label={group.is_fixed ? '固定を解除' : '固定（復元後も保持）'} disabled={view.busy}>{@render icon('M8 3h8 M9 3v6l-3 4v2h12v-2l-3-4V3 M12 15v6')}</button>
+            <button class="ghost icon-button" type="button" data-action="toggle-fixed-group" aria-pressed={group.is_fixed} data-group-id={group.id} title={group.is_fixed ? '固定中（復元後も保持） · クリックで解除' : '固定（復元後も保持）'} aria-label={group.is_fixed ? '固定中（復元後も保持） · クリックで解除' : '固定（復元後も保持）'} disabled={view.busy}>{@render icon('M8 3h8 M9 3v6l-3 4v2h12v-2l-3-4V3 M12 15v6')}</button>
             <button class="danger icon-button" type="button" data-action="delete-group" data-group-id={group.id} title="グループ削除" aria-label="グループ削除" disabled={view.busy}>{@render icon('M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7')}</button>
           </div>
         </div>

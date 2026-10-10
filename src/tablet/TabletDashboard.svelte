@@ -65,15 +65,13 @@
         <section class="bulk-toolbar" aria-label="選択したグループの一括操作">
           <span class="result-meta">{args.selectedSummary.selectedCount} グループ / {args.selectedSummary.selectedTabCount} タブを選択中</span>
           <div class="actions bulk-toolbar-actions">
-            <button class="ghost" data-action="select-visible-groups" disabled={busy || !args.bulkSelectableCount}>表示中を選択</button>
+            <button class="ghost" data-action="select-visible-groups" title="表示中のグループをすべて選択" disabled={busy || !args.bulkSelectableCount}>全選択</button>
             <button class="ghost" data-action="clear-group-selection" disabled={busy}>選択解除</button>
             <button data-action="restore-selected-groups" disabled={busy || !args.selectedSummary.restorableGroupCount}>まとめて復元</button>
             <button class="secondary" data-action="copy-selected-groups" disabled={busy}>URLコピー</button>
             <button class="danger" data-action="delete-selected-groups" disabled={busy}>まとめて削除</button>
           </div>
         </section>
-      {:else}
-        <button class="ghost bulk-select" data-action="select-visible-groups" disabled={busy || !args.bulkSelectableCount}>表示中を選択</button>
       {/if}
       <GroupList view={{ groups: args.visibleGroups, emptyLabel: state.authStatus === '未ログイン' ? 'ログインすると保存したタブを表示できます。' : state.allGroups.length ? '条件に一致するグループはありません。検索語やフィルタを変更してください。' : '保存済みグループはありません。', expandedGroupIds: args.visibleExpandedGroupIds, collapsible: true, busy, selectedGroupIds: state.selectedGroupIds, favoriteGroupIds: state.favoriteGroupIds, extraActionLabel: 'URLコピー', editableGroupId: state.editingGroupId, editableGroupTitle: state.editingGroupTitle }} />
       {#if remaining > 0}<div class="load-more-row"><button class="secondary" data-action="show-more-groups">さらに表示</button><span class="result-meta">残り {remaining} 件</span></div>{/if}

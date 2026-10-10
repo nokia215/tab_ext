@@ -85,7 +85,7 @@
   min-width: 0;
   display: flex;
   gap: 8px;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .group-card-selected {
@@ -119,11 +119,13 @@
 
 .group-trigger {
   width: 100%;
+  min-width: 0;
+  flex: 1;
   min-height: 0;
   padding: 0;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   background: transparent;
   border: none;
@@ -145,16 +147,25 @@
   margin: 0;
   font-size: 0.92rem;
   line-height: 1.25;
-  word-break: break-word;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .group-text {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
+  min-height: 32px;
   flex: 1;
 }
 
-.group-title-row {
-  margin-bottom: 5px;
+.group-title-editor {
+  min-width: 0;
+  flex: 1;
 }
 
 .group-title-editor input {
@@ -165,10 +176,9 @@
 
 .group-meta {
   display: flex;
-  flex-wrap: wrap;
+  flex-shrink: 0;
   align-items: center;
-  gap: 4px 8px;
-  margin-top: 5px;
+  gap: 8px;
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 400;
@@ -194,19 +204,6 @@
   font-weight: 600;
 }
 
-.group-device {
-  max-width: min(24ch, 100%);
-}
-
-.group-device > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.group-fixed {
-  color: var(--accent);
-}
-
 .indicator {
   width: 20px;
   height: 20px;
@@ -217,7 +214,6 @@
   color: var(--accent);
   font-size: 0.9rem;
   flex-shrink: 0;
-  margin-top: 2px;
 }
 
 .tab-list {
@@ -332,10 +328,6 @@
 }
 
 @media (max-width: 720px) {
-  .group-meta-item + .group-meta-item::before {
-    display: none;
-  }
-
   .group-select {
     align-self: flex-start;
   }

@@ -94,10 +94,6 @@
   align-items: center;
 }
 
-.bulk-select {
-  justify-self: start;
-}
-
 .bulk-toolbar {
   display: flex;
   flex-wrap: wrap;

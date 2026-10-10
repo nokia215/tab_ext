@@ -43,7 +43,8 @@ for (const [surface, uiMode] of [['desktop', 'default'], ['desktop', 'lightweigh
   for (const removed of ['metric-card', 'mini-metric', 'set-date-range-filter', 'select-stale-groups', '30日以上']) {
     assert.ok(!initial.includes(removed), `${surface}: removed ${removed}`);
   }
-  assert.ok(initial.includes('data-action="select-visible-groups"'));
+  assert.ok(!initial.includes('data-action="select-visible-groups"'), 'Select all is hidden until a group is selected');
+  assert.ok(initial.includes('data-action="toggle-group-selection"'));
   assert.ok(!initial.includes('class="bulk-toolbar"'));
   assert.ok(!initial.includes('data-action="restore-selected-groups"'));
   assert.ok(initial.includes('Long title &amp; details'));
@@ -51,7 +52,8 @@ for (const [surface, uiMode] of [['desktop', 'default'], ['desktop', 'lightweigh
   assert.ok(!initial.includes('meta-pill'), 'Group details do not use boxed labels');
   assert.match(initial, /class="group-meta-item group-tab-count"/);
   assert.match(initial, /<time[^>]*datetime="2020-01-01"[^>]*title="作成日時: [^"]+"/);
-  assert.match(initial, /class="group-meta-item group-device" title="保存元: PC"/);
+  assert.ok(!initial.includes('group-device'), 'Device names are omitted from group cards');
+  assert.match(initial, /<h3 title="Research">Research<\/h3>/);
   assert.ok(initial.includes('https://www.example.com/path?x=1&amp;y=2'));
   for (const [action, label] of [
     ['restore-group', '復元して削除'], ['copy-group', 'URLコピー'],
@@ -64,11 +66,19 @@ for (const [surface, uiMode] of [['desktop', 'default'], ['desktop', 'lightweigh
     assert.match(button, /<svg[^>]*aria-hidden="true"/);
     assert.ok(!button.slice(button.indexOf('>') + 1).includes(label), 'Action label is provided by tooltip');
   }
+  const longTitle = '長いグループ名 '.repeat(20) + '<参考>';
+  state.allGroups[0]!.title = longTitle;
+  assert.equal(html().match(/<h3 title="([^"]*)"/)?.[1], longTitle.replace('<', '&lt;'), 'Full long title remains available in the tooltip');
+  assert.ok(html().includes('&lt;参考>'), 'Group title text is escaped');
+  state.editingGroupTitle = longTitle;
   state.editingGroupId = group.id;
   const editing = html();
   assert.match(editing, /data-action="save-group-title"[^>]*title="名前を保存"[^>]*aria-label="名前を保存"/);
   assert.match(editing, /data-action="cancel-edit-group-title"[^>]*title="キャンセル"[^>]*aria-label="キャンセル"/);
+  assert.ok(editing.includes('name="groupTitleEdit"'), 'Long group names remain editable');
+  assert.ok(!editing.includes('group-device'));
   state.editingGroupId = null;
+  state.allGroups[0]!.title = group.title;
   assert.match(initial, /aria-pressed="true" data-action="set-group-filter" data-value="all"/);
   assert.match(initial, /aria-pressed="false" data-action="toggle-favorite-only"/);
   if (surface === 'desktop' && uiMode === 'lightweight') state.settingsPanelOpen = true;
@@ -99,15 +109,17 @@ for (const [surface, uiMode] of [['desktop', 'default'], ['desktop', 'lightweigh
   assert.ok(!html().includes('class="status-stack"'));
   state.selectedGroupIds = ['saved'];
   assert.ok(html().includes('class="bulk-toolbar"'));
-  for (const action of ['clear-group-selection', 'restore-selected-groups', 'copy-selected-groups', 'delete-selected-groups']) {
+  for (const action of ['select-visible-groups', 'clear-group-selection', 'restore-selected-groups', 'copy-selected-groups', 'delete-selected-groups']) {
     assert.ok(html().includes(`data-action="${action}"`));
   }
+  assert.match(html(), /data-action="select-visible-groups"[^>]*>全選択<\/button>/);
   state.searchQuery = 'no match';
   assert.ok(html().includes('1 グループ / 1 タブを選択中'), 'Hidden selected groups remain counted');
   assert.ok(html().includes('条件に一致するグループはありません。'));
   state.searchQuery = '';
   state.allGroups[0]!.is_fixed = true;
-  assert.ok(html().includes('固定 · 復元後も保持'));
+  assert.ok(!html().includes('固定 · 復元後も保持'), 'Fixed groups do not repeat the tooltip as visible text');
+  assert.match(html(), /data-action="toggle-fixed-group" aria-pressed="true"[^>]*title="固定中（復元後も保持） · クリックで解除"[^>]*aria-label="固定中（復元後も保持） · クリックで解除"/);
   assert.match(html(), /data-action="restore-group"[^>]*title="全部復元（復元後も保持）"[^>]*aria-label="全部復元（復元後も保持）"/);
   state.allGroups[0]!.tabs = [];
   assert.match(html(), /data-action="restore-selected-groups" disabled/);
@@ -116,6 +128,7 @@ for (const [surface, uiMode] of [['desktop', 'default'], ['desktop', 'lightweigh
   assert.match(html(), /data-action="restore-selected-groups" disabled/);
   state.selectedGroupIds = [];
   assert.ok(!html().includes('class="bulk-toolbar"'));
+  assert.ok(!html().includes('data-action="select-visible-groups"'), 'Clearing selection also hides select all');
   state.allGroups = [];
   assert.ok(html().includes('保存済みグループはありません。'));
   state.authStatus = '未ログイン';
