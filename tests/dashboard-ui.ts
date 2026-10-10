@@ -46,6 +46,14 @@ for (const [surface, uiMode] of [['desktop', 'default'], ['desktop', 'lightweigh
   assert.ok(!initial.includes('data-action="select-visible-groups"'), 'Select all is hidden until a group is selected');
   assert.ok(initial.includes('data-action="toggle-group-selection"'));
   assert.ok(!initial.includes('class="bulk-toolbar"'));
+  assert.ok(!initial.includes('保存したタブ</h1>'), 'The page and list share one heading');
+  assert.match(initial, /<h1 class="section-title">保存済みグループ<\/h1>/);
+  const explorerHeader = initial.split('class="explorer-head"')[1]!.split('class="toolbar')[0]!;
+  const refresh = explorerHeader.match(/<button[^>]*data-action="refresh-all"[^>]*>[\s\S]*?<\/button>/)?.[0];
+  assert.ok(refresh, 'Refresh belongs to the saved groups heading');
+  assert.match(refresh, /title="保存済みグループを更新" aria-label="保存済みグループを更新"/);
+  assert.match(refresh, /<svg[^>]*aria-hidden="true"/);
+  assert.equal(initial.match(/data-action="refresh-all"/g)?.length, 1);
   assert.ok(!initial.includes('data-action="restore-selected-groups"'));
   assert.ok(initial.includes('Long title &amp; details'));
   assert.ok(initial.includes('example.com'));
@@ -90,12 +98,34 @@ for (const [surface, uiMode] of [['desktop', 'default'], ['desktop', 'lightweigh
   state.favoriteOnly = true;
   assert.match(html(), /aria-pressed="true" data-action="toggle-favorite-only"/);
   assert.ok(html().includes('条件に一致するグループはありません。'));
+  assert.match(html(), /class="result-meta">0グループ \/ 1グループ/);
   state.favoriteOnly = false;
+  state.groupFilter = 'fixed';
+  assert.match(html(), /class="result-meta">0グループ \/ 1グループ/);
+  state.allGroups[0]!.is_fixed = true;
+  assert.match(html(), /class="result-meta">1グループ \/ 1グループ/);
+  state.allGroups[0]!.is_fixed = false;
+  state.groupFilter = 'all';
+  state.searchQuery = 'no match';
+  assert.match(html(), /class="result-meta">0グループ \/ 1グループ/);
+  state.searchQuery = '';
+  state.deviceFilter = 'Other device';
+  assert.match(html(), /class="result-meta">0グループ \/ 1グループ/);
+  state.deviceFilter = 'all';
+  if (uiMode === 'lightweight') {
+    state.allGroups = Array.from({ length: 30 }, (_, i) => ({ ...structuredClone(group), id: `saved-${i}` }));
+    state.visibleGroupCount = 10;
+    assert.match(html(), /class="result-meta">30グループ \/ 30グループ/);
+    assert.ok(!html().includes('表示済み'));
+    assert.ok(html().includes('data-action="show-more-groups"'));
+    assert.ok(html().includes('残り 20 件'));
+    state.allGroups = [structuredClone(group)];
+  }
 
   state.authStatus = 'ログイン中: user@example.com';
-  state.pageStatus = '1 グループを表示中';
+  state.pageStatus = '同期中';
   state.syncStatus = '最終同期: 12:34:56';
-  const header = () => html().slice(0, html().indexOf('</section>'));
+  const header = () => html().split('class="explorer-head"')[1]!.split('class="toolbar')[0]!;
   for (const status of [state.authStatus, state.pageStatus, state.syncStatus]) assert.ok(header().includes(status));
   assert.ok(!html().includes('class="status-stack"'), 'Normal statuses do not occupy another row');
   state.syncStatus = '自動同期失敗: Offline';
@@ -126,6 +156,7 @@ for (const [surface, uiMode] of [['desktop', 'default'], ['desktop', 'lightweigh
   state.allGroups[0]!.tabs = group.tabs;
   state.actionBusy = true;
   assert.match(html(), /data-action="restore-selected-groups" disabled/);
+  assert.match(html(), /data-action="refresh-all"[^>]*disabled/);
   state.selectedGroupIds = [];
   assert.ok(!html().includes('class="bulk-toolbar"'));
   assert.ok(!html().includes('data-action="select-visible-groups"'), 'Clearing selection also hides select all');

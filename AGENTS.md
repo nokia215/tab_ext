@@ -31,6 +31,8 @@ Use two-space indentation, single-quoted TypeScript strings, semicolons, camelCa
 
 Run `npm test`, typechecking, affected builds, and Firefox package linting when applicable. Manually verify changed save, restore, search, archive, and authentication flows in affected browsers; check tablet behavior for shared UI changes. Record verification steps in the PR.
 
+For computer-use UI checks, read [docs/computer-use.md](docs/computer-use.md) first. Use a localhost HTTP server; do not navigate automation to `chrome-extension://`, `moz-extension://`, or browser new-tab pages. Use the Web dashboard for Web flows and a fixture preview of the actual Svelte components for extension layouts. Report extension-only flows as unverified unless checked separately in the extension.
+
 ## Commit & Pull Request Guidelines
 
 History primarily uses short imperative subjects, such as `Fix Firefox restore messaging`; occasional `feat:` prefixes also appear. Keep commits focused. PRs should describe behavior changes, link relevant issues, list validation performed, and include screenshots for UI changes.

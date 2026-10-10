@@ -35,16 +35,6 @@
   {@const syncStatusIsError = isErrorStatus(state.syncStatus)}
   {@const remaining = Math.max(args.filteredGroups.length - args.visibleGroups.length, 0)}
   <main class="shell page-shell lightweight-shell tablet-shell">
-    <section class="masthead panel">
-      <div class="masthead-layout">
-        <div class="headline"><h1>保存したタブ</h1></div>
-        <div class="actions masthead-side"><span class="badge">{state.authStatus}</span>
-          {#if state.pageStatus && !args.pageStatusIsError}<span class="badge" role="status">{state.pageStatus}</span>{/if}
-          {#if state.syncStatus && !syncStatusIsError}<span class="badge" role="status">{state.syncStatus}</span>{/if}
-          <button class="ghost" data-action="refresh-all" disabled={busy}>更新</button></div>
-      </div>
-    </section>
-
     {#if args.pageStatusIsError || syncStatusIsError}
       <div class="status-stack">
         {#if args.pageStatusIsError}<StatusBanner status={state.pageStatus} error />{/if}
@@ -54,13 +44,22 @@
     {#if state.pageStatus.includes('削除同期に失敗')}<button class="secondary" data-action="refresh-all" disabled={state.actionBusy || state.refreshBusy}>削除の同期を再試行</button>{/if}
 
     <section class="panel lightweight-explorer tablet-explorer">
-      <div class="explorer-head"><div><h2 class="section-title">保存済みグループ</h2></div></div>
+      <div class="explorer-head">
+        <h1 class="section-title">保存済みグループ</h1>
+        <div class="actions explorer-status"><span class="badge">{state.authStatus}</span>
+          {#if state.pageStatus && !args.pageStatusIsError}<span class="badge" role="status">{state.pageStatus}</span>{/if}
+          {#if state.syncStatus && !syncStatusIsError}<span class="badge" role="status">{state.syncStatus}</span>{/if}
+          <button class="ghost refresh-button" type="button" data-action="refresh-all" title="保存済みグループを更新" aria-label="保存済みグループを更新" disabled={busy}>
+            <svg class="action-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 7v5h-5 M4 17v-5h5 M6.1 6.1A8 8 0 0 1 20 12 M4 12a8 8 0 0 0 13.9 5.9" /></svg>
+          </button>
+        </div>
+      </div>
       <div class="toolbar compact-toolbar">
         <label class="field search-field"><span class="field-label">検索</span><input name="searchQuery" type="search" value={state.searchQuery} placeholder="タブ名、URL、グループ名、端末名" /></label>
         <label class="field compact-field"><span class="field-label">並び順</span><select name="sortMode" value={state.sortMode}><option value="newest">新しい順</option><option value="oldest">古い順</option><option value="tabCount">タブ数順</option></select></label>
         <label class="field compact-field device-field"><span class="field-label">端末</span><select name="deviceFilter" value={state.deviceFilter}><option value="all">すべての端末</option>{#each args.deviceFilterOptions as device}<option value={device.value}>{device.label}</option>{/each}</select></label>
       </div>
-      <div class="filter-row"><button class={`chip${state.groupFilter === 'all' ? ' active-chip' : ''}`} aria-pressed={state.groupFilter === 'all'} data-action="set-group-filter" data-value="all">すべて</button><button class={`chip${state.groupFilter === 'fixed' ? ' active-chip' : ''}`} aria-pressed={state.groupFilter === 'fixed'} data-action="set-group-filter" data-value="fixed">固定</button><button class={`chip${state.favoriteOnly ? ' active-chip' : ''}`} aria-pressed={state.favoriteOnly} data-action="toggle-favorite-only">お気に入り</button><span class="result-meta">{args.visibleGroups.length} / {args.filteredGroups.length} 件</span></div>
+      <div class="filter-row"><button class={`chip${state.groupFilter === 'all' ? ' active-chip' : ''}`} aria-pressed={state.groupFilter === 'all'} data-action="set-group-filter" data-value="all">すべて</button><button class={`chip${state.groupFilter === 'fixed' ? ' active-chip' : ''}`} aria-pressed={state.groupFilter === 'fixed'} data-action="set-group-filter" data-value="fixed">固定</button><button class={`chip${state.favoriteOnly ? ' active-chip' : ''}`} aria-pressed={state.favoriteOnly} data-action="toggle-favorite-only">お気に入り</button><span class="result-meta">{args.filteredGroups.length}グループ / {state.allGroups.length}グループ</span></div>
       {#if args.selectedSummary.selectedCount}
         <section class="bulk-toolbar" aria-label="選択したグループの一括操作">
           <span class="result-meta">{args.selectedSummary.selectedCount} グループ / {args.selectedSummary.selectedTabCount} タブを選択中</span>

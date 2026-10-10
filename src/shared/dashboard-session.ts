@@ -104,7 +104,7 @@ export class DashboardSession {
         this.state.favoriteGroupIds = cached.favorites;
         this.groups.reconcileExpandedGroupIds(this.state.allGroups);
         this.groups.reconcileSelectedGroupIds(this.state.allGroups);
-        this.state.pageStatus = `${cached.groups.length} グループを表示中（同期中）`;
+        this.state.pageStatus = '同期中';
         this.render();
       }
 
@@ -123,7 +123,7 @@ export class DashboardSession {
         this.groups.stopEditingGroupTitle();
       }
       this.state.syncStatus = `最終同期: ${new Date().toLocaleTimeString('ja-JP')}`;
-      this.state.pageStatus = pending.error ?? `${this.state.allGroups.length} グループを表示中`;
+      this.state.pageStatus = pending.error ?? '';
       this.groups.resetVisibleGroupCount();
       return true;
     } catch (error) {
