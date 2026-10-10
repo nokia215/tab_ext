@@ -148,19 +148,13 @@
   word-break: break-word;
 }
 
-.group-title-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px 10px;
-  margin-bottom: 4px;
+.group-text {
+  min-width: 0;
+  flex: 1;
 }
 
-.group-title-row p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.72rem;
-  word-break: break-word;
+.group-title-row {
+  margin-bottom: 5px;
 }
 
 .group-title-editor input {
@@ -172,27 +166,46 @@
 .group-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+  line-height: 1.4;
 }
 
-.meta-pill {
+.group-meta-item {
   display: inline-flex;
   align-items: center;
+  gap: 8px;
   min-width: 0;
-  padding: 4px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.04);
+  white-space: nowrap;
+}
+
+.group-meta-item + .group-meta-item::before {
+  content: '·';
   color: var(--muted);
-  font-size: 0.7rem;
+  flex-shrink: 0;
 }
 
-.favorite-pill {
-  border-color: rgba(242, 199, 107, 0.32);
-  background: rgba(242, 199, 107, 0.12);
-  color: #ffe29c;
+.group-tab-count {
+  color: var(--text);
+  font-weight: 600;
 }
 
+.group-device {
+  max-width: min(24ch, 100%);
+}
+
+.group-device > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.group-fixed {
+  color: var(--accent);
+}
 
 .indicator {
   width: 20px;
@@ -273,6 +286,27 @@
   min-height: 32px;
 }
 
+.group-card button.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  min-height: 32px;
+  padding: 6px;
+  flex-shrink: 0;
+}
+
+.action-icon {
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.group-card .actions button[data-action='toggle-fixed-group'][aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .group-card .actions .favorite-toggle-active {
   border-color: rgba(242, 199, 107, 0.34);
   background: rgba(242, 199, 107, 0.12);
@@ -298,8 +332,8 @@
 }
 
 @media (max-width: 720px) {
-  .group-header-main {
-    flex-direction: column;
+  .group-meta-item + .group-meta-item::before {
+    display: none;
   }
 
   .group-select {
@@ -307,14 +341,8 @@
   }
 
   .group-card .actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: 100%;
-  }
-
-  .group-card .actions button {
-    width: 100%;
-    white-space: normal;
+    display: flex;
+    flex-wrap: wrap;
   }
 
   .tab-row-main {
@@ -329,6 +357,11 @@
 }
 
 @media (pointer: coarse) {
+  .group-card button.icon-button {
+    width: 44px;
+    min-height: 44px;
+  }
+
   button.group-select,
   .group-card .actions button,
   button.tab-row,

@@ -48,8 +48,27 @@ for (const [surface, uiMode] of [['desktop', 'default'], ['desktop', 'lightweigh
   assert.ok(!initial.includes('data-action="restore-selected-groups"'));
   assert.ok(initial.includes('Long title &amp; details'));
   assert.ok(initial.includes('example.com'));
+  assert.ok(!initial.includes('meta-pill'), 'Group details do not use boxed labels');
+  assert.match(initial, /class="group-meta-item group-tab-count"/);
+  assert.match(initial, /<time[^>]*datetime="2020-01-01"[^>]*title="作成日時: [^"]+"/);
+  assert.match(initial, /class="group-meta-item group-device" title="保存元: PC"/);
   assert.ok(initial.includes('https://www.example.com/path?x=1&amp;y=2'));
-  assert.ok(initial.includes('復元して削除'));
+  for (const [action, label] of [
+    ['restore-group', '復元して削除'], ['copy-group', 'URLコピー'],
+    ['toggle-favorite-group', 'お気に入り'], ['edit-group-title', '名前編集'],
+    ['toggle-fixed-group', '固定（復元後も保持）'], ['delete-group', 'グループ削除']
+  ] as const) {
+    const button = initial.match(new RegExp(`<button[^>]*data-action="${action}"[^>]*>[\\s\\S]*?</button>`))?.[0];
+    assert.ok(button, `${surface}: ${action} button exists`);
+    assert.ok(button.includes(`title="${label}"`) && button.includes(`aria-label="${label}"`));
+    assert.match(button, /<svg[^>]*aria-hidden="true"/);
+    assert.ok(!button.slice(button.indexOf('>') + 1).includes(label), 'Action label is provided by tooltip');
+  }
+  state.editingGroupId = group.id;
+  const editing = html();
+  assert.match(editing, /data-action="save-group-title"[^>]*title="名前を保存"[^>]*aria-label="名前を保存"/);
+  assert.match(editing, /data-action="cancel-edit-group-title"[^>]*title="キャンセル"[^>]*aria-label="キャンセル"/);
+  state.editingGroupId = null;
   assert.match(initial, /aria-pressed="true" data-action="set-group-filter" data-value="all"/);
   assert.match(initial, /aria-pressed="false" data-action="toggle-favorite-only"/);
   if (surface === 'desktop' && uiMode === 'lightweight') state.settingsPanelOpen = true;
@@ -89,7 +108,7 @@ for (const [surface, uiMode] of [['desktop', 'default'], ['desktop', 'lightweigh
   state.searchQuery = '';
   state.allGroups[0]!.is_fixed = true;
   assert.ok(html().includes('固定 · 復元後も保持'));
-  assert.ok(html().includes('全部復元'));
+  assert.match(html(), /data-action="restore-group"[^>]*title="全部復元（復元後も保持）"[^>]*aria-label="全部復元（復元後も保持）"/);
   state.allGroups[0]!.tabs = [];
   assert.match(html(), /data-action="restore-selected-groups" disabled/);
   state.allGroups[0]!.tabs = group.tabs;

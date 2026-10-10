@@ -33,7 +33,6 @@ body::before { display: none; }
 .section-title { letter-spacing: -.015em; }
 .group-card { border-radius: 10px; transition: border-color 120ms ease, background 120ms ease; }
 .group-card:hover { border-color: var(--line-strong); }
-.group-trigger { padding-block: 9px; }
 .group-header { gap: 8px; }
 .tab-row { min-height: 40px; }
 input, textarea, select { border-radius: 8px; }
