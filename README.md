@@ -108,6 +108,7 @@ Firefoxではビルド後に`npm run run:firefox`で開発用ブラウザを起�
 Windows PowerShellで`npm.ps1`が実行ポリシーによりブロックされる場合は、`npm`の代わりに`npm.cmd`を使ってください。
 
 データベースの初期スキーマは[sql/schema.sql](sql/schema.sql)、追加変更は[増分マイグレーション](supabase/migrations/)にあります。
+各テーブルのカラム、アクセス制御、DB関数の引数と処理は[データベースの説明](docs/database.md)を参照してください。
 本番DBの変更はSupabaseのGitHub Integrations経由で適用します。
 連携リポジトリは`nokia215/tab_ext`、作業ディレクトリは`.`、Production branchは`main`で、Deploy to productionを有効にしています。
 適用の契機は`main`へのプッシュです。タグはリリースの識別に使います。
@@ -120,9 +121,6 @@ Windows PowerShellで`npm.ps1`が実行ポリシーによりブロックされ�
 
 Supabase DashboardのProject Settings → Integrationsで連携設定を、Database → Migrationsで適用履歴を確認できます。
 プッシュ成功だけではDB適用完了とは判断しません。
-`20261014010000_atomic_group_save.sql` は新しい保存RPCを追加します。アプリの更新前にDBへの適用を確認してください。
-このマイグレーションは未使用の `tab_groups.archived_at`、両テーブルの `updated_at` と重複索引を削除するため、これらの列の過去データは失われます。
-`20261014020000_drop_legacy_favorite_support.sql` は旧保存RPCの `insert_saved_tabs` を削除し、`is_favorite` のNULLをfalseにしてNOT NULL制約を追加します。旧アプリ・旧ローカルお気に入り・旧キャッシュの変換には対応しません。
 失敗時は連携ログとマイグレーションを調べ、必要な修正をコミットして再度プッシュします。
 本番DBへ`supabase db push`で直接適用したり、Integrationsの失敗をCLIで迂回したりしません。
 
