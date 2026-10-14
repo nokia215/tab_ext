@@ -25,13 +25,12 @@ let failure = false;
 testGlobal.syncTest = {
   user: async () => sessionUserId ? { id: sessionUserId } : null,
   pending: async () => ({ pendingTabIds: ['consumed'] }),
-  favorites: async () => ['remote'],
   groups: async (id: string) => {
     assert.equal(id, 'owner');
     requests++;
     if (defer) await new Promise<void>((resolve) => { release = resolve; });
     if (failure) throw new Error('offline');
-    return [{ id: 'remote', is_fixed: false, tabs: [{ id: 'keep' }, { id: 'consumed' }] }];
+    return [{ id: 'remote', is_fixed: false, is_favorite: true, tabs: [{ id: 'keep' }, { id: 'consumed' }] }];
   }
 };
 const result = await build({
@@ -39,13 +38,14 @@ const result = await build({
   plugins: [{ name: 'sync-test', setup(builder) {
     builder.onResolve({ filter: /^\.\/(supabase|restoration)$/ }, ({ path }) => ({ path, namespace: 'mock' }));
     builder.onLoad({ filter: /.*/, namespace: 'mock' }, ({ path }) => ({ contents: path === './supabase'
-      ? 'export const getCurrentSessionUser = () => globalThis.syncTest.user(); export const listGroups = (id) => globalThis.syncTest.groups(id); export const getFavoriteGroupIds = () => globalThis.syncTest.favorites();'
+      ? 'export const getCurrentSessionUser = () => globalThis.syncTest.user(); export const listGroups = (id) => globalThis.syncTest.groups(id);'
       : 'export const retryPendingConsumption = () => globalThis.syncTest.pending(); export const hidePendingTabs = (groups, ids) => groups.map(g => ({...g, tabs: g.tabs.filter(t => !ids.includes(t.id))}));' }));
   } }]
 });
 const { startDashboardAutoSync } = await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0]!.text).toString('base64')}`);
 const state = {
-  allGroups: [] as { id: string; tabs: { id: string }[] }[], favoriteGroupIds: [] as string[], selectedGroupIds: ['gone', 'remote'], expandedGroupIds: ['gone'],
+  allGroups: [] as { id: string; is_favorite?: boolean; tabs: { id: string }[] }[],
+  selectedGroupIds: ['gone', 'remote'], expandedGroupIds: ['gone'],
   saveGroupId: 'gone', pendingUpdates: 0, pageStatus: '保存しました。', syncStatus: '', searchQuery: '検索',
   importText: 'draft', editingGroupId: null as string | null,
   restoreBusy: false, actionBusy: false, refreshBusy: false, authBusy: false, importBusy: false,
@@ -61,7 +61,7 @@ async function trigger(target: EventTarget = window, event = 'focus') {
 }
 await trigger();
 assert.deepEqual(state.allGroups[0]!.tabs, [{ id: 'keep' }]);
-assert.deepEqual(state.favoriteGroupIds, ['remote']);
+assert.deepEqual(state.allGroups.filter(group => group.is_favorite).map(group => group.id), ['remote']);
 assert.deepEqual(state.selectedGroupIds, ['remote']);
 assert.deepEqual(state.expandedGroupIds, []);
 assert.equal(state.saveGroupId, '');
@@ -132,7 +132,6 @@ state.allGroups = [{ id: 'private', tabs: [] }];
 sessionUserId = null;
 await trigger(window, 'storage');
 assert.deepEqual(state.allGroups, [], 'External logout must immediately clear private data');
-assert.deepEqual(state.favoriteGroupIds, []);
 assert.equal(state.saveGroupId, '');
 state.allGroups = [{ id: 'private', tabs: [] }];
 sessionUserId = 'another';

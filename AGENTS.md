@@ -27,6 +27,8 @@ Load `dist/chrome-mv3/` as an unpacked extension in Chrome. `npm run release` bu
 
 Use two-space indentation, single-quoted TypeScript strings, semicolons, camelCase functions/variables, and PascalCase types/interfaces. Use kebab-case filenames for shared modules, such as `group-age.ts`. Follow existing ES module and `import type` patterns. No formatter or general-purpose linter is configured. Keep UI changes consistent with `docs/ui-guidelines.md`.
 
+Backward compatibility is not required. Remove obsolete APIs, legacy data conversion, and compatibility fallbacks when changing the affected code. Keep historical database migrations unchanged; use new migrations to reach the current schema. Preserve security and current data integrity.
+
 ## Testing Guidelines
 
 Run `npm test`, typechecking, affected builds, and Firefox package linting when applicable. Manually verify changed save, restore, search, archive, and authentication flows in affected browsers; check tablet behavior for shared UI changes. Record verification steps in the PR.

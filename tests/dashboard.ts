@@ -31,9 +31,10 @@ const built = await build({
   } }]
 });
 const { DashboardGroups, createInitialState } = await import(`data:text/javascript;base64,${Buffer.from(built.outputFiles[0]!.text).toString('base64')}`);
-const makeGroup = (id: string): TabGroup => ({ id, title: id, device_id: 'PC', created_at: '2026-10-01', is_fixed: false,
+const makeGroup = (id: string): TabGroup => ({ id, title: id, device_id: 'PC', created_at: '2026-10-01', is_fixed: false, is_favorite: false,
   tabs: [{ id: `tab-${id}`, url: `https://${id}.test`, title: id, position: 0 }] });
 
+const favoriteIds = (state: DashboardState) => state.allGroups.filter(group => group.is_favorite).map(group => group.id);
 try {
   for (const uiMode of ['default', 'lightweight']) {
     const state: DashboardState = createInitialState({ isAndroidFirefox: false, uiMode });
@@ -48,19 +49,40 @@ try {
 
     failWrite = false;
     const favorite = groups.handleToggleFavoriteGroup('g0');
-    assert.deepEqual(state.favoriteGroupIds, ['g0'], 'Favorite appears before the server responds');
+    assert.deepEqual(favoriteIds(state), ['g0'], 'Favorite appears before the server responds');
     assert.equal(state.actionBusy, false);
     assert.equal(state.pendingUpdates, 1);
+    await new Promise<void>(setImmediate);
     releaseWrite();
     await favorite;
     assert.equal(state.pendingUpdates, 0);
 
     failWrite = true;
     const unfavorite = groups.handleToggleFavoriteGroup('g0');
-    assert.deepEqual(state.favoriteGroupIds, []);
+    assert.deepEqual(favoriteIds(state), []);
+    await new Promise<void>(setImmediate);
     releaseWrite();
     await unfavorite;
-    assert.deepEqual(state.favoriteGroupIds, ['g0'], 'Failed write restores the favorite');
+    assert.deepEqual(favoriteIds(state), ['g0'], 'Failed write restores the favorite');
+    assert.equal(groups.findGroup('g0')!.is_favorite, true);
+
+    failWrite = false;
+    const firstFavorite = groups.handleToggleFavoriteGroup('g0');
+    const secondFavorite = groups.handleToggleFavoriteGroup('g0');
+    assert.equal(groups.findGroup('g0')!.is_favorite, true, 'Every rapid click appears immediately');
+    assert.equal(state.pendingUpdates, 2);
+    await new Promise<void>(setImmediate);
+    releaseWrite();
+    await firstFavorite;
+    await new Promise<void>(setImmediate);
+    failWrite = true;
+    const favoriteWait = assert.rejects(groups.waitForGroupUpdates('g0'), /グループ設定の保存失敗/);
+    releaseWrite();
+    await secondFavorite;
+    await favoriteWait;
+    assert.equal(groups.findGroup('g0')!.is_favorite, false, 'Rollback restores the last successful write');
+    assert.equal(state.pendingUpdates, 0);
+
     const fixed = groups.handleToggleFixedGroup('g0');
     assert.equal(groups.findGroup('g0')!.is_fixed, true);
     await new Promise<void>(setImmediate);
@@ -70,8 +92,8 @@ try {
 
     failWrite = true;
     const failingFixed = groups.handleToggleFixedGroup('g0');
-    const failingWait = groups.waitForFixedUpdates('g0');
-    const failedWaitCheck = assert.rejects(failingWait, /固定設定の保存失敗/);
+    const failingWait = groups.waitForGroupUpdates('g0');
+    const failedWaitCheck = assert.rejects(failingWait, /グループ設定の保存失敗/);
     await new Promise<void>(setImmediate);
     releaseWrite();
     await failingFixed;
@@ -86,7 +108,7 @@ try {
     assert.equal(state.pendingUpdates, 2);
     await new Promise<void>(setImmediate);
     const firstRelease = releaseWrite;
-    const waiting = groups.waitForFixedUpdates('g0');
+    const waiting = groups.waitForGroupUpdates('g0');
     let settled = false;
     void waiting.then(() => { settled = true; });
     assert.equal(releaseWrite, firstRelease, 'Only the first write starts');
@@ -103,7 +125,7 @@ try {
 
     state.allGroups = [makeGroup('g0'), makeGroup('g1')];
     state.selectedGroupIds = ['g0', 'g1'];
-    state.favoriteGroupIds = ['g0', 'g1'];
+    state.allGroups = state.allGroups.map(group => ({ ...group, is_favorite: true }));
     state.expandedGroupIds = ['g0', 'g1'];
     failDeleteId = 'g1';
     const deletion = groups.handleDeleteSelectedGroups();
@@ -111,19 +133,19 @@ try {
     await deletion;
     assert.equal(state.allGroups.length, 1);
     assert.equal(groups.findGroup('g1')!.id, 'g1');
-    assert.deepEqual(state.favoriteGroupIds, ['g1'], 'Partial failure restores only undeleted favorites');
+    assert.deepEqual(favoriteIds(state), ['g1'], 'Partial failure restores only undeleted favorites');
     assert.equal(state.actionBusy, false);
     assert.match(state.pageStatus, /1 グループ削除後に失敗/);
 
     failWrite = true;
     state.allGroups = [makeGroup('private')];
     const oldFavorite = groups.handleToggleFavoriteGroup('private');
+    await new Promise<void>(setImmediate);
     state.sessionRevision++;
     state.allGroups = [];
-    state.favoriteGroupIds = [];
     releaseWrite();
     await oldFavorite;
-    assert.deepEqual(state.favoriteGroupIds, [], 'Old failures cannot restore another account\'s favorites');
+    assert.deepEqual(favoriteIds(state), [], 'Old failures cannot restore another account\'s favorites');
     assert.ok(renders > 0);
   }
   console.log('Shared dashboard selection / optimistic update / partial deletion checks passed.');

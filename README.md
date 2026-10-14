@@ -120,6 +120,9 @@ Windows PowerShellで`npm.ps1`が実行ポリシーによりブロックされ�
 
 Supabase DashboardのProject Settings → Integrationsで連携設定を、Database → Migrationsで適用履歴を確認できます。
 プッシュ成功だけではDB適用完了とは判断しません。
+`20261014010000_atomic_group_save.sql` は新しい保存RPCを追加します。アプリの更新前にDBへの適用を確認してください。
+このマイグレーションは未使用の `tab_groups.archived_at`、両テーブルの `updated_at` と重複索引を削除するため、これらの列の過去データは失われます。
+`20261014020000_drop_legacy_favorite_support.sql` は旧保存RPCの `insert_saved_tabs` を削除し、`is_favorite` のNULLをfalseにしてNOT NULL制約を追加します。旧アプリ・旧ローカルお気に入り・旧キャッシュの変換には対応しません。
 失敗時は連携ログとマイグレーションを調べ、必要な修正をコミットして再度プッシュします。
 本番DBへ`supabase db push`で直接適用したり、Integrationsの失敗をCLIで迂回したりしません。
 

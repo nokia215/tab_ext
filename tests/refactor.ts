@@ -3,6 +3,7 @@ const testGlobal = globalThis as unknown as Record<string, unknown>;
 import assert from 'node:assert/strict';
 import { mock } from 'node:test';
 import { build } from 'esbuild';
+import type { TabGroup } from '../src/shared/types.ts';
 
 let moduleId = 0;
 async function loadModule(entry: string) {
@@ -22,28 +23,29 @@ assert.equal(getErrorMessage('Network failure'), 'Network failure');
 assert.equal(getErrorMessage(null), 'null');
 mock.timers.enable({ apis: ['Date'], now: new Date('2026-09-22T12:00:00Z') });
 try {
-  const groups = [
-    { id: 'old', title: 'Research', device_id: 'PC', created_at: '2026-08-01T12:00:00Z', is_fixed: false,
+  const groups: TabGroup[] = [
+    { id: 'old', title: 'Research', device_id: 'PC', created_at: '2026-08-01T12:00:00Z', is_fixed: false, is_favorite: false,
       tabs: [{ id: 'a', title: 'Alpha', url: 'https://a.test', position: 0 }] },
-    { id: 'new', title: 'Work', device_id: 'PC', created_at: '2026-09-22T12:00:00Z', is_fixed: false,
+    { id: 'new', title: 'Work', device_id: 'PC', created_at: '2026-09-22T12:00:00Z', is_fixed: false, is_favorite: false,
       tabs: [{ id: 'b', title: 'Beta', url: 'https://b.test', position: 0 }] },
-    { id: 'archive', title: 'Research', device_id: 'Tablet', created_at: '2026-09-21T12:00:00Z', is_fixed: true,
+    { id: 'archive', title: 'Research', device_id: 'Tablet', created_at: '2026-09-21T12:00:00Z', is_fixed: true, is_favorite: false,
       tabs: [{ id: 'c', title: 'Alpha', url: 'https://c.test', position: 0 }] }
   ];
   const before = structuredClone(groups);
   const state = model.createInitialState({ isAndroidFirefox: false, uiMode: 'default' });
   const ids = (options = {}, input = groups) => model.queryGroups(input, { ...state, ...options }).map((g: { id: string }) => g.id);
+  const favorites = (groupIds: string[]) => groups.map(group => ({ ...group, is_favorite: groupIds.includes(group.id) }));
   assert.deepEqual(ids(), ['new', 'archive', 'old']);
   assert.deepEqual(ids({ sortMode: 'oldest' }), ['old', 'archive', 'new']);
   assert.deepEqual(ids({ sortMode: 'tabCount' }), ['new', 'archive', 'old']);
   for (const sortMode of ['newest', 'oldest', 'tabCount']) {
-    assert.equal(ids({ sortMode, favoriteGroupIds: ['old'] })[0], 'old');
+    assert.equal(ids({ sortMode }, favorites(['old']))[0], 'old');
   }
-  assert.deepEqual(ids({ searchQuery: ' ALPHA ', favoriteOnly: true, favoriteGroupIds: ['old', 'archive'],
-    deviceFilter: 'PC', groupFilter: 'all' }), ['old']);
+  assert.deepEqual(ids({ searchQuery: ' ALPHA ', favoriteOnly: true,
+    deviceFilter: 'PC', groupFilter: 'all' }, favorites(['old', 'archive'])), ['old']);
   assert.deepEqual(ids({ groupFilter: 'fixed' }), ['archive']);
-  assert.deepEqual(ids({ groupFilter: 'fixed', favoriteOnly: true, favoriteGroupIds: ['old'] }), []);
-  assert.deepEqual(ids({ groupFilter: 'fixed', favoriteOnly: true, favoriteGroupIds: ['archive'] }), ['archive']);
+  assert.deepEqual(ids({ groupFilter: 'fixed', favoriteOnly: true }, favorites(['old'])), []);
+  assert.deepEqual(ids({ groupFilter: 'fixed', favoriteOnly: true }, favorites(['archive'])), ['archive']);
   assert.deepEqual(ids({}, [groups[1]!, { ...groups[1]!, id: 'tie' }]), ['new', 'tie']);
   assert.deepEqual(ids({ sortMode: 'tabCount' }, [groups[1]!, { ...groups[0]!, tabs: [...groups[0]!.tabs, ...groups[1]!.tabs] }]), ['old', 'new']);
   assert.deepEqual(model.summarizeSelectedGroups(groups, ['old', 'new', 'old', 'missing']), {

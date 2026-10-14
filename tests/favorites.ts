@@ -3,23 +3,18 @@ const testGlobal = globalThis as unknown as Record<string, unknown>;
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 
-type Row = { id: string; user_id: string; is_favorite: boolean | null; is_fixed?: boolean };
+type Row = { id: string; user_id: string; is_favorite: boolean; is_fixed?: boolean; tabs?: unknown[] };
 const rows: Row[] = [
-  { id: 'legacy', user_id: 'owner', is_favorite: null },
+  { id: 'favorite', user_id: 'owner', is_favorite: true },
   { id: 'other', user_id: 'owner', is_favorite: false },
-  { id: 'foreign', user_id: 'another', is_favorite: null }
+  { id: 'foreign', user_id: 'another', is_favorite: true }
 ];
-const devices = {
-  a: { favorite_group_ids: ['legacy', 'foreign'] },
-  b: { favorite_group_ids: ['legacy'] }
-};
-let device: keyof typeof devices = 'a';
 let userId: string | null = 'owner';
 let failure: string | null = null;
 let requests = 0;
 testGlobal.chrome = { storage: { local: {
-  get: async () => structuredClone(devices[device]),
-  set: async (value: { favorite_group_ids: string[] }) => Object.assign(devices[device], value)
+  get: async () => { throw new Error('Favorite sync must not read local storage'); },
+  set: async () => { throw new Error('Favorite sync must not write local storage'); }
 } } };
 testGlobal.favoriteTestClient = {
   auth: { getSession: async () => ({ data: { session: userId ? { user: { id: userId } } : null }, error: null }) },
@@ -35,8 +30,6 @@ testGlobal.favoriteTestClient = {
       range() { return query; },
       update(value: Partial<Row>) { payload = value; return query; },
       eq(key: keyof Row, value: unknown) { filters.push([key, (row) => row[key] === value]); return query; },
-      is(key: keyof Row, value: unknown) { return query.eq(key, value); },
-      in(key: keyof Row, values: unknown[]) { filters.push([key, (row) => values.includes(row[key])]); return query; },
       single() { single = true; return query; },
       then(resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) {
         return Promise.resolve().then(() => {
@@ -45,7 +38,7 @@ testGlobal.favoriteTestClient = {
           const matched = rows.filter((row) => filters.every(([, matches]) => matches(row)));
           if (single && matched.length !== 1) return { data: null, error: new Error('Missing group') };
           if (payload) matched.forEach((row) => Object.assign(row, payload));
-          return { data: structuredClone(single ? matched[0]! : matched), error: null };
+          return { data: structuredClone(single ? matched[0]! : matched.map(row => ({ ...row, tabs: [] }))), error: null };
         }).then(resolve, reject);
       }
     };
@@ -63,27 +56,22 @@ const result = await build({
       : "export const getConfig = async () => ({ supabaseUrl: 'test', supabaseKey: 'test' });" }));
   } }]
 });
-const { getFavoriteGroupIds, setGroupFavorite, setGroupFixed } = await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0]!.text).toString('base64')}`);
+const { listGroups, setGroupFavorite, setGroupFixed } = await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0]!.text).toString('base64')}`);
+const getFavoriteGroupIds = async () => (await listGroups()).filter((group: { is_favorite: boolean }) => group.is_favorite).map((group: { id: string }) => group.id);
 try {
-  failure = 'Migration failed';
-  await assert.rejects(getFavoriteGroupIds(), /Migration failed/);
-  assert.deepEqual(devices.a.favorite_group_ids, ['legacy', 'foreign']);
+  failure = 'Network failed';
+  await assert.rejects(getFavoriteGroupIds(), /Network failed/);
   failure = null;
-  assert.deepEqual(await getFavoriteGroupIds(), ['legacy']);
-  assert.deepEqual(devices.a.favorite_group_ids, ['foreign']);
-  assert.equal(rows[2]!.is_favorite, null, 'Do not migrate another account');
+  const beforeRefresh = requests;
+  assert.deepEqual(await getFavoriteGroupIds(), ['favorite']);
+  assert.equal(requests, beforeRefresh + 1, 'One group request supplies favorites too');
 
   // A second device sees additions and removals on each refresh, without a page reload.
-  device = 'b';
-  assert.deepEqual(await getFavoriteGroupIds(), ['legacy']);
+  assert.deepEqual(await getFavoriteGroupIds(), ['favorite']);
   await setGroupFavorite('other', true);
-  device = 'a';
-  assert.deepEqual(await getFavoriteGroupIds(), ['legacy', 'other']);
-  await setGroupFavorite('legacy', false);
-  device = 'b';
-  devices.b.favorite_group_ids = ['legacy'];
-  assert.deepEqual(await getFavoriteGroupIds(), ['other'], 'Old local data must not undo a remote removal');
-  assert.deepEqual(devices.b.favorite_group_ids, []);
+  assert.deepEqual(await getFavoriteGroupIds(), ['favorite', 'other']);
+  await setGroupFavorite('favorite', false);
+  assert.deepEqual(await getFavoriteGroupIds(), ['other'], 'A refresh sees a remote removal');
   assert.equal(rows[1]!.is_favorite, true, 'Updating one group must not overwrite other favorites');
 
   await setGroupFixed('other', true);
@@ -105,13 +93,11 @@ try {
   await assert.rejects(setGroupFixed('foreign', true), /Missing group/);
 
   userId = 'another';
-  device = 'a';
   assert.deepEqual(await getFavoriteGroupIds(), ['foreign']);
-  assert.deepEqual(devices.a.favorite_group_ids, []);
   userId = null;
   const before = requests;
   await assert.rejects(getFavoriteGroupIds(), /ログイン/);
-  await assert.rejects(setGroupFavorite('legacy', true), /ログイン/);
+  await assert.rejects(setGroupFavorite('favorite', true), /ログイン/);
   assert.equal(requests, before);
   console.log('Cross-device favorite sync regression checks passed.');
 } finally {

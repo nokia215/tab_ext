@@ -79,7 +79,7 @@
           </div>
         </section>
       {/if}
-      <GroupList view={{ groups: lightweight ? args.visibleGroups : args.filteredGroups, emptyLabel: state.authStatus === '未ログイン' ? 'ログインすると保存したタブを表示できます。' : state.allGroups.length ? '条件に一致するグループはありません。検索語やフィルタを変更してください。' : '保存済みグループはありません。', expandedGroupIds: args.visibleExpandedGroupIds, collapsible: true, busy, selectedGroupIds: state.selectedGroupIds, favoriteGroupIds: state.favoriteGroupIds, extraActionLabel: 'URLコピー', editableGroupId: state.editingGroupId, editableGroupTitle: state.editingGroupTitle }} />
+      <GroupList view={{ groups: lightweight ? args.visibleGroups : args.filteredGroups, emptyLabel: state.authStatus === '未ログイン' ? 'ログインすると保存したタブを表示できます。' : state.allGroups.length ? '条件に一致するグループはありません。検索語やフィルタを変更してください。' : '保存済みグループはありません。', expandedGroupIds: args.visibleExpandedGroupIds, collapsible: true, busy, selectedGroupIds: state.selectedGroupIds, extraActionLabel: 'URLコピー', editableGroupId: state.editingGroupId, editableGroupTitle: state.editingGroupTitle }} />
       {#if lightweight && remaining > 0}<div class="load-more-row"><button class="secondary" data-action="show-more-groups">さらに{Math.min(remaining, LIGHTWEIGHT_GROUP_BATCH_SIZE)}件表示</button><span class="result-meta">残り {remaining} 件</span></div>{/if}
     </section>
 

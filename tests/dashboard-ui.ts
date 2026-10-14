@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { build, transform } from 'esbuild';
 import { compile, compileModule } from 'svelte/compiler';
 import type { DashboardState } from '../src/shared/dashboard-model.ts';
@@ -21,7 +22,7 @@ const built = await build({
       const compiled = path.endsWith('.ts')
         ? compileModule((await transform(source, { loader: 'ts' })).code, { filename: path, generate: 'server' })
         : compile(source, { filename: path, generate: 'server' });
-      return { contents: compiled.js.code, resolveDir: path.slice(0, path.lastIndexOf('/')) };
+      return { contents: compiled.js.code, resolveDir: dirname(path) };
     });
   } }]
 });
@@ -29,7 +30,7 @@ const { render, Desktop, Tablet, dashboards, createInitialState } = await import
   `data:text/javascript;base64,${Buffer.from(built.outputFiles[0]!.text).toString('base64')}`
 );
 const group: TabGroup = {
-  id: 'saved', title: 'Research', device_id: 'PC', created_at: '2020-01-01', is_fixed: false,
+  id: 'saved', title: 'Research', device_id: 'PC', created_at: '2020-01-01', is_fixed: false, is_favorite: false,
   tabs: [{ id: 'tab', title: 'Long title & details', url: 'https://www.example.com/path?x=1&y=2', position: 0 }]
 };
 

@@ -4,17 +4,17 @@ import type { TabGroup } from './types';
 
 const GROUP_CACHE_KEY = 'group_cache_by_user';
 
-export async function getCachedGroups(userId: string): Promise<{ groups: TabGroup[]; favorites: string[] } | null> {
-  const stored = await storageLocalGet(GROUP_CACHE_KEY) as Record<string, Record<string, { groups?: TabGroup[]; favorites?: string[] }> | undefined>;
+export async function getCachedGroups(userId: string): Promise<{ groups: TabGroup[] } | null> {
+  const stored = await storageLocalGet(GROUP_CACHE_KEY) as Record<string, Record<string, { groups: TabGroup[] }> | undefined>;
   const cache = stored[GROUP_CACHE_KEY]?.[userId];
-  return cache?.groups ? { groups: cache.groups, favorites: cache.favorites ?? [] } : null;
+  return cache?.groups ? { groups: cache.groups } : null;
 }
 
-export async function saveCachedGroups(userId: string, groups: TabGroup[], favorites: string[]): Promise<void> {
-  const stored = await storageLocalGet(GROUP_CACHE_KEY) as Record<string, Record<string, { groups?: TabGroup[]; favorites?: string[] }> | undefined>;
+export async function saveCachedGroups(userId: string, groups: TabGroup[]): Promise<void> {
+  const stored = await storageLocalGet(GROUP_CACHE_KEY) as Record<string, Record<string, { groups: TabGroup[] }> | undefined>;
   await storageLocalSet({ [GROUP_CACHE_KEY]: {
     ...stored[GROUP_CACHE_KEY],
-    [userId]: { groups, favorites }
+    [userId]: { groups }
   } });
 }
 
@@ -49,10 +49,6 @@ function buildDeviceLabel(seed: string): string {
   return `${browser} ${platform} · ${suffix}`;
 }
 
-function isLegacyDeviceId(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
-}
-
 function normalizeLines(value: string[] | undefined): string[] {
   return (value ?? [])
     .map((item) => item.trim())
@@ -83,15 +79,7 @@ export async function saveConfig(config: AppConfig): Promise<void> {
 export async function getOrCreateDeviceId(): Promise<string> {
   const result = await storageLocalGet(KEYS.DEVICE_ID);
   const current = (result as Record<string, string>)[KEYS.DEVICE_ID];
-  if (current) {
-    if (!isLegacyDeviceId(current)) {
-      return current;
-    }
-
-    const migrated = buildDeviceLabel(current);
-    await storageLocalSet({ [KEYS.DEVICE_ID]: migrated });
-    return migrated;
-  }
+  if (current) return current;
 
   const id = buildDeviceLabel(crypto.randomUUID());
   await storageLocalSet({ [KEYS.DEVICE_ID]: id });

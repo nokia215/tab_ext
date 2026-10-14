@@ -31,7 +31,6 @@ export interface DashboardState {
   deviceFilter: string;
   sortMode: SortMode;
   allGroups: TabGroup[];
-  favoriteGroupIds: string[];
   selectedGroupIds: string[];
   expandedGroupIds: string[];
   editingGroupId: string | null;
@@ -99,7 +98,6 @@ export function createInitialState(runtimeProfile: RuntimeProfile): DashboardSta
     deviceFilter: 'all',
     sortMode: 'newest',
     allGroups: [],
-    favoriteGroupIds: [],
     selectedGroupIds: [],
     expandedGroupIds: [],
     editingGroupId: null,
@@ -140,8 +138,8 @@ function matchesDeviceFilter(group: TabGroup, deviceFilter: string) {
   return deviceFilter === 'all' || group.device_id === deviceFilter;
 }
 
-function compareFavoriteOrder(a: TabGroup, b: TabGroup, favoriteGroupIds: Set<string>) {
-  return Number(favoriteGroupIds.has(b.id)) - Number(favoriteGroupIds.has(a.id));
+function compareFavoriteOrder(a: TabGroup, b: TabGroup) {
+  return Number(b.is_favorite) - Number(a.is_favorite);
 }
 
 function compareByDate(a: TabGroup, b: TabGroup, direction: 'asc' | 'desc') {
@@ -149,9 +147,9 @@ function compareByDate(a: TabGroup, b: TabGroup, direction: 'asc' | 'desc') {
   return direction === 'asc' ? diff : -diff;
 }
 
-export function sortGroups(mode: SortMode, favoriteGroupIds = new Set<string>()) {
+export function sortGroups(mode: SortMode) {
   return (a: TabGroup, b: TabGroup) => {
-    const favoriteOrder = compareFavoriteOrder(a, b, favoriteGroupIds);
+    const favoriteOrder = compareFavoriteOrder(a, b);
     if (favoriteOrder !== 0) {
       return favoriteOrder;
     }
@@ -172,16 +170,14 @@ export function queryGroups(
   groups: TabGroup[],
   options: Pick<
     DashboardState,
-    'searchQuery' | 'favoriteOnly' | 'groupFilter' | 'deviceFilter' | 'sortMode' | 'favoriteGroupIds'
+    'searchQuery' | 'favoriteOnly' | 'groupFilter' | 'deviceFilter' | 'sortMode'
   >
 ) {
-  const favoriteGroupIds = new Set(options.favoriteGroupIds);
-
   return filterGroups(groups, options.searchQuery)
     .filter((group) => matchesGroupFilter(group, options.groupFilter))
     .filter((group) => matchesDeviceFilter(group, options.deviceFilter))
-    .filter((group) => !options.favoriteOnly || favoriteGroupIds.has(group.id))
-    .sort(sortGroups(options.sortMode, favoriteGroupIds));
+    .filter((group) => !options.favoriteOnly || group.is_favorite)
+    .sort(sortGroups(options.sortMode));
 }
 
 export function collectDeviceFilterOptions(groups: TabGroup[]): DeviceFilterOption[] {

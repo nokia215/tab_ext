@@ -31,7 +31,6 @@ export interface GroupListView {
   collapsible: boolean;
   busy: boolean;
   selectedGroupIds?: string[];
-  favoriteGroupIds?: string[];
   extraActionLabel?: string;
   editableGroupId?: string | null;
   editableGroupTitle?: string;

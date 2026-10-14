@@ -34,7 +34,7 @@
     {#each view.groups as group (group.id)}
       {@const expanded = !view.collapsible || view.expandedGroupIds.includes(group.id)}
       {@const selected = Boolean(view.selectedGroupIds?.includes(group.id))}
-      {@const favorite = Boolean(view.favoriteGroupIds?.includes(group.id))}
+      {@const favorite = group.is_favorite}
       {@const editing = view.editableGroupId === group.id}
       {@const age = describeGroupAge(group.created_at)}
       {@const previewTabs = group.tabs.slice(0, 6)}

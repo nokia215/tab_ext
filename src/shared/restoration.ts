@@ -44,13 +44,12 @@ export async function retryPendingConsumption() {
   return { pendingTabIds, error };
 }
 
-export function hidePendingTabs(groups: TabGroup[], pendingTabIds: string[], favoriteGroupIds?: string[]) {
+export function hidePendingTabs(groups: TabGroup[], pendingTabIds: string[]) {
   const pending = new Set(pendingTabIds);
   return groups.flatMap((group) => {
     if (group.is_fixed) return [group];
     const tabs = group.tabs.filter((tab) => !pending.has(tab.id));
-    const favorite = favoriteGroupIds ? favoriteGroupIds.includes(group.id) : group.is_favorite;
-    return tabs.length === 0 && group.tabs.length > 0 && !favorite ? [] : [{ ...group, tabs }];
+    return tabs.length === 0 && group.tabs.length > 0 && !group.is_favorite ? [] : [{ ...group, tabs }];
   });
 }
 

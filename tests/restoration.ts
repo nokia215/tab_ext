@@ -16,7 +16,7 @@ let beforeConsume: (() => void) | null = null;
 let failReadAfterOpen = false;
 const stored: Record<string, unknown> = {};
 const makeGroup = (fixed = false) => ({ id: 'g', title: 'Work', device_id: 'PC',
-  created_at: '2026-09-23', is_fixed: fixed,
+  created_at: '2026-09-23', is_fixed: fixed, is_favorite: false,
   tabs: ['a', 'b', 'c'].map((id, position) => ({ id, url: `https://${id}.test`, title: id, position })) });
 const getGroup = async (id: string) => {
   if (failReadAfterOpen && opened.length) throw new Error('Read failed');
@@ -203,7 +203,6 @@ try {
   assert.deepEqual(webService.hidePendingTabs([makeGroup()], ['a', 'b', 'c']), []);
   assert.equal(webService.hidePendingTabs([makeGroup(true)], ['a', 'b', 'c'])[0].tabs.length, 3);
   assert.equal(webService.hidePendingTabs([{ ...makeGroup(), is_favorite: true }], ['a', 'b', 'c'])[0].tabs.length, 0);
-  assert.equal(webService.hidePendingTabs([makeGroup()], ['a', 'b', 'c'], ['g'])[0].tabs.length, 0);
   console.log('Web popup / pending queue checks passed.');
 } finally {
   delete testGlobal.chrome; delete testGlobal.browser; delete testGlobal.window; delete testGlobal.restoreTest;
@@ -234,10 +233,10 @@ for (const kind of ['newtab', 'tablet']) {
         export const restoreSavedTabs = (...args) => globalThis.dashboardRestore(...args);
         export const prepareWebRestore = () => ({ open() {}, closeUnused() {} });
         export const retryPendingConsumption = async () => ({ pendingTabIds: [] });
-        export const hidePendingTabs = (groups, ids, favorites = []) => groups.flatMap(group => {
+        export const hidePendingTabs = (groups, ids) => groups.flatMap(group => {
           if (group.is_fixed) return [group];
           const tabs = group.tabs.filter(tab => !ids.includes(tab.id));
-          return tabs.length || favorites.includes(group.id) ? [{ ...group, tabs }] : [];
+          return tabs.length || group.is_favorite ? [{ ...group, tabs }] : [];
         });` }));
     } }]
   });
@@ -245,9 +244,8 @@ for (const kind of ['newtab', 'tablet']) {
   const app = new App({ addEventListener() {} }, { isAndroidFirefox: false, uiMode: 'default' });
   app.render = () => { responses.push(structuredClone(app.state)); };
   if (kind === 'newtab') app.restore.prepareRestore = () => ({ restore, closeUnused() {} });
-  const original = [{ ...makeGroup(), is_favorite: true }, { ...makeGroup(true), id: 'fixed' }];
+  const original = [{ ...makeGroup(), is_favorite: true }, { ...makeGroup(true), id: 'fixed', is_favorite: true }];
   app.state.allGroups = structuredClone(original);
-  app.state.favoriteGroupIds = ['g', 'fixed'];
   app.state.selectedGroupIds = ['g', 'fixed'];
   const running = app.restore.handleRestoreSelectedGroups();
   assert.equal(app.state.restoreBusy, true);
@@ -261,7 +259,7 @@ for (const kind of ['newtab', 'tablet']) {
   await running;
   assert.equal(app.state.restoreBusy, false);
   assert.deepEqual(app.state.allGroups.map((group: TabGroup) => group.id), ['g', 'fixed']);
-  assert.deepEqual(app.state.favoriteGroupIds, ['g', 'fixed']);
+  assert.deepEqual(app.state.allGroups.filter((group: TabGroup) => group.is_favorite).map((group: TabGroup) => group.id), ['g', 'fixed']);
   assert.match(app.state.pageStatus, /3 タブ復元.*失敗/);
   assert.equal(calls, 2);
   app.state.allGroups = structuredClone(original);
@@ -308,11 +306,9 @@ for (const kind of ['newtab', 'tablet']) {
   await fixedSecond;
   assert.equal(app.state.allGroups[0].tabs.length, 3, 'Fixed tabs remain reusable');
   app.state.allGroups = structuredClone(original);
-  app.state.favoriteGroupIds = ['g'];
   const privateRestore = app.restore.handleOpenTab('a');
   app.state.sessionRevision++;
   app.state.allGroups = [];
-  app.state.favoriteGroupIds = [];
   resolveRestore({ group: original[0]!, openedTabIds: ['a'], pendingTabIds: [] });
   await privateRestore;
   assert.deepEqual(app.state.allGroups, [], 'Old restore results cannot return private data after logout');

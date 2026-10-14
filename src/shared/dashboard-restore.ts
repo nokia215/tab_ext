@@ -62,7 +62,7 @@ export class DashboardRestore {
     const revision = this.state.sessionRevision;
     this.state.restoreBusy = true;
     for (const { group, ids } of requests) {
-      if (!group.is_fixed) this.state.allGroups = hidePendingTabs(this.state.allGroups, ids, this.state.favoriteGroupIds);
+      if (!group.is_fixed) this.state.allGroups = hidePendingTabs(this.state.allGroups, ids);
     }
     this.state.pageStatus = '復元しています。';
     this.render();
@@ -71,14 +71,14 @@ export class DashboardRestore {
     try {
       if (previous) await previous;
       for (const { group, ids } of requests) {
-        if (this.groups.hasFixedUpdates(group.id)) await this.groups.waitForFixedUpdates(group.id);
+        if (this.groups.hasGroupUpdates(group.id)) await this.groups.waitForGroupUpdates(group.id);
         if (revision !== this.state.sessionRevision) return;
         const result = await web.restore(group.id, ids, !tabId);
         if (revision !== this.state.sessionRevision) return;
         this.state.allGroups = this.state.allGroups.filter((item) => item.id !== group.id);
         if (result.group) this.state.allGroups.push(result.group);
         for (const id of ids) this.pendingRestoreTabs.delete(group.id + ':' + id);
-        this.state.allGroups = hidePendingTabs(this.state.allGroups, [...this.pendingRestoreTabs.values()], this.state.favoriteGroupIds);
+        this.state.allGroups = hidePendingTabs(this.state.allGroups, [...this.pendingRestoreTabs.values()]);
         this.render();
         completed += 1;
         opened += result.openedTabIds.length;
@@ -105,10 +105,9 @@ export class DashboardRestore {
           for (const id of ids) this.pendingRestoreTabs.delete(group.id + ':' + id);
         }
       }
-      this.state.allGroups = hidePendingTabs(this.state.allGroups, [...this.pendingRestoreTabs.values()], this.state.favoriteGroupIds);
+      this.state.allGroups = hidePendingTabs(this.state.allGroups, [...this.pendingRestoreTabs.values()]);
       this.state.selectedGroupIds = reconcileGroupIds(this.state.selectedGroupIds, this.state.allGroups);
       this.state.expandedGroupIds = reconcileGroupIds(this.state.expandedGroupIds, this.state.allGroups);
-      this.state.favoriteGroupIds = reconcileGroupIds(this.state.favoriteGroupIds, this.state.allGroups);
       this.state.restoreBusy = this.pendingRestoreTabs.size > 0;
       if (!this.state.restoreBusy) this.restoreQueue = null;
       finish();

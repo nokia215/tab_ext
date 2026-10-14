@@ -3,7 +3,7 @@ import { configFromFormFields, configToFormFields } from './config-form';
 import { hasSupabaseConfig } from './build-config';
 import { hidePendingTabs, retryPendingConsumption } from './restoration';
 import { getCachedGroups, getConfig, saveCachedGroups, saveConfig } from './storage';
-import { getCurrentSessionUser, getFavoriteGroupIds, listGroups, signIn, signOut } from './supabase';
+import { getCurrentSessionUser, listGroups, signIn, signOut } from './supabase';
 import { getErrorMessage } from './status';
 import type { DashboardState } from './dashboard-model';
 import { isDashboardBusy } from './dashboard-model';
@@ -42,10 +42,9 @@ export class DashboardSession {
       if (this.cacheTimer !== null) window.clearTimeout(this.cacheTimer);
       const userId = this.cacheUserId;
       const groups = this.state.allGroups;
-      const favorites = this.state.favoriteGroupIds;
       this.cacheTimer = window.setTimeout(() => {
         this.cacheTimer = null;
-        void saveCachedGroups(userId, groups, favorites).catch(() => {});
+        void saveCachedGroups(userId, groups).catch(() => {});
       }, 200);
     }
   }
@@ -70,7 +69,6 @@ export class DashboardSession {
       if (!hasSupabaseConfig()) {
         this.state.authStatus = 'アプリのSupabase接続設定を確認できません。';
         this.state.pageStatus = '設定が未完了です。';
-        this.state.favoriteGroupIds = [];
         this.state.allGroups = [];
         this.state.selectedGroupIds = [];
         this.state.expandedGroupIds = [];
@@ -86,7 +84,6 @@ export class DashboardSession {
       if (!user) {
         this.cacheUserId = null;
         this.state.syncStatus = '';
-        this.state.favoriteGroupIds = [];
         this.state.allGroups = [];
         this.state.selectedGroupIds = [];
         this.state.expandedGroupIds = [];
@@ -101,7 +98,6 @@ export class DashboardSession {
       if (!current()) return;
       if (cached) {
         this.state.allGroups = cached.groups;
-        this.state.favoriteGroupIds = cached.favorites;
         this.groups.reconcileExpandedGroupIds(this.state.allGroups);
         this.groups.reconcileSelectedGroupIds(this.state.allGroups);
         this.state.pageStatus = '同期中';
@@ -109,11 +105,9 @@ export class DashboardSession {
       }
 
       const pending = await retryPendingConsumption();
-      const favorites = await getFavoriteGroupIds(user.id);
       const groups = await listGroups(user.id);
       if (!current() || (await getCurrentSessionUser())?.id !== user.id) return;
       if (!current()) return;
-      this.state.favoriteGroupIds = favorites;
       const expandedGroupIds = [...this.state.expandedGroupIds];
       this.state.allGroups = hidePendingTabs(groups, pending.pendingTabIds);
       this.state.expandedGroupIds = expandedGroupIds;
@@ -151,7 +145,6 @@ export class DashboardSession {
       this.setConfigFields(next);
       this.state.pageStatus = '設定を保存しました。';
       this.state.allGroups = [];
-      this.state.favoriteGroupIds = [];
       this.state.selectedGroupIds = [];
       this.state.expandedGroupIds = [];
       this.groups.stopEditingGroupTitle();
@@ -177,7 +170,6 @@ export class DashboardSession {
       this.cacheUserId = null;
       this.state.authStatus = 'ログインしました。';
       this.state.allGroups = [];
-      this.state.favoriteGroupIds = [];
       this.state.selectedGroupIds = [];
       this.state.expandedGroupIds = [];
       this.groups.stopEditingGroupTitle();
@@ -203,7 +195,6 @@ export class DashboardSession {
       this.cacheUserId = null;
       this.state.authStatus = 'ログアウトしました。';
       this.state.allGroups = [];
-      this.state.favoriteGroupIds = [];
       this.state.selectedGroupIds = [];
       this.state.expandedGroupIds = [];
       this.groups.stopEditingGroupTitle();

@@ -6,39 +6,33 @@ import { compile } from 'svelte/compiler';
 import { render } from 'svelte/server';
 import { readFile } from 'node:fs/promises';
 
-const group = { id: 'existing', title: 'Original', device_id: 'PC', created_at: '2026-09-22', archived_at: null, tabs: [{ url: 'https://old.test', position: 4 }, { url: 'https://older.test', position: 1 }] };
-let writes: { table: string; value: any }[] = [];
-let filters: [string, unknown][] = [];
-let lookupError: Error | null = null;
-let insertError: Error | null = null;
+const group = { id: 'existing', title: 'Original', device_id: 'PC', created_at: '2026-09-22', is_fixed: false, is_favorite: true, tabs: [] };
+let calls: any[] = [];
+let rpcError: Error | null = null;
+let rpcResult: unknown = undefined;
 let listedGroups: any[] = [];
-let existingTabRows: { url: string }[] = [];
 let conflictingUrls: string[] = [];
-let deletedGroups = 0;
-let rpcCount: unknown = undefined;
+testGlobal.chrome = { storage: { local: { get: async () => ({}) } } };
 testGlobal.saveTestClient = {
   auth: { getUser: async () => ({ data: { user: { id: 'owner' } }, error: null }) },
-  rpc(name: string, { p_tabs }: { p_tabs: { url: string }[] }) {
-    assert.equal(name, 'insert_saved_tabs');
-    assert.ok(p_tabs.every((row) => !('url_key' in row)), 'Only the original URL is stored');
-    writes.push({ table: 'tabs', value: p_tabs });
-    return Promise.resolve({ error: insertError, data: rpcCount === undefined
-      ? p_tabs.filter((row) => !conflictingUrls.includes(row.url.split('#')[0]!)).length : rpcCount });
+  rpc(name: string, args: { p_group_id: string | null; p_title: string; p_tabs: { url: string; title: string }[] }) {
+    assert.equal(name, 'save_tab_group');
+    calls.push(args);
+    const seen = new Set(conflictingUrls);
+    let count = 0;
+    for (const tab of args.p_tabs) {
+      assert.deepEqual(Object.keys(tab), ['url', 'title']);
+      const key = tab.url.trim().split('#')[0]!.replace(/^https?:\/\/[^/]+/i, host => host.toLowerCase());
+      if (!seen.has(key)) { seen.add(key); count++; }
+    }
+    return Promise.resolve({ error: rpcError, data: rpcResult === undefined
+      ? { group: args.p_group_id || count ? { ...group, id: args.p_group_id || 'new' } : null, count } : rpcResult });
   },
   from(table: string) {
+    assert.equal(table, 'tab_groups', 'Saving must never read all URLs or write tables directly');
     const query = {
-      select(columns: string) { if (table === 'tabs') assert.equal(columns, 'url'); return query; },
-      eq(key: string, value: unknown) { if (table === 'tab_groups') filters.push([key, value]); return query; },
-      is(key: string, value: unknown) { filters.push([key, value]); return query; },
-      order() { return query; },
-      range: async (from: number, to: number) => ({ data: listedGroups.slice(from, to + 1), error: null }),
-      then(resolve: (value: unknown) => unknown) { return Promise.resolve({ data: table === 'tabs' ? existingTabRows : [{ id: 'existing', is_favorite: true }], error: null }).then(resolve); },
-      insert(value: unknown) {
-        writes.push({ table, value });
-        return table === 'tabs' ? Promise.resolve({ error: insertError }) : query;
-      },
-      delete() { assert.equal(table, 'tab_groups'); deletedGroups += 1; return query; },
-      single: async () => ({ data: group, error: lookupError })
+      select() { return query; }, eq() { return query; }, order() { return query; },
+      range: async (from: number, to: number) => ({ data: listedGroups.slice(from, to + 1), error: null })
     };
     return query;
   }
@@ -61,107 +55,63 @@ const { saveTabGroup, saveImportedTabGroup, importTabGroups, SaveDestination, li
 const renderSaveDestination = (groups: unknown[], groupId: string, busy: boolean) => render(SaveDestination, { props: { groups, groupId, busy } }).body;
 try {
   for (const save of [saveTabGroup, saveImportedTabGroup]) {
-    writes = []; filters = [];
+    calls = [];
     const saved = await save({ title: 'Do not rename', groupId: 'existing', deviceId: 'other', tabs: [
       { url: 'https://a.test', pinned: false }, { url: 'https://b.test#kept', pinned: false }, { url: 'https://a.test#duplicate', pinned: false }
     ] });
     assert.equal(saved.count, 2);
     assert.equal(saved.duplicateCount, 1);
-    assert.deepEqual(filters, [['id', 'existing'], ['user_id', 'owner']]);
-    assert.equal(writes.length, 1);
-    assert.equal(writes[0]!.table, 'tabs');
-    assert.equal(writes[0]!.value[1]!.url, 'https://b.test#kept');
-    assert.deepEqual(writes[0]!.value.map(({ group_id, position }: { group_id: string; position: number }) => [group_id, position]), [['existing', 5], ['existing', 6]]);
-  }
-  group.tabs = [{ url: 'https://a.test', position: 0 }];
-  existingTabRows = [{ url: ' HTTPS://A.TEST#original ' }];
-  writes = [];
-  const deduped = await saveTabGroup({ title: '', groupId: 'existing', deviceId: 'device', tabs: [
-    { url: 'https://a.test#section', title: 'Different title' },
-    { url: 'https://b.test', title: 'Same title' }
-  ] });
-  assert.equal(deduped.count, 1);
-  assert.equal(deduped.duplicateCount, 1);
-  assert.equal(writes[0]!.value[0]!.url, 'https://b.test');
-  existingTabRows = [{ url: 'https://same.test/?id=1#original' }];
-  writes = [];
-  const queryVariants = await saveTabGroup({ title: '', groupId: 'existing', deviceId: 'device', tabs: [
-    { url: 'https://same.test/?id=1' },
-    { url: 'https://same.test/?id=2' }
-  ] });
-  assert.equal(queryVariants.count, 1);
-  assert.equal(queryVariants.duplicateCount, 1);
-  assert.equal(writes[0]!.value[0]!.url, 'https://same.test/?id=2');
-  existingTabRows = [];
-  group.tabs = [{ url: 'https://old.test', position: 4 }, { url: 'https://older.test', position: 1 }];
-  writes = [];
-  await saveTabGroup({ title: 'New', deviceId: 'device', tabs: [{ url: 'https://a.test' }] });
-  assert.deepEqual(writes[0]!, { table: 'tab_groups', value: { user_id: 'owner', device_id: 'device', title: 'New' } });
-  assert.equal(writes[1]!.value[0]!.position, 0);
-  writes = [];
-  lookupError = new Error('Missing or inaccessible group');
-  await assert.rejects(saveImportedTabGroup({ title: '', groupId: 'missing', deviceId: 'device', tabs: [{ url: 'https://a.test' }] }), /Missing or inaccessible/);
-  assert.equal(writes.length, 0);
-  lookupError = null;
-  insertError = new Error('Insert failed');
-  await assert.rejects(saveTabGroup({ title: '', groupId: 'existing', deviceId: 'device', tabs: [{ url: 'https://a.test' }] }), /Insert failed/);
-  insertError = null;
-  for (const count of [null, -1, 0.5, 2, '1']) {
-    rpcCount = count;
-    const beforeDelete = deletedGroups;
-    await assert.rejects(saveTabGroup({ title: 'New', deviceId: 'device', tabs: [{ url: 'https://a.test' }] }), /保存件数を確認/);
-    assert.equal(deletedGroups, beforeDelete, 'An unknown save result must not delete the group');
-  }
-  rpcCount = undefined;
-  writes = [];
-  const imported = await importTabGroups({ groupTitle: '', groupId: 'existing', importText: 'https://a.test\n\nhttps://b.test' });
-  assert.equal(imported.importedGroupCount, 1);
-  assert.equal(imported.importedTabCount, 2);
-  assert.equal(writes.length, 1);
-  assert.equal(writes[0]!.value.length, 2);
-  writes = [];
-  await assert.rejects(saveTabGroup({ title: '', groupId: 'existing', deviceId: 'device', tabs: [{ url: 'chrome://newtab', pinned: false }] }), /保存対象/);
-  assert.equal(writes.length, 0);
-  const html = renderSaveDestination([group, { ...group, id: 'archived', archived_at: '2026-09-22' }], 'existing', true);
-  assert.match(html, /<select[^>]*disabled/);
-  assert.match(html, /value="existing"[^>]*selected/);
-  assert.match(html, /value="archived"/);
-  assert.match(renderSaveDestination([], 'missing', false), /value="missing"[^>]*selected[^>]*disabled|value="missing"[^>]*disabled[^>]*selected/);
-  listedGroups = [{ ...group, tabs: [] }, { ...group, id: 'empty', tabs: [] },
-    { ...group, id: 'populated', tabs: [{ position: 0, status: 'saved' }] }];
-  const visible = await listGroups('owner');
-  const originalListed = listedGroups;
-  listedGroups = Array.from({ length: 1001 }, (_, index) => ({ ...group, id: `page-${index}`, tabs: [] }));
-  assert.equal((await listGroups('owner')).length, 1001, 'Every group survives API pagination');
-  listedGroups = originalListed;
-  assert.deepEqual(visible.map((group: { id: string }) => group.id), ['existing', 'empty', 'populated']);
-  assert.match(renderSaveDestination(visible, 'existing', false), /value="existing" selected/);
-  group.tabs = [];
-  writes = [];
-  await saveTabGroup({ title: '', groupId: 'existing', deviceId: 'device', tabs: [{ url: 'https://a.test' }] });
-  assert.equal(writes.length, 1);
-  assert.equal(writes[0]!.value[0]!.position, 0);
-  assert.equal(writes[0]!.value[0]!.url, 'https://a.test');
-  // Simulate duplicates missing from the precheck (API truncation or concurrent saves).
-  for (const save of [saveTabGroup, saveImportedTabGroup]) {
-    existingTabRows = [];
+    assert.equal(saved.group.is_favorite, true);
+    assert.equal(calls.length, 1, 'One RPC performs the entire save');
+    assert.equal(calls[0].p_group_id, 'existing');
+    assert.equal(calls[0].p_device_id, 'other');
+    assert.equal(calls[0].p_tabs[1].url, 'https://b.test#kept');
     conflictingUrls = ['https://a.test'];
     const mixed = await save({ title: 'New', deviceId: 'device', tabs: [
       { url: 'https://a.test' }, { url: 'https://a.test#duplicate' }, { url: 'https://b.test' }
     ] });
     assert.equal(mixed.count, 1);
     assert.equal(mixed.duplicateCount, 2);
-    const beforeDelete = deletedGroups;
-    const allDuplicates = await save({ title: 'New', deviceId: 'device', tabs: [{ url: 'https://a.test' }] });
-    assert.deepEqual(allDuplicates, { group: null, count: 0, duplicateCount: 1 });
-    assert.equal(deletedGroups, beforeDelete + 1);
+    assert.equal(calls.at(-1).p_group_id, null);
+    const duplicates = await save({ title: 'New', deviceId: 'device', tabs: [{ url: 'https://a.test' }] });
+    assert.deepEqual(duplicates, { group: null, count: 0, duplicateCount: 1 });
     const existing = await save({ title: '', groupId: 'existing', deviceId: 'device', tabs: [{ url: 'https://a.test' }] });
-    assert.equal(existing.count, 0);
-    assert.equal(existing.duplicateCount, 1);
     assert.equal(existing.group.id, 'existing');
-    assert.equal(deletedGroups, beforeDelete + 1);
+    assert.equal(existing.count, 0);
+    conflictingUrls = [];
   }
-  console.log('Save destination regression checks passed.');
+  rpcError = new Error('Missing or inaccessible group');
+  await assert.rejects(saveImportedTabGroup({ title: '', groupId: 'missing', deviceId: 'device', tabs: [{ url: 'https://a.test' }] }), /Missing or inaccessible/);
+  rpcError = new Error('Insert failed');
+  await assert.rejects(saveTabGroup({ title: '', deviceId: 'device', tabs: [{ url: 'https://a.test' }] }), /Insert failed/);
+  rpcError = null;
+  for (const invalid of [null, { count: -1 }, { count: 0.5 }, { count: 2 }, { count: '1' }, { count: 1, group: null }]) {
+    rpcResult = invalid;
+    await assert.rejects(saveTabGroup({ title: 'New', deviceId: 'device', tabs: [{ url: 'https://a.test' }] }), /保存件数を確認/);
+  }
+  rpcResult = { count: 1, group: { id: 'another' } };
+  await assert.rejects(saveTabGroup({ title: '', groupId: 'existing', deviceId: 'device', tabs: [{ url: 'https://a.test' }] }), /保存件数を確認/);
+  rpcResult = undefined;
+  calls = [];
+  const imported = await importTabGroups({ groupTitle: '', groupId: 'existing', importText: 'https://a.test\n\nhttps://b.test' });
+  assert.equal(imported.importedGroupCount, 1);
+  assert.equal(imported.importedTabCount, 2);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].p_tabs.length, 2);
+  calls = [];
+  await assert.rejects(saveTabGroup({ title: '', groupId: 'existing', deviceId: 'device', tabs: [{ url: 'chrome://newtab', pinned: false }] }), /保存対象/);
+  assert.equal(calls.length, 0);
+  const html = renderSaveDestination([group, { ...group, id: 'empty' }], 'existing', true);
+  assert.match(html, /<select[^>]*disabled/);
+  assert.match(html, /value="existing"[^>]*selected/);
+  assert.match(html, /value="empty"/);
+  assert.match(renderSaveDestination([], 'missing', false), /value="missing"[^>]*selected[^>]*disabled|value="missing"[^>]*disabled[^>]*selected/);
+  listedGroups = [{ ...group, tabs: [] }, { ...group, id: 'empty', tabs: [] }];
+  assert.deepEqual((await listGroups('owner')).map((group: { id: string }) => group.id), ['existing', 'empty']);
+  listedGroups = Array.from({ length: 1001 }, (_, index) => ({ ...group, id: `page-${index}`, tabs: [] }));
+  assert.equal((await listGroups('owner')).length, 1001, 'Every group survives API pagination');
+  console.log('Atomic save RPC / import / destination regression checks passed.');
 } finally {
   delete testGlobal.saveTestClient;
+  delete testGlobal.chrome;
 }

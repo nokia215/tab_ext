@@ -77,11 +77,6 @@ function normalizeTabInputs(tabs: chrome.tabs.Tab[] | ImportableTabInput[]) {
     : filterSavableImportedTabs(tabs as ImportableTabInput[]);
 }
 
-function normalizeUrl(raw: string): string {
-  return raw.trim().split('#')[0]!.replace(/^([a-z][a-z\d+.-]*:\/\/)([^/?#]+)/i,
-    (_match, scheme: string, host: string) => `${scheme.toLowerCase()}${host.toLowerCase()}`);
-}
-
 export function buildDefaultGroupTitle(deviceId: string, tabCount: number): string {
   const deviceLabel = deviceId.split('·')[0]?.trim() || deviceId;
   const timestamp = new Intl.DateTimeFormat('ja-JP', {
@@ -138,77 +133,17 @@ async function persistTabGroup(input: {
     throw new Error('保存対象のタブがありません。');
   }
 
-  const seen = new Set<string>();
-  let uniqueTabs = input.tabs.filter((tab) => {
-    const normalized = normalizeUrl(tab.url ?? '');
-    if (!normalized) return false;
-    if (seen.has(normalized)) return false;
-    seen.add(normalized);
-    return true;
+  const { data, error } = await supabase.rpc('save_tab_group', {
+    p_title: input.title.trim() || buildDefaultGroupTitle(input.deviceId, input.tabs.length),
+    p_device_id: input.deviceId,
+    p_group_id: input.groupId || null,
+    p_tabs: input.tabs.map((tab) => ({ url: tab.url!, title: tab.title ?? '' }))
   });
-
-  const { data: savedTabs, error: savedTabsError } = await supabase.from('tabs')
-    .select('url')
-    .eq('user_id', user.id);
-  if (savedTabsError) throw savedTabsError;
-  seen.clear();
-  for (const tab of savedTabs ?? []) seen.add(normalizeUrl(tab.url));
-  uniqueTabs = uniqueTabs.filter((tab) => !seen.has(normalizeUrl(tab.url ?? '')));
-  let duplicateCount = input.tabs.length - uniqueTabs.length;
-  if (uniqueTabs.length === 0 && !input.groupId) {
-    return { group: null, count: 0, duplicateCount };
+  if (error) throw error;
+  const result = data as { group: Omit<TabGroup, 'tabs'> | null; count: number } | null;
+  if (!result || !Number.isInteger(result.count) || result.count < 0 || result.count > input.tabs.length
+    || (result.count > 0 && !result.group?.id) || (input.groupId && result.group?.id !== input.groupId)) {
+    throw new Error('保存件数を確認できませんでした。再読み込みして確認してください。');
   }
-
-  let group: Omit<TabGroup, 'tabs'>;
-  let nextPosition = 0;
-  if (input.groupId) {
-    const { data, error } = await supabase
-      .from('tab_groups')
-      .select('id, title, created_at, is_fixed, device_id, tabs(position)')
-      .eq('id', input.groupId)
-      .eq('user_id', user.id)
-      .single();
-    if (error) throw error;
-    if (!data) throw new Error('保存先のグループが見つかりません。');
-    group = data;
-    // ponytail: concurrent saves may share positions; use a DB lock if strict ordering is needed.
-    nextPosition = data.tabs.reduce((next, tab) => Math.max(next, tab.position + 1), 0);
-  } else {
-    const title = input.title.trim() || buildDefaultGroupTitle(input.deviceId, uniqueTabs.length);
-    const { data, error } = await supabase
-      .from('tab_groups')
-      .insert({ user_id: user.id, device_id: input.deviceId, title })
-      .select('id, title, created_at, is_fixed, device_id')
-      .single();
-    if (error) throw error;
-    group = data;
-  }
-
-  const rows = uniqueTabs.map((tab, index) => ({
-    group_id: group.id,
-    user_id: user.id,
-    url: tab.url!,
-    title: tab.title ?? '',
-    position: nextPosition + index
-  }));
-
-  let savedCount = 0;
-  if (rows.length > 0) {
-    // The precheck can miss rows due to API limits or concurrent saves.
-    const { error: tabsError, data: count } = await supabase.rpc('insert_saved_tabs', { p_tabs: rows });
-    if (tabsError) throw tabsError;
-    if (!Number.isInteger(count) || count < 0 || count > rows.length) {
-      throw new Error('保存件数を確認できませんでした。再読み込みして確認してください。');
-    }
-    savedCount = count;
-    duplicateCount += rows.length - savedCount;
-  }
-
-  if (savedCount === 0 && !input.groupId) {
-    const { error } = await supabase.from('tab_groups').delete().eq('id', group.id).eq('user_id', user.id);
-    if (error) throw error;
-    return { group: null, count: 0, duplicateCount };
-  }
-
-  return { group, count: savedCount, duplicateCount };
+  return { group: result.group, count: result.count, duplicateCount: input.tabs.length - result.count };
 }

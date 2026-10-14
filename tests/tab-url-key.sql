@@ -23,7 +23,8 @@ begin
   assert not exists (
     select 1 from pg_trigger where tgrelid = 'public.tabs'::regclass and tgname = 'tabs_set_url_key'
   ), 'The key maintenance trigger must be removed';
-  assert not has_function_privilege('anon', 'public.insert_saved_tabs(jsonb)', 'execute');
+  assert to_regprocedure('public.insert_saved_tabs(jsonb)') is null;
+  assert not has_function_privilege('anon', 'public.save_tab_group(text,text,jsonb,uuid)', 'execute');
 end;
 $$;
 
@@ -45,26 +46,18 @@ select set_config('request.jwt.claim.sub', '11000000-0000-4000-8000-000000000001
 
 do $$
 begin
-  assert public.insert_saved_tabs('[
-    {"group_id":"21000000-0000-4000-8000-000000000002","user_id":"11000000-0000-4000-8000-000000000001","url":"https://example.test/Path?q=1#duplicate","title":"Duplicate","position":0},
-    {"group_id":"21000000-0000-4000-8000-000000000002","user_id":"11000000-0000-4000-8000-000000000001","url":"https://example.test/Path?q=2","title":"Different query","position":1}
-  ]'::jsonb) = 1, 'Skip duplicates across groups and count only new rows';
-  assert public.insert_saved_tabs('[
-    {"group_id":"21000000-0000-4000-8000-000000000002","user_id":"11000000-0000-4000-8000-000000000001","url":"https://example.test/Path?q=1#duplicate","title":"Duplicate","position":0}
-  ]'::jsonb) = 0;
-  assert public.insert_saved_tabs('[]'::jsonb) = 0;
+  assert (public.save_tab_group('Test', 'test', '[
+    {"url":"https://example.test/Path?q=1#duplicate","title":"Duplicate"},
+    {"url":"https://example.test/Path?q=2","title":"Different query"}
+  ]'::jsonb, '21000000-0000-4000-8000-000000000002')->>'count')::integer = 1,
+    'Skip duplicates across groups and count only new rows';
+  assert (public.save_tab_group('Test', 'test', '[
+    {"url":"https://example.test/Path?q=1#duplicate","title":"Duplicate"}
+  ]'::jsonb, '21000000-0000-4000-8000-000000000002')->>'count')::integer = 0;
   begin
-    perform public.insert_saved_tabs('[
-      {"group_id":"21000000-0000-4000-8000-000000000003","user_id":"11000000-0000-4000-8000-000000000001","url":"https://example.test/foreign","title":"Forbidden","position":0}
-    ]'::jsonb);
+    perform public.save_tab_group('Forbidden', 'test', '[{"url":"https://example.test/foreign"}]',
+      '21000000-0000-4000-8000-000000000003');
     raise exception 'RPC allowed insertion into another user''s group';
-  exception when insufficient_privilege then null;
-  end;
-  begin
-    perform public.insert_saved_tabs('[
-      {"group_id":"21000000-0000-4000-8000-000000000003","user_id":"11000000-0000-4000-8000-000000000002","url":"https://example.test/foreign","title":"Forbidden","position":0}
-    ]'::jsonb);
-    raise exception 'RPC allowed insertion as another user';
   exception when insufficient_privilege then null;
   end;
 end;

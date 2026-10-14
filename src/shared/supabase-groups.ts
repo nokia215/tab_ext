@@ -1,32 +1,5 @@
 import { getSupabase, getCurrentSessionUser } from './supabase-client';
-import { storageLocalGet, storageLocalSet } from './browser-api';
 import type { TabGroup } from './types';
-
-export async function getFavoriteGroupIds(userId?: string): Promise<string[]> {
-  const supabase = await getSupabase();
-  const resolvedUserId = userId ?? (await getCurrentSessionUser())?.id;
-  if (!resolvedUserId) throw new Error('ログインしてください。');
-
-  const key = 'favorite_group_ids';
-  const stored = await storageLocalGet(key);
-  const legacyIds = (stored as Record<string, string[] | undefined>)[key] ?? [];
-  if (legacyIds.length > 0) {
-    // NULL marks legacy groups: never overwrite a favorite already changed on another device.
-    const { error } = await supabase.from('tab_groups')
-      .update({ is_favorite: true })
-      .eq('user_id', resolvedUserId)
-      .in('id', legacyIds)
-      .is('is_favorite', null);
-    if (error) throw error;
-  }
-
-  const groups = await listGroupRows<{ id: string; is_favorite: boolean | null }>('id, is_favorite', resolvedUserId);
-  if (legacyIds.length > 0) {
-    const ownedIds = new Set(groups.map((group) => group.id));
-    await storageLocalSet({ [key]: legacyIds.filter((id) => !ownedIds.has(id)) });
-  }
-  return groups.filter((group) => group.is_favorite === true).map((group) => group.id);
-}
 
 export async function setGroupFavorite(groupId: string, favorite: boolean): Promise<void> {
   const supabase = await getSupabase();

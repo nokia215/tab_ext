@@ -1,7 +1,7 @@
 import { isDashboardBusy, type DashboardState } from './dashboard-model';
 import { reconcileGroupIds } from './group-helpers';
 import { hidePendingTabs, retryPendingConsumption } from './restoration';
-import { getCurrentSessionUser, getFavoriteGroupIds, listGroups } from './supabase';
+import { getCurrentSessionUser, listGroups } from './supabase';
 import { getErrorMessage } from './status';
 import { ext } from './browser-api';
 
@@ -23,7 +23,6 @@ export function startDashboardAutoSync(
       if ((await getCurrentSessionUser())?.id !== (userId ?? undefined)) {
         state.sessionRevision = (state.sessionRevision ?? 0) + 1;
         state.allGroups = [];
-        state.favoriteGroupIds = [];
         state.selectedGroupIds = [];
         state.expandedGroupIds = [];
         state.saveGroupId = '';
@@ -50,16 +49,14 @@ export function startDashboardAutoSync(
     lastAttempt = Date.now();
     const startedRevision = revision;
     const groupsBefore = state.allGroups;
-    const favoritesBefore = state.favoriteGroupIds;
     const stillCurrent = () => !blocked() && getUserId() === userId && revision === startedRevision
-      && state.allGroups === groupsBefore && state.favoriteGroupIds === favoritesBefore;
+      && state.allGroups === groupsBefore;
     try {
       if ((await getCurrentSessionUser())?.id !== userId || !stillCurrent()) return;
       const pending = await retryPendingConsumption();
-      const [groups, favorites] = await Promise.all([listGroups(userId), getFavoriteGroupIds(userId)]);
+      const groups = await listGroups(userId);
       if ((await getCurrentSessionUser())?.id !== userId || !stillCurrent()) return;
       state.allGroups = hidePendingTabs(groups, pending.pendingTabIds);
-      state.favoriteGroupIds = reconcileGroupIds(favorites, state.allGroups);
       state.selectedGroupIds = reconcileGroupIds(state.selectedGroupIds, state.allGroups);
       state.expandedGroupIds = reconcileGroupIds(state.expandedGroupIds, state.allGroups);
       if (state.saveGroupId && !state.allGroups.some((group) => group.id === state.saveGroupId)) {
