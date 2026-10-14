@@ -146,23 +146,15 @@ async function persistTabGroup(input: {
     seen.add(normalized);
     return true;
   });
-  let duplicateCount = input.tabs.length - uniqueTabs.length;
 
   const { data: savedTabs, error: savedTabsError } = await supabase.from('tabs')
-    .select('url_key')
+    .select('url')
     .eq('user_id', user.id);
   if (savedTabsError) throw savedTabsError;
   seen.clear();
-  for (const tab of savedTabs ?? []) seen.add(tab.url_key);
-  uniqueTabs = uniqueTabs.filter((tab) => {
-    const url = normalizeUrl(tab.url ?? '');
-    if (seen.has(url)) {
-      duplicateCount += 1;
-      return false;
-    }
-    seen.add(url);
-    return true;
-  });
+  for (const tab of savedTabs ?? []) seen.add(normalizeUrl(tab.url));
+  uniqueTabs = uniqueTabs.filter((tab) => !seen.has(normalizeUrl(tab.url ?? '')));
+  let duplicateCount = input.tabs.length - uniqueTabs.length;
   if (uniqueTabs.length === 0 && !input.groupId) {
     return { group: null, count: 0, duplicateCount };
   }
@@ -196,7 +188,6 @@ async function persistTabGroup(input: {
     group_id: group.id,
     user_id: user.id,
     url: tab.url!,
-    url_key: normalizeUrl(tab.url!),
     title: tab.title ?? '',
     position: nextPosition + index
   }));
@@ -204,13 +195,11 @@ async function persistTabGroup(input: {
   let savedCount = 0;
   if (rows.length > 0) {
     // The precheck can miss rows due to API limits or concurrent saves.
-    const { error: tabsError, count } = await supabase.from('tabs').upsert(rows, {
-      onConflict: 'user_id,url_key',
-      ignoreDuplicates: true,
-      count: 'exact'
-    });
+    const { error: tabsError, data: count } = await supabase.rpc('insert_saved_tabs', { p_tabs: rows });
     if (tabsError) throw tabsError;
-    if (count === null) throw new Error('保存件数を確認できませんでした。再読み込みして確認してください。');
+    if (!Number.isInteger(count) || count < 0 || count > rows.length) {
+      throw new Error('保存件数を確認できませんでした。再読み込みして確認してください。');
+    }
     savedCount = count;
     duplicateCount += rows.length - savedCount;
   }

@@ -12,14 +12,22 @@ let filters: [string, unknown][] = [];
 let lookupError: Error | null = null;
 let insertError: Error | null = null;
 let listedGroups: any[] = [];
-let existingTabRows: { url_key: string }[] = [];
-let conflictingKeys: string[] = [];
+let existingTabRows: { url: string }[] = [];
+let conflictingUrls: string[] = [];
 let deletedGroups = 0;
+let rpcCount: unknown = undefined;
 testGlobal.saveTestClient = {
   auth: { getUser: async () => ({ data: { user: { id: 'owner' } }, error: null }) },
+  rpc(name: string, { p_tabs }: { p_tabs: { url: string }[] }) {
+    assert.equal(name, 'insert_saved_tabs');
+    assert.ok(p_tabs.every((row) => !('url_key' in row)), 'Only the original URL is stored');
+    writes.push({ table: 'tabs', value: p_tabs });
+    return Promise.resolve({ error: insertError, data: rpcCount === undefined
+      ? p_tabs.filter((row) => !conflictingUrls.includes(row.url.split('#')[0]!)).length : rpcCount });
+  },
   from(table: string) {
     const query = {
-      select() { return query; },
+      select(columns: string) { if (table === 'tabs') assert.equal(columns, 'url'); return query; },
       eq(key: string, value: unknown) { if (table === 'tab_groups') filters.push([key, value]); return query; },
       is(key: string, value: unknown) { filters.push([key, value]); return query; },
       order() { return query; },
@@ -28,12 +36,6 @@ testGlobal.saveTestClient = {
       insert(value: unknown) {
         writes.push({ table, value });
         return table === 'tabs' ? Promise.resolve({ error: insertError }) : query;
-      },
-      upsert(value: { url_key: string }[], options: unknown) {
-        assert.equal(table, 'tabs');
-        assert.deepEqual(options, { onConflict: 'user_id,url_key', ignoreDuplicates: true, count: 'exact' });
-        writes.push({ table, value });
-        return Promise.resolve({ error: insertError, count: value.filter((row) => !conflictingKeys.includes(row.url_key)).length });
       },
       delete() { assert.equal(table, 'tab_groups'); deletedGroups += 1; return query; },
       single: async () => ({ data: group, error: lookupError })
@@ -61,17 +63,18 @@ try {
   for (const save of [saveTabGroup, saveImportedTabGroup]) {
     writes = []; filters = [];
     const saved = await save({ title: 'Do not rename', groupId: 'existing', deviceId: 'other', tabs: [
-      { url: 'https://a.test', pinned: false }, { url: 'https://b.test', pinned: false }, { url: 'https://a.test#duplicate', pinned: false }
+      { url: 'https://a.test', pinned: false }, { url: 'https://b.test#kept', pinned: false }, { url: 'https://a.test#duplicate', pinned: false }
     ] });
     assert.equal(saved.count, 2);
     assert.equal(saved.duplicateCount, 1);
     assert.deepEqual(filters, [['id', 'existing'], ['user_id', 'owner']]);
     assert.equal(writes.length, 1);
     assert.equal(writes[0]!.table, 'tabs');
+    assert.equal(writes[0]!.value[1]!.url, 'https://b.test#kept');
     assert.deepEqual(writes[0]!.value.map(({ group_id, position }: { group_id: string; position: number }) => [group_id, position]), [['existing', 5], ['existing', 6]]);
   }
   group.tabs = [{ url: 'https://a.test', position: 0 }];
-  existingTabRows = [{ url_key: 'https://a.test' }];
+  existingTabRows = [{ url: ' HTTPS://A.TEST#original ' }];
   writes = [];
   const deduped = await saveTabGroup({ title: '', groupId: 'existing', deviceId: 'device', tabs: [
     { url: 'https://a.test#section', title: 'Different title' },
@@ -80,7 +83,7 @@ try {
   assert.equal(deduped.count, 1);
   assert.equal(deduped.duplicateCount, 1);
   assert.equal(writes[0]!.value[0]!.url, 'https://b.test');
-  existingTabRows = [{ url_key: 'https://same.test/?id=1' }];
+  existingTabRows = [{ url: 'https://same.test/?id=1#original' }];
   writes = [];
   const queryVariants = await saveTabGroup({ title: '', groupId: 'existing', deviceId: 'device', tabs: [
     { url: 'https://same.test/?id=1' },
@@ -103,6 +106,13 @@ try {
   insertError = new Error('Insert failed');
   await assert.rejects(saveTabGroup({ title: '', groupId: 'existing', deviceId: 'device', tabs: [{ url: 'https://a.test' }] }), /Insert failed/);
   insertError = null;
+  for (const count of [null, -1, 0.5, 2, '1']) {
+    rpcCount = count;
+    const beforeDelete = deletedGroups;
+    await assert.rejects(saveTabGroup({ title: 'New', deviceId: 'device', tabs: [{ url: 'https://a.test' }] }), /保存件数を確認/);
+    assert.equal(deletedGroups, beforeDelete, 'An unknown save result must not delete the group');
+  }
+  rpcCount = undefined;
   writes = [];
   const imported = await importTabGroups({ groupTitle: '', groupId: 'existing', importText: 'https://a.test\n\nhttps://b.test' });
   assert.equal(imported.importedGroupCount, 1);
@@ -131,11 +141,11 @@ try {
   await saveTabGroup({ title: '', groupId: 'existing', deviceId: 'device', tabs: [{ url: 'https://a.test' }] });
   assert.equal(writes.length, 1);
   assert.equal(writes[0]!.value[0]!.position, 0);
-  assert.ok(writes[0]!.value[0]!.url_key);
+  assert.equal(writes[0]!.value[0]!.url, 'https://a.test');
   // Simulate duplicates missing from the precheck (API truncation or concurrent saves).
   for (const save of [saveTabGroup, saveImportedTabGroup]) {
     existingTabRows = [];
-    conflictingKeys = ['https://a.test'];
+    conflictingUrls = ['https://a.test'];
     const mixed = await save({ title: 'New', deviceId: 'device', tabs: [
       { url: 'https://a.test' }, { url: 'https://a.test#duplicate' }, { url: 'https://b.test' }
     ] });

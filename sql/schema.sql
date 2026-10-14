@@ -142,42 +142,30 @@ begin
   if parts is not null then
     clean_url := lower(parts[1]) || lower(parts[2]) || parts[3];
   end if;
-  return clean_url;
+  return encode(sha256(convert_to(clean_url, 'UTF8')), 'hex');
 end;
 $$;
 
-alter table public.tabs add column if not exists url_key text;
-update public.tabs set url_key = public.tab_url_key(url) where url_key is null;
+create unique index if not exists tabs_user_url_hash_unique
+  on public.tabs(user_id, public.tab_url_key(url));
 
-with ranked as (
-  select t.id,
-    row_number() over (
-      partition by t.user_id, t.url_key
-      order by g.created_at, t.position, t.created_at, t.id
-    ) as duplicate_rank
-  from public.tabs t
-  join public.tab_groups g on g.id = t.group_id
-)
-delete from public.tabs t using ranked r
-where t.id = r.id and r.duplicate_rank > 1;
-
-alter table public.tabs alter column url_key set not null;
-
-create or replace function public.set_tab_url_key()
-returns trigger
-language plpgsql
+create or replace function public.insert_saved_tabs(p_tabs jsonb)
+returns integer
+language sql
+security invoker
 set search_path = public
 as $$
-begin
-  new.url_key := public.tab_url_key(new.url);
-  return new;
-end;
+  with inserted as (
+    insert into public.tabs (group_id, user_id, url, title, position)
+    select group_id, user_id, url, title, position
+    from jsonb_to_recordset(p_tabs) as t(
+      group_id uuid, user_id uuid, url text, title text, position integer
+    )
+    on conflict (user_id, public.tab_url_key(url)) do nothing
+    returning 1
+  )
+  select count(*)::integer from inserted;
 $$;
 
-drop trigger if exists tabs_set_url_key on public.tabs;
-create trigger tabs_set_url_key
-before insert or update of url on public.tabs
-for each row execute function public.set_tab_url_key();
-
-create unique index if not exists tabs_user_url_key_unique
-  on public.tabs(user_id, url_key);
+revoke all on function public.insert_saved_tabs(jsonb) from public, anon;
+grant execute on function public.insert_saved_tabs(jsonb) to authenticated;
