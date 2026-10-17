@@ -1,7 +1,7 @@
 # データベースのテーブルと関数
 
 この説明は、[sql/schema.sql](../sql/schema.sql)と[増分マイグレーション](../supabase/migrations/)に定義された現在の構成に基づく。
-マイグレーションは `20261014020000_drop_legacy_favorite_support.sql` までを対象とする。
+マイグレーションは `20261017000000_optimize_dashboard_access.sql` までを対象とする。
 本番DBへの適用状況は、このドキュメントでは確認していない。
 
 ## テーブルの関係
@@ -43,7 +43,7 @@ Supabase Authが管理する `auth.users` の1ユーザーが複数のグルー�
 | `url` | `text` | 不可 | なし | 保存したURLの文字列 |
 | `title` | `text` | 不可 | `''` | タブのタイトル |
 | `position` | `integer` | 不可 | なし | グループ内の表示順。保存RPCは新規グループで0から開始 |
-| `created_at` | `timestamptz` | 不可 | `now()` | 作成日時 |
+| `created_at` | `timestamptz` | 不可 | `now()` | 作成日時。現在アプリでは未使用だが、将来の利用のため保持 |
 
 アプリは取得したタブを `position` の昇順に並べる。
 重複タブのスキップや復元済みタブの削除により、番号には欠番が生じる。
@@ -55,7 +55,7 @@ Supabase Authが管理する `auth.users` の1ユーザーが複数のグルー�
 
 | 名前 | 対象 | 用途 |
 | --- | --- | --- |
-| `idx_tab_groups_user_created_at` | `tab_groups(user_id, created_at DESC)` | ユーザーのグループを作成日時順に取得 |
+| `idx_tab_groups_user_created_at_id` | `tab_groups(user_id, created_at DESC, id DESC)` | 一覧のページ取得で使う作成日時とIDの降順に一致。旧2カラムのインデックスは削除 |
 | `idx_tabs_group_position` | `tabs(group_id, position)` | グループ内のタブ取得と並び順。`group_id` 単独の検索にも使用可能 |
 | `tabs_user_url_hash_unique` | `tabs(user_id, public.tab_url_key(url))` | 同じユーザーのURL重複をグループをまたいで禁止する一意インデックス |
 
@@ -65,6 +65,7 @@ Supabase Authが管理する `auth.users` の1ユーザーが複数のグルー�
 ## アクセス制御
 
 両テーブルで **RLS（Row Level Security）** を有効にし、各操作で `auth.uid() = user_id` を確認する。
+ポリシーでは `(select auth.uid())` と記述し、行ごとの関数評価を避けて文単位で評価する（[Supabaseの推奨](https://supabase.com/docs/guides/database/postgres/row-level-security#call-functions-with-select)）。
 グループのSELECT、INSERT、UPDATE、DELETEは自分の行に限定され、UPDATE後の所有者も自分でなければならない。
 タブのSELECTとDELETEも自分の行に限定される。
 タブのINSERTとUPDATEでは、変更後の `group_id` が自分のグループを指すことも確認する。
@@ -165,3 +166,11 @@ URLは前後の空白を除いた文字列の先頭を正規表現で確認し�
 
 スキーマ変更時は新しいマイグレーションを追加し、`sql/schema.sql` とこの説明も更新する。
 適用手順と本番DBの確認方法は [READMEのセットアップ](../README.md#セットアップ) を参照する。
+
+今回の見直しではカラムを削除しない。
+`created_at` 以外の現行カラムは、表示・並び順・所有者制御・重複防止に使う。
+`idx_tabs_group_position` はタブ取得・追加位置の計算・空グループ判定に、`tabs_user_url_hash_unique` は所有者による検索と重複防止に必要である。
+保存・復元関数のグループ行ロックと、定期削除関数の `NOT EXISTS` は維持する。
+
+`tests/dashboard-schema.sql` で作成日時カラムの保持、一覧のインデックスとInitPlan、他ユーザーへの読み書き禁止を検証する。
+保存・復元・所有者整合性は既存の `tests/group-save.sql`、`tests/group-retention.sql`、`tests/tab-ownership.sql` で検証する。

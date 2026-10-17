@@ -19,8 +19,8 @@ create table if not exists public.tabs (
   created_at timestamptz not null default now()
 );
 
-create index if not exists idx_tab_groups_user_created_at
-  on public.tab_groups(user_id, created_at desc);
+create index if not exists idx_tab_groups_user_created_at_id
+  on public.tab_groups(user_id, created_at desc, id desc);
 
 create index if not exists idx_tabs_group_position
   on public.tabs(group_id, position);
@@ -32,55 +32,55 @@ drop policy if exists "users_select_own_tab_groups" on public.tab_groups;
 create policy "users_select_own_tab_groups"
   on public.tab_groups
   for select
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 drop policy if exists "users_insert_own_tab_groups" on public.tab_groups;
 create policy "users_insert_own_tab_groups"
   on public.tab_groups
   for insert
-  with check (auth.uid() = user_id);
+  with check ((select auth.uid()) = user_id);
 
 drop policy if exists "users_update_own_tab_groups" on public.tab_groups;
 create policy "users_update_own_tab_groups"
   on public.tab_groups
   for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 drop policy if exists "users_delete_own_tab_groups" on public.tab_groups;
 create policy "users_delete_own_tab_groups"
   on public.tab_groups
   for delete
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 drop policy if exists "users_select_own_tabs" on public.tabs;
 create policy "users_select_own_tabs"
   on public.tabs
   for select
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 drop policy if exists "users_insert_own_tabs" on public.tabs;
 create policy "users_insert_own_tabs"
   on public.tabs
   for insert
-  with check (auth.uid() = user_id and exists (
-    select 1 from public.tab_groups g where g.id = group_id and g.user_id = auth.uid()
+  with check ((select auth.uid()) = user_id and exists (
+    select 1 from public.tab_groups g where g.id = group_id and g.user_id = (select auth.uid())
   ));
 
 drop policy if exists "users_update_own_tabs" on public.tabs;
 create policy "users_update_own_tabs"
   on public.tabs
   for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id and exists (
-    select 1 from public.tab_groups g where g.id = group_id and g.user_id = auth.uid()
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id and exists (
+    select 1 from public.tab_groups g where g.id = group_id and g.user_id = (select auth.uid())
   ));
 
 drop policy if exists "users_delete_own_tabs" on public.tabs;
 create policy "users_delete_own_tabs"
   on public.tabs
   for delete
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 -- Saved tabs and favorites are preserved.
 alter table public.tab_groups
