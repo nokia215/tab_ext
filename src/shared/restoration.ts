@@ -57,12 +57,12 @@ const restoringGroups = new Set<string>();
 
 export async function restoreSavedTabs(
   groupId: string, tabIds: string[], inNewWindow: boolean,
-  webOpen?: (tab: SavedTab) => Promise<void>
+  webOpen?: (tab: SavedTab) => Promise<void>, deferSync = false
 ): Promise<RestoreResult> {
   if (restoringGroups.has(groupId)) throw new Error('このグループは復元中です。');
   restoringGroups.add(groupId);
   try {
-    return await performRestore(groupId, tabIds, inNewWindow, webOpen);
+    return await performRestore(groupId, tabIds, inNewWindow, webOpen, deferSync);
   } finally {
     restoringGroups.delete(groupId);
   }
@@ -72,7 +72,7 @@ async function performRestore(
   groupId: string,
   tabIds: string[],
   inNewWindow: boolean,
-  webOpen?: (tab: SavedTab) => Promise<void>
+  webOpen?: (tab: SavedTab) => Promise<void>, deferSync = false
 ): Promise<RestoreResult> {
   const scope = await pendingScope();
   // Read the durable local queue without waiting for unrelated remote retries.
@@ -109,6 +109,9 @@ async function performRestore(
   }
 
   if (!current.is_fixed) pendingTabIds.push(...openedTabIds);
+  if (deferSync) {
+    return { group: hidePendingTabs([current], pendingTabIds)[0] ?? null, openedTabIds, pendingTabIds, error };
+  }
   if (pendingTabIds.length > 0) {
     try {
       await consumeRestoredTabs(groupId, pendingTabIds);

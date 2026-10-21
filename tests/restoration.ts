@@ -105,6 +105,37 @@ try {
     assert.equal(opened.length, 6, 'Fixed groups can be reused');
     assert.deepEqual(stored, {});
 
+    reset(); failReadAfterOpen = true;
+    beforeConsume = () => { throw new Error('Deletion must not block opening'); };
+    result = await service.restoreSavedTabs('g', ['a'], false, undefined, true);
+    assert.equal(result.error, undefined, 'Deferred restore does not reread the group after opening');
+    assert.deepEqual(result.pendingTabIds, ['a']);
+    assert.deepEqual(result.group.tabs.map((tab: SavedTab) => tab.id), ['b', 'c']);
+    assert.equal(Object.keys(stored).length, 1, 'Pending deletion is durable before returning');
+    failReadAfterOpen = false;
+    result = await service.restoreSavedTabs('g', ['a', 'b'], false, undefined, true);
+    assert.deepEqual(result.openedTabIds, ['b'], 'A second restore skips unsynchronized opens');
+    assert.deepEqual(result.group.tabs.map((tab: SavedTab) => tab.id), ['c']);
+    beforeConsume = null; failConsume = true;
+    const deferredReload = await loadRestoration();
+    assert.match((await deferredReload.retryPendingConsumption()).error, /削除同期に失敗/);
+    assert.equal(Object.keys(stored).length, 2, 'Failed background synchronization retains retry records');
+    failConsume = false;
+    await deferredReload.retryPendingConsumption();
+    assert.deepEqual(stored, {});
+    assert.deepEqual(groups[0]!.tabs.map((tab: SavedTab) => tab.id), ['c']);
+
+    reset(true);
+    result = await service.restoreSavedTabs('g', ['a'], false, undefined, true);
+    assert.equal(result.group.tabs.length, 3);
+    assert.deepEqual(stored, {}, 'Deferred restore preserves fixed groups');
+
+    reset(); failOpenAt = 1;
+    result = await service.restoreSavedTabs('g', ['a', 'b'], true, undefined, true);
+    assert.match(result.error, /復元失敗/);
+    assert.deepEqual(result.pendingTabIds, ['a']);
+    assert.deepEqual(result.group.tabs.map((tab: SavedTab) => tab.id), ['b', 'c']);
+
     reset(); failOpenAt = 1;
     result = await service.restoreSavedTabs('g', ['a', 'b', 'c'], true);
     assert.match(result.error, /復元失敗/);
@@ -313,6 +344,29 @@ for (const kind of ['newtab', 'tablet']) {
   await privateRestore;
   assert.deepEqual(app.state.allGroups, [], 'Old restore results cannot return private data after logout');
   assert.equal(app.state.restoreBusy, false);
+  if (kind === 'newtab') {
+    let finishSync!: (result: { error?: string }) => void;
+    const sync = new Promise<{ error?: string }>((resolve) => { finishSync = resolve; });
+    app.restore.prepareRestore = () => ({ restore, closeUnused() {}, sync: () => sync });
+    app.state.allGroups = structuredClone(original);
+    const openingFirst = app.restore.handleOpenTab('a');
+    const openingSecond = app.restore.handleOpenTab('b');
+    const beforeSyncCalls = calls;
+    resolveRestore({ group: { ...original[0]!, tabs: original[0]!.tabs.slice(1) }, openedTabIds: ['a'], pendingTabIds: ['a'] });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(calls, beforeSyncCalls + 1, 'Next tab opens while previous deletion synchronization is unresolved');
+    assert.equal(app.state.pendingUpdates, 1);
+    resolveRestore({ group: { ...original[0]!, tabs: original[0]!.tabs.slice(2) }, openedTabIds: ['b'], pendingTabIds: ['a', 'b'] });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(app.state.restoreBusy, false);
+    assert.equal(app.state.pendingUpdates, 2);
+    finishSync({ error: '削除同期に失敗' });
+    await Promise.all([openingFirst, openingSecond]);
+    assert.equal(app.state.pendingUpdates, 0);
+    assert.match(app.state.pageStatus, /削除同期に失敗/);
+    assert.deepEqual(app.state.allGroups.find((group: TabGroup) => group.id === 'g').tabs.map((tab: SavedTab) => tab.id), ['c'],
+      'A synchronization failure never rolls back already opened tabs');
+  }
   delete testGlobal.dashboardRestore;
   console.log(`${kind} optimistic handler / partial rollback checks passed.`);
 }

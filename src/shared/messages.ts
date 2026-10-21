@@ -2,6 +2,7 @@ import { runtimeSendMessage } from './browser-api';
 import type { RestoreResult } from './restoration';
 
 export type PopupActionMessage =
+  | { type: 'sync-restored-tabs' }
   | {
       type: 'restore-saved-tabs';
       groupId: string;
@@ -16,6 +17,7 @@ export type PopupActionMessage =
     };
 
 export type PopupActionResponse =
+  | { ok: true; pendingTabIds: string[]; error?: string }
   | { ok: true; result: RestoreResult }
   | {
       ok: true;

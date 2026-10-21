@@ -7,7 +7,13 @@ import type { DashboardState } from './dashboard-model';
 import type { DashboardGroups } from './dashboard-groups';
 import type { TabGroup } from './types';
 
-export function prepareExtensionRestore(_tabCount: number) {
+interface PreparedRestore {
+  restore(groupId: string, tabIds: string[], inNewWindow: boolean): Promise<RestoreResult>;
+  closeUnused(): void;
+  sync?(): Promise<{ error?: string }>;
+}
+
+export function prepareExtensionRestore(_tabCount: number): PreparedRestore {
   return {
     async restore(groupId: string, tabIds: string[], inNewWindow: boolean): Promise<RestoreResult> {
       const response = await runtimeSendMessage<PopupActionMessage, PopupActionResponse>({
@@ -18,7 +24,14 @@ export function prepareExtensionRestore(_tabCount: number) {
       }
       return response.result;
     },
-    closeUnused() {}
+    closeUnused() {},
+    async sync() {
+      const response = await runtimeSendMessage<PopupActionMessage, PopupActionResponse>({ type: 'sync-restored-tabs' });
+      if (!response?.ok || !('pendingTabIds' in response)) {
+        throw new Error(response && !response.ok ? response.error : '削除同期の結果を取得できませんでした。');
+      }
+      return response;
+    }
   };
 }
 
@@ -112,6 +125,22 @@ export class DashboardRestore {
       if (!this.state.restoreBusy) this.restoreQueue = null;
       finish();
       this.render();
+    }
+    // Release the opening queue before waiting for durable deletion synchronization.
+    if (web.sync && revision === this.state.sessionRevision) {
+      this.state.pendingUpdates += 1;
+      this.render();
+      try {
+        const result = await web.sync();
+        if (result.error && revision === this.state.sessionRevision) this.state.pageStatus = result.error;
+      } catch (error) {
+        if (revision === this.state.sessionRevision) {
+          this.state.pageStatus = `削除同期に失敗: ${getErrorMessage(error)}。削除の同期を再試行してください。`;
+        }
+      } finally {
+        this.state.pendingUpdates -= 1;
+        this.render();
+      }
     }
   }
 

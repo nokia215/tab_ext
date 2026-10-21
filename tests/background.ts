@@ -6,13 +6,27 @@ import { build } from 'esbuild';
 type TestTab = { id: number; index: number; url: string; active?: boolean };
 type TestSender = { tab?: { windowId: number } };
 type TestResponse = { ok: boolean; tabs?: TestTab[]; tab?: TestTab };
-let listener: (message: unknown, sender: TestSender, respond: () => void) => Promise<TestResponse>;
+let listener!: (message: unknown, sender: TestSender, respond: () => void) => Promise<TestResponse>;
 let senderTabs = [{ id: 1, index: 1, url: 'https://sender.test', active: true },
   { id: 2, index: 0, url: 'https://first.test' }];
 let currentTabs = [{ id: 3, index: 0, url: 'https://current.test', active: true }];
 const focusedTabs = Array.from({ length: 10 }, (_, index) => ({
   id: 10 + index, index, url: `https://other.test/${index}`, active: index === 0
 }));
+let finishSync!: () => void;
+let syncCalls = 0;
+const syncGate = new Promise<void>((resolve) => { finishSync = resolve; });
+testGlobal.backgroundRestore = {
+  restoreSavedTabs: async (...args: unknown[]) => {
+    assert.deepEqual(args, ['g', ['a'], false, undefined, true]);
+    return { group: null, openedTabIds: ['a'], pendingTabIds: ['a'] };
+  },
+  retryPendingConsumption: async () => {
+    syncCalls++;
+    await syncGate;
+    return { pendingTabIds: [] };
+  }
+};
 testGlobal.browser = {
   runtime: { onMessage: { addListener: (value: typeof listener) => { listener = value; } } },
   tabs: { query: async (query: chrome.tabs.QueryInfo) => query.windowId === 42 ? senderTabs : currentTabs },
@@ -24,7 +38,7 @@ try {
     plugins: [{ name: 'background-test', setup(builder) {
       builder.onResolve({ filter: /shared\/restoration$/ }, () => ({ path: 'restore', namespace: 'mock' }));
       builder.onLoad({ filter: /.*/, namespace: 'mock' }, () => ({
-        contents: 'export const restoreSavedTabs = async () => { throw new Error("Unexpected restore"); };'
+        contents: 'export const { restoreSavedTabs, retryPendingConsumption } = globalThis.backgroundRestore;'
       }));
     } }]
   });
@@ -41,7 +55,17 @@ try {
   assert.deepEqual((await request('get-current-window-tabs')).tabs, focusedTabs);
   const invalid = await request('restore-saved-tabs');
   assert.equal(invalid.ok, false);
+  const firstSync = request('sync-restored-tabs');
+  const secondSync = request('sync-restored-tabs');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(syncCalls, 1, 'Deletion retries are serialized');
+  assert.equal((await listener({ type: 'restore-saved-tabs', groupId: 'g', tabIds: ['a'], inNewWindow: false }, {}, () => {})).ok, true,
+    'Opening does not wait for the background deletion queue');
+  finishSync();
+  await Promise.all([firstSync, secondSync]);
+  assert.equal(syncCalls, 2);
   console.log('Window selection / message validation checks passed.');
 } finally {
   delete testGlobal.browser;
+  delete testGlobal.backgroundRestore;
 }
