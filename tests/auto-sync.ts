@@ -52,7 +52,8 @@ const state = {
   saveWindowBusy: false, configBusy: false
 };
 let renders = 0;
-startDashboardAutoSync(root, state, () => userId, () => { renders++; });
+let cacheChanges = 0;
+startDashboardAutoSync(root, state, () => userId, () => { renders++; }, undefined, () => { cacheChanges++; });
 const settle = async () => { for (let i = 0; i < 8; i++) await new Promise(setImmediate); };
 async function trigger(target: EventTarget = window, event = 'focus') {
   now += 2000;
@@ -60,6 +61,7 @@ async function trigger(target: EventTarget = window, event = 'focus') {
   await settle();
 }
 await trigger();
+assert.equal(cacheChanges, 1, 'Remote content changes save cache');
 assert.deepEqual(state.allGroups[0]!.tabs, [{ id: 'keep' }]);
 assert.deepEqual(state.allGroups.filter(group => group.is_favorite).map(group => group.id), ['remote']);
 assert.deepEqual(state.selectedGroupIds, ['remote']);

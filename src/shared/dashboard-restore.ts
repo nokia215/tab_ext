@@ -75,7 +75,7 @@ export class DashboardRestore {
     const revision = this.state.sessionRevision;
     this.state.restoreBusy = true;
     for (const { group, ids } of requests) {
-      if (!group.is_fixed) this.state.allGroups = hidePendingTabs(this.state.allGroups, ids);
+      if (!group.is_fixed) this.groups.setGroups(hidePendingTabs(this.state.allGroups, ids));
     }
     this.state.pageStatus = '復元しています。';
     this.render();
@@ -91,7 +91,7 @@ export class DashboardRestore {
         this.state.allGroups = this.state.allGroups.filter((item) => item.id !== group.id);
         if (result.group) this.state.allGroups.push(result.group);
         for (const id of ids) this.pendingRestoreTabs.delete(group.id + ':' + id);
-        this.state.allGroups = hidePendingTabs(this.state.allGroups, [...this.pendingRestoreTabs.values()]);
+        this.groups.setGroups(hidePendingTabs(this.state.allGroups, [...this.pendingRestoreTabs.values()]));
         this.render();
         completed += 1;
         opened += result.openedTabIds.length;
@@ -118,7 +118,7 @@ export class DashboardRestore {
           for (const id of ids) this.pendingRestoreTabs.delete(group.id + ':' + id);
         }
       }
-      this.state.allGroups = hidePendingTabs(this.state.allGroups, [...this.pendingRestoreTabs.values()]);
+      this.groups.setGroups(hidePendingTabs(this.state.allGroups, [...this.pendingRestoreTabs.values()]));
       this.state.selectedGroupIds = reconcileGroupIds(this.state.selectedGroupIds, this.state.allGroups);
       this.state.expandedGroupIds = reconcileGroupIds(this.state.expandedGroupIds, this.state.allGroups);
       this.state.restoreBusy = this.pendingRestoreTabs.size > 0;

@@ -7,7 +7,8 @@ import { ext } from './browser-api';
 
 export function startDashboardAutoSync(
   root: HTMLElement, state: DashboardState, getUserId: () => string | null, render: () => void,
-  onUserChanged?: () => Promise<unknown>
+  onUserChanged: (() => Promise<unknown>) | undefined,
+  onGroupsChanged: () => void
 ) {
   let inFlight = false;
   let revision = 0;
@@ -57,6 +58,7 @@ export function startDashboardAutoSync(
       const groups = await listGroups(userId);
       if ((await getCurrentSessionUser())?.id !== userId || !stillCurrent()) return;
       state.allGroups = hidePendingTabs(groups, pending.pendingTabIds);
+      onGroupsChanged();
       state.selectedGroupIds = reconcileGroupIds(state.selectedGroupIds, state.allGroups);
       state.expandedGroupIds = reconcileGroupIds(state.expandedGroupIds, state.allGroups);
       if (state.saveGroupId && !state.allGroups.some((group) => group.id === state.saveGroupId)) {

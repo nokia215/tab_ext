@@ -34,7 +34,7 @@ export class DashboardSession {
       if (this.cacheTimer !== null) window.clearTimeout(this.cacheTimer);
       this.cacheTimer = null;
       await this.refreshAll(true);
-    });
+    }, () => this.scheduleCacheSave());
   }
 
   scheduleCacheSave() {
@@ -42,9 +42,12 @@ export class DashboardSession {
       if (this.cacheTimer !== null) window.clearTimeout(this.cacheTimer);
       const userId = this.cacheUserId;
       const groups = this.state.allGroups;
+      const revision = this.state.sessionRevision;
       this.cacheTimer = window.setTimeout(() => {
         this.cacheTimer = null;
-        void saveCachedGroups(userId, groups).catch(() => {});
+        if (this.cacheUserId === userId && this.state.sessionRevision === revision) {
+          void saveCachedGroups(userId, groups).catch(() => {});
+        }
       }, 200);
     }
   }
@@ -109,7 +112,7 @@ export class DashboardSession {
       if (!current() || (await getCurrentSessionUser())?.id !== user.id) return;
       if (!current()) return;
       const expandedGroupIds = [...this.state.expandedGroupIds];
-      this.state.allGroups = hidePendingTabs(groups, pending.pendingTabIds);
+      this.groups.setGroups(hidePendingTabs(groups, pending.pendingTabIds));
       this.state.expandedGroupIds = expandedGroupIds;
       this.groups.reconcileExpandedGroupIds(this.state.allGroups);
       this.groups.reconcileSelectedGroupIds(this.state.allGroups);

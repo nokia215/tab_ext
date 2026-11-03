@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { dashboards } from '../shared/dashboard-state.svelte';
+  import { dashboards, groupListActions } from '../shared/dashboard-state.svelte';
   import { isDashboardBusy, queryGroups, collectDeviceFilterOptions, summarizeSelectedGroups } from '../shared/dashboard-model';
   import { reconcileExpandedGroupIds, visibleGroups } from '../shared/group-state';
   import { isErrorStatus } from '../shared/status';
@@ -72,7 +72,7 @@
           </div>
         </section>
       {/if}
-      <GroupList view={{ groups: args.visibleGroups, emptyLabel: state.authStatus === '未ログイン' ? 'ログインすると保存したタブを表示できます。' : state.allGroups.length ? '条件に一致するグループはありません。検索語やフィルタを変更してください。' : '保存済みグループはありません。', expandedGroupIds: args.visibleExpandedGroupIds, collapsible: true, busy, selectedGroupIds: state.selectedGroupIds, extraActionLabel: 'URLコピー', editableGroupId: state.editingGroupId, editableGroupTitle: state.editingGroupTitle }} />
+      <GroupList actions={groupListActions.tablet!} view={{ groups: args.visibleGroups, emptyLabel: state.authStatus === '未ログイン' ? 'ログインすると保存したタブを表示できます。' : state.allGroups.length ? '条件に一致するグループはありません。検索語やフィルタを変更してください。' : '保存済みグループはありません。', expandedGroupIds: args.visibleExpandedGroupIds, collapsible: true, busy, selectedGroupIds: state.selectedGroupIds, extraActionLabel: 'URLコピー', editableGroupId: state.editingGroupId, editableGroupTitle: state.editingGroupTitle }} />
       {#if remaining > 0}<div class="load-more-row"><button class="secondary" data-action="show-more-groups">さらに表示</button><span class="result-meta">残り {remaining} 件</span></div>{/if}
     </section>
 

@@ -45,7 +45,8 @@ for (const [surface, uiMode] of [['desktop', 'default'], ['desktop', 'lightweigh
     assert.ok(!initial.includes(removed), `${surface}: removed ${removed}`);
   }
   assert.ok(!initial.includes('data-action="select-visible-groups"'), 'Select all is hidden until a group is selected');
-  assert.ok(initial.includes('data-action="toggle-group-selection"'));
+  assert.ok(initial.includes('class="group-select icon-button'));
+  assert.ok(!initial.includes('data-action="toggle-group-selection"'));
   assert.ok(!initial.includes('class="bulk-toolbar"'));
   assert.ok(!initial.includes('保存したタブ</h1>'), 'The page and list share one heading');
   assert.match(initial, /<h1 class="section-title">保存済みグループ<\/h1>/);
@@ -69,7 +70,7 @@ for (const [surface, uiMode] of [['desktop', 'default'], ['desktop', 'lightweigh
     ['toggle-favorite-group', 'お気に入り'], ['edit-group-title', '名前編集'],
     ['toggle-fixed-group', '固定（復元後も保持）'], ['delete-group', 'グループ削除']
   ] as const) {
-    const button = initial.match(new RegExp(`<button[^>]*data-action="${action}"[^>]*>[\\s\\S]*?</button>`))?.[0];
+    const button = initial.match(new RegExp(`<button[^>]*aria-label="${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*>[\\s\\S]*?</button>`))?.[0];
     assert.ok(button, `${surface}: ${action} button exists`);
     assert.ok(button.includes(`title="${label}"`) && button.includes(`aria-label="${label}"`));
     assert.match(button, /<svg[^>]*aria-hidden="true"/);
@@ -82,8 +83,8 @@ for (const [surface, uiMode] of [['desktop', 'default'], ['desktop', 'lightweigh
   state.editingGroupTitle = longTitle;
   state.editingGroupId = group.id;
   const editing = html();
-  assert.match(editing, /data-action="save-group-title"[^>]*title="名前を保存"[^>]*aria-label="名前を保存"/);
-  assert.match(editing, /data-action="cancel-edit-group-title"[^>]*title="キャンセル"[^>]*aria-label="キャンセル"/);
+  assert.match(editing, /title="名前を保存"[^>]*aria-label="名前を保存"/);
+  assert.match(editing, /title="キャンセル"[^>]*aria-label="キャンセル"/);
   assert.ok(editing.includes('name="groupTitleEdit"'), 'Long group names remain editable');
   assert.ok(!editing.includes('group-device'));
   state.editingGroupId = null;
@@ -150,8 +151,8 @@ for (const [surface, uiMode] of [['desktop', 'default'], ['desktop', 'lightweigh
   state.searchQuery = '';
   state.allGroups[0]!.is_fixed = true;
   assert.ok(!html().includes('固定 · 復元後も保持'), 'Fixed groups do not repeat the tooltip as visible text');
-  assert.match(html(), /data-action="toggle-fixed-group" aria-pressed="true"[^>]*title="固定中（復元後も保持） · クリックで解除"[^>]*aria-label="固定中（復元後も保持） · クリックで解除"/);
-  assert.match(html(), /data-action="restore-group"[^>]*title="全部復元（復元後も保持）"[^>]*aria-label="全部復元（復元後も保持）"/);
+  assert.match(html(), /aria-pressed="true"[^>]*title="固定中（復元後も保持） · クリックで解除"[^>]*aria-label="固定中（復元後も保持） · クリックで解除"/);
+  assert.match(html(), /title="全部復元（復元後も保持）"[^>]*aria-label="全部復元（復元後も保持）"/);
   state.allGroups[0]!.tabs = [];
   assert.match(html(), /data-action="restore-selected-groups" disabled/);
   state.allGroups[0]!.tabs = group.tabs;

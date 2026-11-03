@@ -26,7 +26,8 @@ export class DashboardGroups {
   }
   constructor(
     private readonly state: DashboardState,
-    private readonly render: (focus?: FocusState) => void
+    private readonly render: (focus?: FocusState) => void,
+    private readonly onGroupsChanged: () => void
   ) {}
 
   get filteredGroups() {
@@ -45,12 +46,17 @@ export class DashboardGroups {
     return this.state.allGroups.find((group) => group.id === groupId);
   }
 
+  setGroups(groups: TabGroup[]) {
+    this.state.allGroups = groups;
+    this.onGroupsChanged();
+  }
+
   updateGroup(groupId: string, update: (group: TabGroup) => TabGroup) {
-    this.state.allGroups = updateGroupCollection(this.state.allGroups, groupId, update);
+    this.setGroups(updateGroupCollection(this.state.allGroups, groupId, update));
   }
 
   removeGroupsFromState(groupIds: string[]) {
-    this.state.allGroups = removeGroupsFromCollection(this.state.allGroups, groupIds);
+    this.setGroups(removeGroupsFromCollection(this.state.allGroups, groupIds));
     this.state.selectedGroupIds = reconcileGroupIds(this.state.selectedGroupIds, this.state.allGroups);
     this.reconcileExpandedGroupIds(this.state.allGroups);
   }
@@ -147,7 +153,7 @@ export class DashboardGroups {
 
     if (!window.confirm(`1 グループ / ${group.tabs.length} タブを削除します。固定グループも削除されます。よろしいですか？`)) return;
     this.state.actionBusy = true;
-    this.state.allGroups = this.state.allGroups.filter((item) => item.id !== groupId);
+    this.setGroups(this.state.allGroups.filter((item) => item.id !== groupId));
     this.state.selectedGroupIds = reconcileGroupIds(this.state.selectedGroupIds, this.state.allGroups);
     this.state.pageStatus = 'グループを削除しています。';
     this.render();
@@ -158,7 +164,7 @@ export class DashboardGroups {
       this.state.pageStatus = 'グループを削除しました。';
     } catch (error) {
       if (revision !== this.state.sessionRevision) return;
-      this.state.allGroups = [group, ...this.state.allGroups];
+      this.setGroups([group, ...this.state.allGroups]);
       this.state.pageStatus = `削除失敗: ${getErrorMessage(error)}`;
     } finally {
       this.state.actionBusy = false;
@@ -332,7 +338,7 @@ export class DashboardGroups {
     } catch (error) {
       if (revision !== this.state.sessionRevision) return;
       const failedAndPending = groups.slice(deletedCount);
-      this.state.allGroups = [...failedAndPending, ...this.state.allGroups];
+      this.setGroups([...failedAndPending, ...this.state.allGroups]);
       this.state.pageStatus = deletedCount > 0
         ? `${deletedCount} グループ削除後に失敗: ${getErrorMessage(error)}`
         : `一括削除失敗: ${getErrorMessage(error)}`;

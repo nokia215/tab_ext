@@ -7,6 +7,13 @@ const built = await build({
   bundle: true, platform: 'node', format: 'esm', write: false,
   plugins: [{ name: 'no-auto-sync', setup(builder) {
     builder.onResolve({ filter: /^\.\/auto-sync$/ }, () => ({ path: 'auto-sync', namespace: 'mock' }));
+    builder.onResolve({ filter: /^\.\/storage$/ }, () => ({ path: 'storage', namespace: 'mock-storage' }));
+    builder.onLoad({ filter: /.*/, namespace: 'mock-storage' }, () => ({ contents: `
+      export const saveCachedGroups = async (userId, groups) => globalThis.cacheWrites.push({ userId, groups });
+      export const getCachedGroups = async () => null;
+      export const getConfig = async () => ({});
+      export const saveConfig = async () => {};
+    ` }));
     builder.onLoad({ filter: /.*/, namespace: 'mock' }, () => ({ contents: 'export const startDashboardAutoSync = () => {};' }));
   } }]
 });
@@ -42,7 +49,38 @@ try {
   send(new Form('sign-in'));
   assert.equal(signIns, 1, 'Do not sign in twice while busy');
   assert.equal(prevented, 2);
+  const writes: unknown[] = [];
+  testGlobal.cacheWrites = writes;
+  const timers = new Map<number, () => void>();
+  let timerId = 0;
+  testGlobal.window = {
+    setTimeout: (fn: () => void, delay: number) => {
+      assert.equal(delay, 200);
+      timers.set(++timerId, fn);
+      return timerId;
+    },
+    clearTimeout: (id: number) => { timers.delete(id); }
+  };
+  const flush = () => { for (const fn of timers.values()) fn(); timers.clear(); };
+  session.scheduleCacheSave();
+  assert.equal(timers.size, 0, 'No anonymous cache writes');
+  session.cacheUserId = 'owner';
+  session.scheduleCacheSave();
+  session.scheduleCacheSave();
+  assert.equal(timers.size, 1, 'Content updates are debounced');
+  flush();
+  assert.equal(writes.length, 1);
+  session.scheduleCacheSave();
+  state.sessionRevision++;
+  flush();
+  assert.equal(writes.length, 1, 'A previous session cannot write its pending cache');
+  session.scheduleCacheSave();
+  session.cacheUserId = null;
+  flush();
+  assert.equal(writes.length, 1, 'Logout cancels pending cache writes');
 } finally {
   delete testGlobal.HTMLFormElement;
+  delete testGlobal.window;
+  delete testGlobal.cacheWrites;
 }
 console.log('Dashboard login submission checks passed.');

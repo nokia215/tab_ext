@@ -40,15 +40,18 @@ try {
     const state: DashboardState = createInitialState({ isAndroidFirefox: false, uiMode });
     state.allGroups = Array.from({ length: 15 }, (_, i) => makeGroup(`g${i}`));
     let renders = 0;
-    const groups: Groups = new DashboardGroups(state, () => { renders++; });
+    let cacheChanges = 0;
+    const groups: Groups = new DashboardGroups(state, () => { renders++; }, () => { cacheChanges++; });
     groups.selectVisibleGroups();
     assert.equal(state.selectedGroupIds.length, uiMode === 'lightweight' ? 12 : 15);
     groups.toggleGroup('g0');
     groups.toggleGroup('g1');
     assert.deepEqual(state.expandedGroupIds, uiMode === 'lightweight' ? ['g1'] : ['g0', 'g1']);
 
+    assert.equal(cacheChanges, 0, 'Selection and expansion do not save cache');
     failWrite = false;
     const favorite = groups.handleToggleFavoriteGroup('g0');
+    assert.equal(cacheChanges, 1, 'Optimistic content change saves cache');
     assert.deepEqual(favoriteIds(state), ['g0'], 'Favorite appears before the server responds');
     assert.equal(state.actionBusy, false);
     assert.equal(state.pendingUpdates, 1);

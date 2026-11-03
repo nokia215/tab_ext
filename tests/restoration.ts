@@ -240,11 +240,10 @@ try {
 }
 
 // Exercise the actual dashboard handlers with deferred responses. No DOM package is needed.
-const { readFile } = await import('node:fs/promises');
 for (const kind of ['newtab', 'tablet']) {
-  const className = kind === 'newtab' ? 'NewtabApp' : 'TabletApp';
-  const source = (await readFile(`src/${kind}/main.ts`, 'utf8')).split("const target = document.getElementById('app');")[0]
-    + `\nexport { ${className} as App };`;
+  const source = `export { DashboardController as App } from './dashboard-controller';
+    export { createInitialState } from './dashboard-model';
+    export { prepareDashboardWebRestore } from './dashboard-restore';`;
   let resolveRestore: (result: RestoreResult) => void = () => { throw new Error('Restore was not started'); };
   let calls = 0;
   let rejectRestore: (error: Error) => void = () => { throw new Error('Restore was not started'); };
@@ -254,7 +253,7 @@ for (const kind of ['newtab', 'tablet']) {
     return new Promise<RestoreResult>((resolve, reject) => { resolveRestore = resolve; rejectRestore = reject; });
   };
   testGlobal.dashboardRestore = restore;
-  const built = await build({ stdin: { contents: source, loader: 'ts', resolveDir: `${process.cwd()}/src/${kind}` },
+  const built = await build({ stdin: { contents: source, loader: 'ts', resolveDir: `${process.cwd()}/src/shared` },
     bundle: true, platform: 'node', format: 'esm', write: false,
     plugins: [{ name: 'dashboard-test', setup(builder) {
       builder.onResolve({ filter: /\.css$/ }, () => ({ path: 'css', namespace: 'mock-ui' }));
@@ -271,8 +270,10 @@ for (const kind of ['newtab', 'tablet']) {
         });` }));
     } }]
   });
-  const { App } = await import(`data:text/javascript;base64,${Buffer.from(built.outputFiles[0]!.text).toString('base64')}#ui-${kind}`);
-  const app = new App({ addEventListener() {} }, { isAndroidFirefox: false, uiMode: 'default' });
+  const { App, createInitialState, prepareDashboardWebRestore } = await import(`data:text/javascript;base64,${Buffer.from(built.outputFiles[0]!.text).toString('base64')}#ui-${kind}`);
+  testGlobal.document = { title: '' };
+  const profile = { isAndroidFirefox: false, uiMode: kind === 'newtab' ? 'default' : 'lightweight' };
+  const app = new App({ addEventListener() {} }, createInitialState(profile), profile, prepareDashboardWebRestore, 'Test');
   app.render = () => { responses.push(structuredClone(app.state)); };
   if (kind === 'newtab') app.restore.prepareRestore = () => ({ restore, closeUnused() {} });
   const original = [{ ...makeGroup(), is_favorite: true }, { ...makeGroup(true), id: 'fixed', is_favorite: true }];
@@ -306,10 +307,18 @@ for (const kind of ['newtab', 'tablet']) {
   assert.deepEqual(app.state.allGroups.find((group: TabGroup) => group.id === 'g').tabs.map((tab: SavedTab) => tab.id), ['b', 'c']);
   assert.match(app.state.pageStatus, /削除同期に失敗/);
   app.state.allGroups = structuredClone(original);
-  const first = app.restore.handleOpenTab('a');
+  let cacheChanges = 0;
+  app.session.scheduleCacheSave = () => { cacheChanges++; };
+  app.state.authBusy = true;
+  const blockedCalls = calls;
+  await app.groupActions.openTab('a');
+  assert.equal(calls, blockedCalls, 'Typed callbacks preserve busy guard');
+  app.state.authBusy = false;
+  const first = app.groupActions.openTab('a');
+  assert.ok(cacheChanges > 0, 'Optimistic restore persists changed groups');
   const callCount = calls;
-  const second = app.restore.handleOpenTab('b');
-  const third = app.restore.handleOpenTab('c');
+  const second = app.groupActions.openTab('b');
+  const third = app.groupActions.openTab('c');
   assert.equal(app.state.allGroups.find((group: TabGroup) => group.id === 'g').tabs.length, 0,
     'Every rapid click updates the UI before the first remote response');
   assert.equal(calls, callCount, 'Queued restores do not overlap in the same group');
@@ -368,5 +377,6 @@ for (const kind of ['newtab', 'tablet']) {
       'A synchronization failure never rolls back already opened tabs');
   }
   delete testGlobal.dashboardRestore;
+  delete testGlobal.document;
   console.log(`${kind} optimistic handler / partial rollback checks passed.`);
 }
