@@ -145,22 +145,12 @@ export class DashboardController {
         this.handleSearchInput(target);
         break;
       case 'groupTitle':
-        this.state.groupTitle = target.value;
-        break;
       case 'importText':
-        this.state.importText = target.value;
-        break;
       case 'email':
-        this.state.email = target.value;
-        break;
       case 'password':
-        this.state.password = target.value;
-        break;
       case 'ignoreDomainsText':
-        this.state.ignoreDomainsText = target.value;
-        break;
       case 'ignoreTitlesText':
-        this.state.ignoreTitlesText = target.value;
+        this.state[target.name] = target.value;
         break;
       default:
         break;
@@ -173,21 +163,23 @@ export class DashboardController {
       return;
     }
 
-    if (target.name === 'saveGroupId') {
-      this.state.saveGroupId = target.value;
-      this.render();
-      return;
+    switch (target.name) {
+      case 'saveGroupId':
+        this.state.saveGroupId = target.value;
+        break;
+      case 'sortMode':
+        this.state.sortMode = target.value as SortMode;
+        this.groups.resetVisibleGroupCount();
+        break;
+      case 'deviceFilter':
+        this.state.deviceFilter = target.value;
+        this.groups.resetVisibleGroupCount();
+        break;
+      default:
+        return;
     }
 
-    if (target.name === 'sortMode') {
-      this.state.sortMode = target.value as SortMode;
-      this.groups.resetVisibleGroupCount();
-      this.render();
-    } else if (target.name === 'deviceFilter') {
-      this.state.deviceFilter = target.value;
-      this.groups.resetVisibleGroupCount();
-      this.render();
-    }
+    this.render();
   }
 
   private async handleClick(event: Event) {

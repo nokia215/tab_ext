@@ -275,6 +275,43 @@ for (const kind of ['newtab', 'tablet']) {
   const profile = { isAndroidFirefox: false, uiMode: kind === 'newtab' ? 'default' : 'lightweight' };
   const app = new App({ addEventListener() {} }, createInitialState(profile), profile, prepareDashboardWebRestore, 'Test');
   app.render = () => { responses.push(structuredClone(app.state)); };
+  class Input {
+    name: string;
+    value: string;
+    constructor(name: string, value: string) { this.name = name; this.value = value; }
+  }
+  class Textarea extends Input {}
+  class Select extends Input {}
+  testGlobal.HTMLInputElement = Input;
+  testGlobal.HTMLTextAreaElement = Textarea;
+  testGlobal.HTMLSelectElement = Select;
+  try {
+    for (const name of ['groupTitle', 'importText', 'email', 'password', 'ignoreDomainsText', 'ignoreTitlesText']) {
+      app.handleInput({ target: new Textarea(name, 'draft') });
+      assert.equal(app.state[name], 'draft');
+    }
+    app.handleInput({ target: new Input('actionBusy', 'true') });
+    assert.equal(app.state.actionBusy, false, 'Unknown input names cannot overwrite state');
+    assert.equal(responses.length, 0, 'Draft edits do not request rendering');
+    for (const [name, value] of [['saveGroupId', 'saved'], ['sortMode', 'oldest'], ['deviceFilter', 'PC']]) {
+      app.state.visibleGroupCount = 60;
+      const before: number = responses.length;
+      app.handleChange({ target: new Select(name!, value!) });
+      assert.equal(app.state[name!], value);
+      assert.equal(responses.length, before + 1);
+      assert.equal(app.state.visibleGroupCount, name === 'saveGroupId' ? 60 : kind === 'tablet' ? 12 : Number.MAX_SAFE_INTEGER);
+    }
+    const before: number = responses.length;
+    app.handleChange({ target: new Select('actionBusy', 'true') });
+    app.handleChange({ target: new Input('deviceFilter', 'ignored') });
+    assert.equal(app.state.actionBusy, false);
+    assert.equal(app.state.deviceFilter, 'PC');
+    assert.equal(responses.length, before, 'Ignore unknown fields and non-select elements');
+  } finally {
+    delete testGlobal.HTMLInputElement;
+    delete testGlobal.HTMLTextAreaElement;
+    delete testGlobal.HTMLSelectElement;
+  }
   if (kind === 'newtab') app.restore.prepareRestore = () => ({ restore, closeUnused() {} });
   const original = [{ ...makeGroup(), is_favorite: true }, { ...makeGroup(true), id: 'fixed', is_favorite: true }];
   app.state.allGroups = structuredClone(original);
