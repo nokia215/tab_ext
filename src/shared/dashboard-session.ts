@@ -65,7 +65,7 @@ export class DashboardSession {
     this.render();
 
     try {
-      const nextConfig = await getConfig();
+      const [nextConfig, user] = await Promise.all([getConfig(), getCurrentSessionUser()]);
       if (!current()) return;
       this.setConfigFields(nextConfig);
 
@@ -80,7 +80,6 @@ export class DashboardSession {
         return;
       }
 
-      const user = await getCurrentSessionUser();
       if (!current()) return;
       this.state.authStatus = user ? `ログイン中: ${user.email}` : '未ログイン';
 

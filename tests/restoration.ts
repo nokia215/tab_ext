@@ -1,6 +1,7 @@
 // ponytail: partial browser mocks are injected here; add full API mocks if browser coverage grows.
 const testGlobal = globalThis as unknown as Record<string, unknown>;
 import assert from 'node:assert/strict';
+import { SUPABASE_URL } from '../src/shared/build-config.ts';
 import { build } from 'esbuild';
 import type { TabGroup, SavedTab } from '../src/shared/types.ts';
 import type { RestoreResult } from '../src/shared/restoration.ts';
@@ -12,7 +13,7 @@ let project = 'https://project.test';
 let opened: { url?: string | string[]; active?: boolean; windowId?: number }[] = [];
 let failOpenAt = -1;
 let failConsume = false;
-let beforeConsume: (() => void) | null = null;
+let beforeConsume: (() => unknown) | null = null;
 let failReadAfterOpen = false;
 const stored: Record<string, unknown> = {};
 const makeGroup = (fixed = false) => ({ id: 'g', title: 'Work', device_id: 'PC',
@@ -27,7 +28,7 @@ testGlobal.restoreTest = {
   getCurrentSessionUser: async () => userId ? { id: userId } : null,
   getConfig: async () => ({ supabaseUrl: project }),
   async consumeRestoredTabs(id: string, ids: string[]) {
-    beforeConsume?.();
+    await beforeConsume?.();
     if (failConsume) throw new Error('Offline');
     const group = groups.find((group: TabGroup) => group.id === id);
     if (!group || group.is_fixed) return;
@@ -96,6 +97,27 @@ try {
         assert.deepEqual(stored, {});
       }
     }
+
+    reset();
+    for (let index = 0; index < 9; index++) {
+      stored[`pending-consumption:${SUPABASE_URL}:owner:retry-${index}`] = { groupId: `retry-${index}`, tabId: `t-${index}` };
+    }
+    let activeRetries = 0;
+    let peakRetries = 0;
+    beforeConsume = async () => {
+      activeRetries++;
+      peakRetries = Math.max(peakRetries, activeRetries);
+      await new Promise(resolve => setImmediate(resolve));
+      activeRetries--;
+    };
+    failConsume = true;
+    const failedBatch = await service.retryPendingConsumption();
+    assert.equal(failedBatch.pendingTabIds.length, 9);
+    assert.equal(Object.keys(stored).length, 9, 'Failed parallel retries remain durable');
+    failConsume = false;
+    await service.retryPendingConsumption();
+    assert.equal(peakRetries, 4, 'Independent deletion retries overlap with a bounded request count');
+    assert.deepEqual(stored, {}, 'Every successful retry removes its durable record');
 
     reset(true);
     for (let iteration = 0; iteration < 2; iteration++) {
@@ -248,7 +270,8 @@ for (const kind of ['newtab', 'tablet']) {
   let calls = 0;
   let rejectRestore: (error: Error) => void = () => { throw new Error('Restore was not started'); };
   const responses: unknown[] = [];
-  const restore = () => {
+  const restore = (...args: unknown[]) => {
+    if (kind === 'tablet' && args.length === 5) assert.equal(args[4], true, 'Web restore defers deletion until the opening queue is released');
     calls++;
     return new Promise<RestoreResult>((resolve, reject) => { resolveRestore = resolve; rejectRestore = reject; });
   };
@@ -390,7 +413,7 @@ for (const kind of ['newtab', 'tablet']) {
   await privateRestore;
   assert.deepEqual(app.state.allGroups, [], 'Old restore results cannot return private data after logout');
   assert.equal(app.state.restoreBusy, false);
-  if (kind === 'newtab') {
+  {
     let finishSync!: (result: { error?: string }) => void;
     const sync = new Promise<{ error?: string }>((resolve) => { finishSync = resolve; });
     app.restore.prepareRestore = () => ({ restore, closeUnused() {}, sync: () => sync });

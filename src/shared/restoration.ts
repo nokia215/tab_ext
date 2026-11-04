@@ -31,14 +31,28 @@ export async function retryPendingConsumption() {
   const entries = await pendingEntries(await pendingScope());
   const pendingTabIds: string[] = [];
   let error: string | undefined;
-  for (const groupId of new Set(entries.map(([, item]) => item.groupId))) {
-    const groupEntries = entries.filter(([, item]) => item.groupId === groupId);
-    try {
-      await consumeRestoredTabs(groupId, groupEntries.map(([, item]) => item.tabId));
-      await storageLocalRemove(groupEntries.map(([key]) => key));
-    } catch (cause) {
-      pendingTabIds.push(...groupEntries.map(([, item]) => item.tabId));
-      error = `復元後の削除同期に失敗: ${getErrorMessage(cause)}。「削除の同期を再試行」を押してください。`;
+  const byGroup = new Map<string, [string, PendingTab][]>();
+  for (const entry of entries) {
+    const groupEntries = byGroup.get(entry[1].groupId) ?? [];
+    groupEntries.push(entry);
+    byGroup.set(entry[1].groupId, groupEntries);
+  }
+  const batches = [...byGroup.entries()];
+  // ponytail: cap deletion retries at four requests; tune only with server load measurements.
+  for (let offset = 0; offset < batches.length; offset += 4) {
+    const results = await Promise.all(batches.slice(offset, offset + 4).map(async ([groupId, groupEntries]) => {
+      try {
+        await consumeRestoredTabs(groupId, groupEntries.map(([, item]) => item.tabId));
+        await storageLocalRemove(groupEntries.map(([key]) => key));
+        return null;
+      } catch (cause) {
+        return { ids: groupEntries.map(([, item]) => item.tabId), cause };
+      }
+    }));
+    for (const result of results) {
+      if (!result) continue;
+      pendingTabIds.push(...result.ids);
+      error = `復元後の削除同期に失敗: ${getErrorMessage(result.cause)}。「削除の同期を再試行」を押してください。`;
     }
   }
   return { pendingTabIds, error };
@@ -74,15 +88,18 @@ async function performRestore(
   inNewWindow: boolean,
   webOpen?: (tab: SavedTab) => Promise<void>, deferSync = false
 ): Promise<RestoreResult> {
-  const scope = await pendingScope();
-  // Read the durable local queue without waiting for unrelated remote retries.
-  const pendingTabIds = (await pendingEntries(scope))
+  // Local retry checks and the authoritative remote read are independent.
+  const [current, { scope, entries }] = await Promise.all([
+    getGroup(groupId),
+    pendingScope().then(async (scope) => ({ scope, entries: await pendingEntries(scope) }))
+  ]);
+  const pendingTabIds = entries
     .filter(([, item]) => item.groupId === groupId).map(([, item]) => item.tabId);
-  const current = await getGroup(groupId);
   if (!current) return { group: null, openedTabIds: [], pendingTabIds };
 
   const wanted = new Set(tabIds);
-  const tabs = current.tabs.filter((tab) => wanted.has(tab.id) && !pendingTabIds.includes(tab.id));
+  const pending = new Set(pendingTabIds);
+  const tabs = current.tabs.filter((tab) => wanted.has(tab.id) && !pending.has(tab.id));
   const openedTabIds: string[] = [];
   let windowId: number | undefined;
   let error: string | undefined;
@@ -122,8 +139,9 @@ async function performRestore(
     }
   }
   // Keep successful opens out of the local queue even if the following read fails.
+  const hidden = new Set([...openedTabIds, ...pendingTabIds]);
   const group = current.is_fixed ? current : {
-    ...current, tabs: current.tabs.filter((tab) => !openedTabIds.includes(tab.id) && !pendingTabIds.includes(tab.id))
+    ...current, tabs: current.tabs.filter((tab) => !hidden.has(tab.id))
   };
   try {
     const fresh = await getGroup(groupId);

@@ -37,6 +37,7 @@
       {@const favorite = group.is_favorite}
       {@const editing = view.editableGroupId === group.id}
       {@const age = describeGroupAge(group.created_at)}
+      {@const createdAt = formatDate(group.created_at)}
       {@const previewTabs = group.tabs.slice(0, 6)}
       {@const visibleTabs = expanded ? group.tabs : previewTabs}
       {@const hiddenTabCount = Math.max(group.tabs.length - previewTabs.length, 0)}
@@ -49,7 +50,7 @@
                 <div class="group-text"><h3 title={group.title ?? '無題のグループ'}>{group.title ?? '無題のグループ'}</h3>
                   <div class="group-meta">
                     <span class="group-meta-item group-tab-count">{group.tabs.length} タブ</span>
-                    <time class="group-meta-item" datetime={group.created_at} title={`作成日時: ${formatDate(group.created_at)}`} aria-label={`${age.label}に作成 · ${formatDate(group.created_at)}`}>{age.label}</time>
+                    <time class="group-meta-item" datetime={group.created_at} title={`作成日時: ${createdAt}`} aria-label={`${age.label}に作成 · ${createdAt}`}>{age.label}</time>
                   </div>
                 </div><span class="indicator">{expanded ? '−' : '+'}</span>
               </button>
@@ -59,7 +60,7 @@
                 {:else}<h3 title={group.title ?? '無題のグループ'}>{group.title ?? '無題のグループ'}</h3>{/if}
                 <div class="group-meta">
                   <span class="group-meta-item group-tab-count">{group.tabs.length} タブ</span>
-                  <time class="group-meta-item" datetime={group.created_at} title={`作成日時: ${formatDate(group.created_at)}`} aria-label={`${age.label}に作成 · ${formatDate(group.created_at)}`}>{age.label}</time>
+                  <time class="group-meta-item" datetime={group.created_at} title={`作成日時: ${createdAt}`} aria-label={`${age.label}に作成 · ${createdAt}`}>{age.label}</time>
                 </div>
               </div></div>
             {/if}
@@ -81,8 +82,9 @@
         {#if visibleTabs.length > 0}
           <div class={`tab-list${expanded ? '' : ' tab-list-preview'}`}>
             {#each visibleTabs as tab (tab.id)}
-              <button class="tab-row" type="button" onclick={() => actions.openTab(tab.id)} title={`${tabTitle(tab)}\n${tab.url}\n${group.is_fixed ? '復元（内容を保持）' : '復元して削除'}`} aria-label={`${tabTitle(tab)} · ${hostname(tab.url)} · ${group.is_fixed ? '復元（内容を保持）' : '復元して削除'}`} disabled={view.busy}>
-                <span class="tab-row-main"><span class="tab-row-title">{tabTitle(tab)}</span><span class="tab-row-url">{hostname(tab.url)}</span></span>
+              {@const host = hostname(tab.url)}
+              <button class="tab-row" type="button" onclick={() => actions.openTab(tab.id)} title={`${tabTitle(tab)}\n${tab.url}\n${group.is_fixed ? '復元（内容を保持）' : '復元して削除'}`} aria-label={`${tabTitle(tab)} · ${host} · ${group.is_fixed ? '復元（内容を保持）' : '復元して削除'}`} disabled={view.busy}>
+                <span class="tab-row-main"><span class="tab-row-title">{tabTitle(tab)}</span><span class="tab-row-url">{host}</span></span>
                 <span class="tab-row-meta">{@render restoreIcon(group.is_fixed)}</span>
               </button>
             {/each}

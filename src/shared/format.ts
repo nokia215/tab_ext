@@ -1,13 +1,15 @@
 import { isSavableTabUrl } from './tabs';
 
+const dateFormatter = new Intl.DateTimeFormat('ja-JP', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit'
+});
+
 export function formatDate(value: string) {
-  return new Intl.DateTimeFormat('ja-JP', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(new Date(value));
+  return dateFormatter.format(new Date(value));
 }
 
 export function lineListToText(values: string[]): string {

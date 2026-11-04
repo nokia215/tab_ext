@@ -1,5 +1,5 @@
 import { runtimeSendMessage } from './browser-api';
-import { hidePendingTabs, prepareWebRestore, restoreSavedTabs, type RestoreResult } from './restoration';
+import { hidePendingTabs, prepareWebRestore, restoreSavedTabs, retryPendingConsumption, type RestoreResult } from './restoration';
 import { reconcileGroupIds } from './group-helpers';
 import { getErrorMessage } from './status';
 import type { PopupActionMessage, PopupActionResponse } from './messages';
@@ -40,8 +40,9 @@ export function prepareDashboardWebRestore(tabCount: number) {
   const web = prepareWebRestore(tabCount);
   return {
     restore: (groupId: string, tabIds: string[], inNewWindow: boolean) =>
-      restoreSavedTabs(groupId, tabIds, inNewWindow, web.open),
-    closeUnused: () => web.closeUnused()
+      restoreSavedTabs(groupId, tabIds, inNewWindow, web.open, true),
+    closeUnused: () => web.closeUnused(),
+    sync: retryPendingConsumption
   };
 }
 
