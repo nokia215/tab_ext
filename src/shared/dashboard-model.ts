@@ -174,9 +174,9 @@ export function queryGroups(
   >
 ) {
   return filterGroups(groups, options.searchQuery)
-    .filter((group) => matchesGroupFilter(group, options.groupFilter))
-    .filter((group) => matchesDeviceFilter(group, options.deviceFilter))
-    .filter((group) => !options.favoriteOnly || group.is_favorite)
+    .filter((group) => matchesGroupFilter(group, options.groupFilter)
+      && matchesDeviceFilter(group, options.deviceFilter)
+      && (!options.favoriteOnly || group.is_favorite))
     .sort(sortGroups(options.sortMode));
 }
 

@@ -29,15 +29,15 @@ Use two-space indentation, single-quoted TypeScript strings, semicolons, camelCa
 
 Backward compatibility is not required. Remove obsolete APIs, legacy data conversion, and compatibility fallbacks when changing the affected code. Keep historical database migrations unchanged; use new migrations to reach the current schema. Preserve security and current data integrity.
 
-## Testing Guidelines
+## Verification Guidelines
 
-Run `npm test`, typechecking, affected builds, and Firefox package linting when applicable. Manually verify changed save, restore, search, archive, and authentication flows in affected browsers; check tablet behavior for shared UI changes. Record verification steps in the PR.
+For routine code changes, verify that the affected targets build. Run `npm run build` for the Chrome and Firefox extensions, and `npm run build:pages` when the tablet site is affected. These commands include typechecking. The user performs actual behavior checks; agents do not need to run tests, browser checks, or UI automation. Report the build result and leave behavior verification to the user.
 
-For computer-use UI checks, read [docs/computer-use.md](docs/computer-use.md) first. Use a localhost HTTP server; do not navigate automation to `chrome-extension://`, `moz-extension://`, or browser new-tab pages. Use the Web dashboard for Web flows and a fixture preview of the actual Svelte components for extension layouts. Report extension-only flows as unverified unless checked separately in the extension.
+If the user explicitly requests computer-use UI checks, read [docs/computer-use.md](docs/computer-use.md) first.
 
 ## Commit & Pull Request Guidelines
 
-History primarily uses short imperative subjects, such as `Fix Firefox restore messaging`; occasional `feat:` prefixes also appear. Keep commits focused. PRs should describe behavior changes, link relevant issues, list validation performed, and include screenshots for UI changes.
+History primarily uses short imperative subjects, such as `Fix Firefox restore messaging`; occasional `feat:` prefixes also appear. Keep commits focused. PRs should describe behavior changes, link relevant issues, and list build validation performed. Include screenshots for UI changes when provided by the user.
 
 ## Security & Configuration
 

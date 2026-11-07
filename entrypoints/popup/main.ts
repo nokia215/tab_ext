@@ -3,5 +3,6 @@ import { mount } from 'svelte';
 import '../../src/shared/ui.css';
 import '../../src/shared/panels.css';
 import '../../src/popup/popup.css';
+import '../../src/shared/redesign.css';
 
 mount(App, { target: document.getElementById('app')! });
