@@ -318,7 +318,7 @@
   pointer-events: none;
 }
 
-.group-card .actions button[data-action='toggle-fixed-group'][aria-pressed='true'] {
+.group-card .actions .fixed-toggle-active {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-soft);

@@ -75,7 +75,7 @@
             {:else}
               <button class="ghost icon-button" type="button" onclick={() => actions.editTitle(group.id)} title="名前編集" aria-label="名前編集" disabled={view.busy}>{@render icon('m16 3 5 5-12 12-6 1 1-6Z M13 6l5 5')}</button>
             {/if}
-            <button class="ghost icon-button" type="button" onclick={() => actions.toggleFixed(group.id)} aria-pressed={group.is_fixed} title={group.is_fixed ? '固定中（復元後も保持） · クリックで解除' : '固定（復元後も保持）'} aria-label={group.is_fixed ? '固定中（復元後も保持） · クリックで解除' : '固定（復元後も保持）'} disabled={view.busy}>{@render icon('M8 3h8 M9 3v6l-3 4v2h12v-2l-3-4V3 M12 15v6')}</button>
+            <button class={`ghost icon-button${group.is_fixed ? ' fixed-toggle-active' : ''}`} type="button" onclick={() => actions.toggleFixed(group.id)} aria-pressed={group.is_fixed} title={group.is_fixed ? '固定中（復元後も保持） · クリックで解除' : '固定（復元後も保持）'} aria-label={group.is_fixed ? '固定中（復元後も保持） · クリックで解除' : '固定（復元後も保持）'} disabled={view.busy}>{@render icon('M8 3h8l-1 6 3 4v2H6v-2l3-4-1-6Z M12 15v6', group.is_fixed)}</button>
             <button class="danger icon-button" type="button" onclick={() => actions.deleteGroup(group.id)} title="グループ削除" aria-label="グループ削除" disabled={view.busy}>{@render icon('M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7')}</button>
           </div>
         </div>
